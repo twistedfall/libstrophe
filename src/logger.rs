@@ -16,6 +16,7 @@ use super::ffi_types::FFI;
 /// compiling with the default `rust-log` feature.
 ///
 /// This struct implements:
+///
 ///   * `Eq` by comparing internal pointers
 ///   * `Send`.
 #[derive(Debug, Hash)]

@@ -17,6 +17,7 @@ use super::ffi_types::FFI;
 /// additional logic involved then you can see the method description.
 ///
 /// This struct implements:
+///
 ///   * `Display` ([xmpp_stanza_to_text])
 ///   * `Eq` by comparing internal pointers
 ///   * `Drop` ([xmpp_stanza_release])

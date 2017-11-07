@@ -40,6 +40,7 @@ and handle out references.
 This create tries to be as safe as possible. Yet it's not always possible to guarantee that when
 wrapping a C library. The following assumptions are made which might not necessary be true and
 thus might introduce unsafety:
+
   * `Context` is considered immutable (or more specifically having interior mutability) so its
     methods only borrow it immutably
 
@@ -94,6 +95,7 @@ For more complete examples see this crate `src/examples` directory and [libstrop
 ## Crate features
 
 The following features are provided:
+
   * `rust-log` - enabled by default, makes the create integrate into Rust logging facilities
   * `fail-tests` - development feature, enables some additional tests that must fail unless
                    safety contracts are broken

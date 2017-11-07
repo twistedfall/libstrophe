@@ -13,6 +13,7 @@ use super::{sys, Logger};
 /// method description.
 ///
 /// This struct implements:
+///
 ///   * `Drop` ([xmpp_ctx_free]).
 ///   * `Eq` by comparing internal pointers
 ///   * `Send`

@@ -23,6 +23,7 @@ use super::ffi_types::{FFI, Nullable};
 /// method description.
 ///
 /// This struct implements:
+///
 ///   * `Drop` ([xmpp_conn_release]).
 ///   * `Eq` by comparing internal pointers
 ///   * `Send`
@@ -175,10 +176,12 @@ impl<'cb> Connection<'cb> {
 	/// Last `error: i32` argument in the handler contains a TLS error code that can be passed together
 	/// with `XMPP_CONN_DISCONNECT` event. The specific meaning if that code depends on the underlying
 	/// TLS implementation:
+	///
 	///   * for `openssl` it's the result of [`SSL_get_error()`]
 	///   * for `schannel` it's the result of [`WSAGetLastError()`]
 	///
 	/// Additionally the following OS dependent error constants can be set for `error`:
+	///
 	///   * `ETIMEDOUT`/`WSAETIMEDOUT`
 	///   * `ECONNRESET`/`WSAECONNRESET`
 	///   * `ECONNABORTED`/`WSAECONNABORTED`
