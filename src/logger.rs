@@ -11,14 +11,17 @@ use super::ffi_types::FFI;
 
 /// Wrapper around underlying `xmpp_log_t` struct.
 ///
-/// The best option to get a logger is to call `Logger::default()`. It will return you a logger that
-/// is tied into Rust logging facility provided by `log` crate. This functionality is available when
+/// The best option to get a logger is to call [`Logger::default()`]. It will return you a logger that
+/// is tied into Rust logging facility provided by [`log`] crate. This functionality is available when
 /// compiling with the default `rust-log` feature.
 ///
 /// This struct implements:
 ///
 ///   * `Eq` by comparing internal pointers
-///   * `Send`.
+///   * `Send`
+///
+/// [`Logger::default()`]: struct.Logger.html#method.default
+/// [`log`]: https://crates.io/crates/log
 #[derive(Debug, Hash)]
 pub struct Logger<'cb> {
 	inner: *mut sys::xmpp_log_t,
@@ -86,8 +89,10 @@ fn log_handler(log_level: LogLevel, area: &str, message: &str) {
 impl Default for Logger<'static> {
 	/// Return a new logger that logs to standard Rust logging facilities.
 	///
-	/// Logging facilities are provided by `log` crate. Only available when compiling with `rust-log`
+	/// Logging facilities are provided by [`log`] crate. Only available when compiling with `rust-log`
 	/// feature.
+	///
+	/// [`log`]: https://crates.io/crates/log
 	#[cfg(feature = "rust-log")]
 	fn default() -> Self {
 		// this trick allows us to get the real pointer to global function and not reference to
@@ -97,9 +102,11 @@ impl Default for Logger<'static> {
 		out
 	}
 
-	/// Create a new default logger by calling `new_internal()` with debug log level.
+	/// Create a new default logger by calling [`new_internal()`] with debug log level.
 	///
 	/// Used when the crate is compiled without `rust-log` feature.
+	///
+	/// [`new_internal()`]: struct.Logger.html#method.new_internal
 	#[cfg(not(feature = "rust-log"))]
 	fn default() -> Self {
 		Logger::new_internal(LogLevel::XMPP_LEVEL_DEBUG)

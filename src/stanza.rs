@@ -40,8 +40,11 @@ impl<'cx> Stanza<'cx> {
 	/// [xmpp_stanza_new](https://github.com/strophe/libstrophe/blob/0.9.1/src/stanza.c#L26)
 	///
 	/// The newly created stanza is not really useful until you assign an internal type to it. To do
-	/// that you must call `set_text()` to make it `XMPP_STANZA_TEXT` stanza or `set_name()` to make
+	/// that you must call [`set_text()`] to make it `XMPP_STANZA_TEXT` stanza or [`set_name()`] to make
 	/// it `XMPP_STANZA_TAG` stanza.
+	///
+	/// [`set_text()`]: struct.Stanza.html#method.set_text
+	/// [`set_name()`]: struct.Stanza.html#method.set_name
 	pub fn new(ctx: &'cx Context) -> Stanza<'cx> {
 		unsafe { Stanza::from_inner(sys::xmpp_stanza_new(ctx.as_inner() as *mut _)) }
 	}
@@ -98,13 +101,12 @@ impl<'cx> Stanza<'cx> {
 		Stanza::with_inner(inner, true)
 	}
 
-	/// fixme?
-	/// Create an borrowing stanza from the constant raw pointer, for internal use
+	/// Create a borrowing stanza from the constant raw pointer, for internal use
 	pub unsafe fn from_inner_ref(inner: *const sys::xmpp_stanza_t) -> StanzaRef<'cx> {
 		Stanza::with_inner(inner as *mut _, false).into()
 	}
 
-	/// Create an borrowing stanza from the mutable raw pointer, for internal use
+	/// Create a borrowing stanza from the mutable raw pointer, for internal use
 	pub unsafe fn from_inner_ref_mut(inner: *mut sys::xmpp_stanza_t) -> StanzaMutRef<'cx> {
 		Stanza::with_inner(inner, false).into()
 	}
@@ -114,7 +116,9 @@ impl<'cx> Stanza<'cx> {
 
 	/// Return context for this `Stanza`
 	///
-	/// The underlying library does not provide direct access to
+	/// The underlying library does not provide direct access to its context so this method works
+	/// this around by relying on some of the library internals. With the new version this might need
+	/// rewriting.
 	pub fn context(&self) -> ContextRef<'cx> {
 		// hack to reach unexposed context reference stored inside C structure
 		#[repr(C)]
@@ -459,9 +463,11 @@ impl<'cx> Into<StanzaMutRef<'cx>> for Stanza<'cx> {
 	}
 }
 
-/// Wrapper for constant ref to `Stanza`, implements deref to `Stanza`.
+/// Wrapper for constant ref to [`Stanza`], implements `Deref` to [`Stanza`]
 ///
-/// You can obtain such objects by calling `Stanza` child search methods.
+/// You can obtain such objects by calling [`Stanza`] child search methods.
+///
+/// [`Stanza`]: struct.Stanza.html
 #[derive(Debug)]
 pub struct StanzaRef<'cx>(Stanza<'cx>);
 
@@ -474,9 +480,11 @@ impl<'cx> ops::Deref for StanzaRef<'cx> {
 }
 
 
-/// Wrapper for mutable ref to `Stanza`, implements deref to `Stanza`.
+/// Wrapper for mutable ref to [`Stanza`], implements `Deref` to [`Stanza`]
 ///
-/// You can obtain such objects by calling `Stanza` child search methods.
+/// You can obtain such objects by calling [`Stanza`] child search methods.
+///
+/// [`Stanza`]: struct.Stanza.html
 #[derive(Debug)]
 pub struct StanzaMutRef<'cx>(Stanza<'cx>);
 

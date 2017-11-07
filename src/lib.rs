@@ -12,12 +12,12 @@
 //! # Workflow
 //!
 //! The general workflow is quite similar to what you get with the C library. The topmost object is
-//! `Context`. It contains platform-specific bits like logging and memory allocation. Plus an event
-//! loop used to keep things going. This crate wraps logging with the facilities provide by `log`
+//! [`Context`]. It contains platform-specific bits like logging and memory allocation. Plus an event
+//! loop used to keep things going. This crate wraps logging with the facilities provide by [`log`]
 //! crate (provided the default `rust-log` feature is enabled). Memory allocation is not yet handled
-//! by Rust native means (waiting for allocator API to stabilize). A `Connection` is created with a
-//! specific `Context`. A single `Context` can be used for multiple `Connection`s because they
-//! accept `Arc<Context>` to allow them to share it without requiring you to keep original `Context`
+//! by Rust native means (waiting for allocator API to stabilize). A [`Connection`] is created with a
+//! specific [`Context`]. A single [`Context`] can be used for multiple [`Connection`]s because they
+//! accept `Arc<Context>` to allow them to share it without requiring you to keep original [`Context`]
 //! and handle out references.
 //!
 //!
@@ -27,7 +27,7 @@
 //! wrapping a C library. The following assumptions are made which might not necessary be true and
 //! thus might introduce unsafety:
 //!
-//!   * `Context` is considered immutable (or more specifically having interior mutability) so its
+//!   * [`Context`] is considered immutable (or more specifically having interior mutability) so its
 //!     methods only borrow it immutably
 //!
 //! The main objects in this crate are marked as `Send` and it should be indeed be safe to send them
@@ -38,9 +38,9 @@
 //! # Initialization and shutdown
 //!
 //! You don't need to call the initialization function, it's done automatically when creating a
-//! `Context`. Yet you might want to call the `shutdown()` function when your application
+//! [`Context`]. Yet you might want to call the [`shutdown()`] function when your application
 //! terminates. Be aware though that the initialization can be called only once in the program
-//! lifetime so you won't be able to use the library properly after you called `shutdown()`.
+//! lifetime so you won't be able to use the library properly after you called [`shutdown()`].
 //!
 //!
 //! # Callbacks
@@ -87,8 +87,12 @@
 //!                    safety contracts are broken
 //!
 //! [libstrophe]: http://strophe.im/libstrophe/
+//! [`log`]: https://crates.io/crates/log
 //! [docs]: http://strophe.im/libstrophe/doc/0.8-snapshot/
 //! [libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.9.1/examples
+//! [`Context`]: https://docs.rs/libstrophe/*/libstrophe/struct.Context.html
+//! [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
+//! [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
 
 #[macro_use]
 extern crate bitflags;
@@ -182,7 +186,7 @@ pub fn version_check(major: i32, minor: i32) -> bool {
 
 /// [xmpp_shutdown](https://github.com/strophe/libstrophe/blob/0.9.1/src/ctx.c#L69)
 ///
-/// Call this function when you application terminates, but be aware that you can't use the library
+/// Call this function when your application terminates, but be aware that you can't use the library
 /// after you called `shutdown()` and there is now way to reinitialize it again.
 ///
 /// This function is thread safe, it's safe to call it several times and it's safe to call it before

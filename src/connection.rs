@@ -173,9 +173,9 @@ impl<'cb> Connection<'cb> {
 
 	/// [xmpp_connect_client](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L408)
 	///
-	/// Last `error: i32` argument in the handler contains a TLS error code that can be passed together
-	/// with `XMPP_CONN_DISCONNECT` event. The specific meaning if that code depends on the underlying
-	/// TLS implementation:
+	/// Pre-last `error: i32` argument in the handler contains a TLS error code that can be passed
+	/// together with `XMPP_CONN_DISCONNECT` event. The specific meaning if that code depends on the
+	/// underlying TLS implementation:
 	///
 	///   * for `openssl` it's the result of [`SSL_get_error()`]
 	///   * for `schannel` it's the result of [`WSAGetLastError()`]
@@ -211,7 +211,7 @@ impl<'cb> Connection<'cb> {
 
 	/// [xmpp_connect_component](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L484)
 	///
-	/// See also `connect_client()` for additional info.
+	/// See also [`connect_client()`](#method.connect_client) for additional info.
 	pub fn connect_component<RefStr, U16, CB>(&mut self, host: RefStr, port: U16, handler: &'cb CB) -> error::EmptyResult
 		where
 			RefStr: AsRef<str>,
@@ -233,7 +233,7 @@ impl<'cb> Connection<'cb> {
 
 	/// [xmpp_connect_raw](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L529)
 	///
-	/// See also `connect_client()` for additional info.
+	/// See also [`connect_client()`](#method.connect_client) for additional info.
 	pub fn connect_raw<U16, CB>(&mut self, alt_host: Option<&str>, alt_port: U16, handler: &'cb CB) -> error::EmptyResult
 		where
 			U16: Into<Option<u16>>,
@@ -257,7 +257,7 @@ impl<'cb> Connection<'cb> {
 
 	/// [xmpp_conn_open_stream](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L605)
 	///
-	/// Related to `connect_raw()`.
+	/// Related to [`connect_raw()`](#method.connect_raw).
 	pub fn open_stream(&self, attributes: &collections::HashMap<&str, &str>) -> error::EmptyResult {
 		let mut storage = Vec::with_capacity(attributes.len() * 2);
 		let mut attrs = Vec::with_capacity(attributes.len() * 2);
@@ -278,7 +278,7 @@ impl<'cb> Connection<'cb> {
 
 	/// [xmpp_conn_tls_start](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L640)
 	///
-	/// Related to `connect_raw()`.
+	/// Related to [`connect_raw()`](#method.connect_raw).
 	pub fn tls_start(&self) -> error::EmptyResult {
 		error::code_to_result(unsafe {
 			sys::xmpp_conn_tls_start(self.inner)
@@ -295,7 +295,7 @@ impl<'cb> Connection<'cb> {
 	/// [xmpp_send_raw_string](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L725)
 	///
 	/// Be aware that this method performs a lot of allocations internally so you might want to use
-	/// `send_raw_bytes()` instead.
+	/// [`send_raw()`](#method.send_raw) instead.
 	pub fn send_raw_string<RefStr: AsRef<str>>(&mut self, data: RefStr) {
 		let data = FFI(data.as_ref()).send();
 		unsafe {
@@ -306,7 +306,7 @@ impl<'cb> Connection<'cb> {
 	/// [xmpp_send_raw](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L776)
 	///
 	/// Be aware that this method doesn't print debug log line with the message being sent (unlike
-	/// [`send_raw_string()`]).
+	/// [`send_raw_string()`](#method.send_raw_string)).
 	pub fn send_raw<RefBytes: AsRef<[u8]>>(&mut self, data: RefBytes) {
 		let data = data.as_ref();
 		unsafe {
@@ -328,6 +328,11 @@ impl<'cb> Connection<'cb> {
 	}
 
 	/// [xmpp_timed_handler_add](https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L464)
+	///
+	/// Please see module level documentation, [Callbacks section][docs] about the reasoning behind
+	/// this method.
+	///
+	/// [docs]: index.html#callbacks
 	pub unsafe fn timed_handler_add_unsafe<CB>(&mut self, handler: &CB, period: time::Duration)
 		where
 			CB: FnMut(&mut Connection<'cb>) -> bool,
@@ -362,6 +367,11 @@ impl<'cb> Connection<'cb> {
 	}
 
 	/// [xmpp_id_handler_add](https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L505)
+	///
+	/// Please see module level documentation, [Callbacks section][docs] about the reasoning behind
+	/// this method.
+	///
+	/// [docs]: index.html#callbacks
 	pub unsafe fn id_handler_add_unsafe<CB, RefStr: AsRef<str>>(&mut self, handler: &CB, id: RefStr)
 		where
 			CB: FnMut(&mut Connection<'cb>, &Stanza) -> bool,
@@ -393,6 +403,11 @@ impl<'cb> Connection<'cb> {
 	}
 
 	/// [xmpp_handler_add](https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L546)
+	///
+	/// Please see module level documentation, [Callbacks section][docs] about the reasoning behind
+	/// this method.
+	///
+	/// [docs]: index.html#callbacks
 	pub unsafe fn handler_add_unsafe<CB>(&mut self, handler: &CB, ns: Option<&str>, name: Option<&str>, typ: Option<&str>)
 		where
 			CB: FnMut(&mut Connection<'cb>, &Stanza) -> bool,

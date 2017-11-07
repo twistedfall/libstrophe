@@ -117,9 +117,12 @@ impl<'lg> Drop for Context<'lg> {
 
 unsafe impl<'lg> Send for Context<'lg> {}
 
-/// Wrapper for constant ref to `Arc<Context>`, implements deref to `Arc<Context>`.
+/// Wrapper for constant ref to `Arc<Context>`, implements `Deref` to `Arc<Context>`.
 ///
-/// You can obtain such object by calling `context()` method of `Connection`.
+/// You can obtain such object by calling e.g. [`context()`] method of [`Connection`].
+///
+/// [`context()`]: struct.Connection.html#method.context
+/// [`Connection`]: struct.Connection.html
 #[derive(Debug, Hash, PartialEq)]
 pub struct ContextRef<'lg>(Arc<Context<'lg>>);
 
