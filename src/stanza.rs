@@ -17,11 +17,11 @@ use super::ffi_types::FFI;
 /// additional logic involved then you can see the method description.
 ///
 /// This struct implements:
-///   - `Display` ([xmpp_stanza_to_text])
-///   - `Eq` by comparing internal pointers
-///   - `Drop` ([xmpp_stanza_release])
-///   - `Clone` ([xmpp_stanza_copy])
-///   - `Send`
+///   * `Display` ([xmpp_stanza_to_text])
+///   * `Eq` by comparing internal pointers
+///   * `Drop` ([xmpp_stanza_release])
+///   * `Clone` ([xmpp_stanza_copy])
+///   * `Send`
 ///
 /// [outdated docs]: http://strophe.im/libstrophe/doc/0.8-snapshot/group___stanza.html
 /// [sources]: https://github.com/strophe/libstrophe/blob/0.9.1/src/stanza.c#L16

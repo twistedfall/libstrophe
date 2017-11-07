@@ -13,9 +13,9 @@ use super::{sys, Logger};
 /// method description.
 ///
 /// This struct implements:
-///   - `Drop` ([xmpp_ctx_free]).
-///   - `Eq` by comparing internal pointers
-///   - `Send`
+///   * `Drop` ([xmpp_ctx_free]).
+///   * `Eq` by comparing internal pointers
+///   * `Send`
 ///
 /// [context]: http://strophe.im/libstrophe/doc/0.8-snapshot/group___context.html
 /// [event loop]: http://strophe.im/libstrophe/doc/0.8-snapshot/group___event_loop.html

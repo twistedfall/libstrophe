@@ -23,9 +23,9 @@ use super::ffi_types::{FFI, Nullable};
 /// method description.
 ///
 /// This struct implements:
-///   - `Drop` ([xmpp_conn_release]).
-///   - `Eq` by comparing internal pointers
-///   - `Send`
+///   * `Drop` ([xmpp_conn_release]).
+///   * `Eq` by comparing internal pointers
+///   * `Send`
 ///
 /// [connection]: http://strophe.im/libstrophe/doc/0.8-snapshot/group___connections.html
 /// [handlers]: http://strophe.im/libstrophe/doc/0.8-snapshot/group___handlers.html
@@ -175,13 +175,13 @@ impl<'cb> Connection<'cb> {
 	/// Last `error: i32` argument in the handler contains a TLS error code that can be passed together
 	/// with `XMPP_CONN_DISCONNECT` event. The specific meaning if that code depends on the underlying
 	/// TLS implementation:
-	///   - for `openssl` it's the result of [`SSL_get_error()`]
-	///   - for `schannel` it's the result of [`WSAGetLastError()`]
+	///   * for `openssl` it's the result of [`SSL_get_error()`]
+	///   * for `schannel` it's the result of [`WSAGetLastError()`]
 	///
 	/// Additionally the following OS dependent error constants can be set for `error`:
-	///   - `ETIMEDOUT`/`WSAETIMEDOUT`
-	///   - `ECONNRESET`/`WSAECONNRESET`
-	///   - `ECONNABORTED`/`WSAECONNABORTED`
+	///   * `ETIMEDOUT`/`WSAETIMEDOUT`
+	///   * `ECONNRESET`/`WSAECONNRESET`
+	///   * `ECONNABORTED`/`WSAECONNABORTED`
 	///
 	/// [`SSL_get_error()`]: https://wiki.openssl.org/index.php/Manual:SSL_get_error(3)
 	/// [`WSAGetLastError()`]: https://msdn.microsoft.com/nl-nl/library/windows/desktop/ms741580(v=vs.85).aspx
