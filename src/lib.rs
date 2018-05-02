@@ -67,11 +67,11 @@
 //! };
 //!
 //! let ctx = libstrophe::Context::new_with_default_logger();
-//! let mut conn = libstrophe::Connection::new(ctx);
+//! let mut conn = libstrophe::Connection::new(ctx.clone());
 //! conn.set_jid("example@127.0.0.1");
 //! conn.set_pass("password");
 //! conn.connect_client(None, None, &connection_handler).unwrap();
-//! // ctx.run();
+//! ctx.run();
 //! libstrophe::shutdown();
 //! ```
 //!
@@ -83,13 +83,14 @@
 //! The following features are provided:
 //!
 //!   * `rust-log` - enabled by default, makes the create integrate into Rust logging facilities
+//!   * `libstrophe-0_9_2` - enabled by default, enables functionality specific to libstrophe-0.9.2
 //!   * `fail-tests` - development feature, enables some additional tests that must fail unless
 //!                    safety contracts are broken
 //!
 //! [libstrophe]: http://strophe.im/libstrophe/
 //! [`log`]: https://crates.io/crates/log
-//! [docs]: http://strophe.im/libstrophe/doc/0.8-snapshot/
-//! [libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.9.1/examples
+//! [docs]: http://strophe.im/libstrophe/doc/0.9.2/
+//! [libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.9.2/examples
 //! [`Context`]: https://docs.rs/libstrophe/*/libstrophe/struct.Context.html
 //! [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
 //! [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
@@ -137,6 +138,8 @@ bitflags! {
 		const DISABLE_TLS = sys::XMPP_CONN_FLAG_DISABLE_TLS as raw::c_long;
 		const MANDATORY_TLS = sys::XMPP_CONN_FLAG_MANDATORY_TLS as raw::c_long;
 		const LEGACY_SSL = sys::XMPP_CONN_FLAG_LEGACY_SSL as raw::c_long;
+		#[cfg(feature = "libstrophe-0_9_2")]
+		const TRUST_TLS = sys::XMPP_CONN_FLAG_TRUST_TLS as raw::c_long;
 	}
 }
 
@@ -144,6 +147,7 @@ static INIT: sync::Once = sync::ONCE_INIT;
 static DEINIT: sync::Once = sync::ONCE_INIT;
 
 /// Convert `Duration` to milliseconds
+#[inline]
 fn duration_as_ms(duration: time::Duration) -> raw::c_ulong {
 	(duration.as_secs() * 1_000 + duration.subsec_nanos() as u64 / 1_000_000) as raw::c_ulong
 }
@@ -177,14 +181,14 @@ fn deinit() {
 	});
 }
 
-/// [xmpp_version_check](https://github.com/strophe/libstrophe/blob/0.9.1/src/ctx.c#L94)
+/// [xmpp_version_check](http://strophe.im/libstrophe/doc/0.9.2/group___init.html#ga6cc7afca422acce51e0e7f52424f1db3)
 pub fn version_check(major: i32, minor: i32) -> bool {
 	unsafe {
 		FFI(sys::xmpp_version_check(major, minor)).receive_bool()
 	}
 }
 
-/// [xmpp_shutdown](https://github.com/strophe/libstrophe/blob/0.9.1/src/ctx.c#L69)
+/// [xmpp_shutdown](http://strophe.im/libstrophe/doc/0.9.2/group___init.html#ga06e07524aee531de1ceb825541307963)
 ///
 /// Call this function when your application terminates, but be aware that you can't use the library
 /// after you called `shutdown()` and there is now way to reinitialize it again.

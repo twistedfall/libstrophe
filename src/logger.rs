@@ -52,7 +52,7 @@ impl<'cb> Logger<'cb> {
 		Logger { inner, owned, _callbacks: marker::PhantomData }
 	}
 
-	/// [xmpp_get_default_logger](https://github.com/strophe/libstrophe/blob/0.9.1/src/ctx.c#L170)
+	/// [xmpp_get_default_logger](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#ga33abde406c7a057006b109cf1b23c8f8)
 	///
 	/// This method returns default `libstrophe` logger that just outputs log lines to stderr. Use it
 	/// if you compile without `rust-log` feature and want a quick debug log output.

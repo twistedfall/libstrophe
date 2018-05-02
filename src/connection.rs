@@ -1,7 +1,6 @@
 use std::{collections, marker, time};
 use std::os::raw;
 use std::sync::Arc;
-
 use super::{
 	error,
 	sys,
@@ -18,7 +17,7 @@ use super::ffi_types::{FFI, Nullable};
 /// Proxy to underlying `xmpp_conn_t` struct.
 ///
 /// Most of the methods in this struct mimic the methods of the underlying library. So please see
-/// libstrophe outdated docs for [connection] and [handlers] plus [conn.c] and [handler.c] sources.
+/// libstrophe docs for [connection] and [handlers] plus [conn.c] and [handler.c] sources.
 /// Only where it's not the case or there is some additional logic involved then you can see the
 /// method description.
 ///
@@ -28,11 +27,11 @@ use super::ffi_types::{FFI, Nullable};
 ///   * `Eq` by comparing internal pointers
 ///   * `Send`
 ///
-/// [connection]: http://strophe.im/libstrophe/doc/0.8-snapshot/group___connections.html
-/// [handlers]: http://strophe.im/libstrophe/doc/0.8-snapshot/group___handlers.html
-/// [conn.c]: https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L16
-/// [handler.c]: https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L16
-/// [xmpp_conn_release]: https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L222
+/// [connection]: http://strophe.im/libstrophe/doc/0.9.2/group___connections.html
+/// [handlers]: http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html
+/// [conn.c]: https://github.com/strophe/libstrophe/blob/0.9.2/src/conn.c
+/// [handler.c]: https://github.com/strophe/libstrophe/blob/0.9.2/src/handler.c
+/// [xmpp_conn_release]: http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga16967e3375efa5032ed2e08b407d8ae9
 #[derive(Debug, Hash)]
 pub struct Connection<'cb> {
 	inner: *mut sys::xmpp_conn_t,
@@ -42,7 +41,7 @@ pub struct Connection<'cb> {
 }
 
 impl<'cb> Connection<'cb> {
-	/// [xmpp_conn_new](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L76)
+	/// [xmpp_conn_new](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga76c161884c23f69cd1d7fc025122cf21)
 	pub fn new(ctx: Arc<Context<'cb>>) -> Connection<'cb> {
 		unsafe {
 			Connection::from_inner(sys::xmpp_conn_new(ctx.as_inner()), ctx)
@@ -95,26 +94,26 @@ impl<'cb> Connection<'cb> {
 		udata_as::<CB>(userdata)(&mut conn, &stanza) as i32
 	}
 
-	/// [xmpp_conn_get_flags](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L899)
+	/// [xmpp_conn_get_flags](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gaa9724ae412b01562dc81c31fd178d2f3)
 	pub fn flags(&self) -> ConnectionFlags {
 		ConnectionFlags::from_bits(unsafe { sys::xmpp_conn_get_flags(self.inner) }).unwrap()
 	}
 
-	/// [xmpp_conn_set_flags](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L918)
+	/// [xmpp_conn_set_flags](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga92761a101e721df9b923e9c35f6ad949)
 	pub fn set_flags(&mut self, flags: ConnectionFlags) -> error::EmptyResult {
 		error::code_to_result(unsafe {
 			sys::xmpp_conn_set_flags(self.inner, flags.bits())
 		})
 	}
 
-	/// [xmpp_conn_get_jid](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L320)
+	/// [xmpp_conn_get_jid](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga52b5fee898fc6ef06ba1ea7f9a507a39)
 	pub fn jid(&self) -> Option<&str> {
 		unsafe {
 			FFI(sys::xmpp_conn_get_jid(self.inner)).receive()
 		}
 	}
 
-	/// [xmpp_conn_get_bound_jid](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L333)
+	/// [xmpp_conn_get_bound_jid](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga9bc4f0527c6aa7ac4d5b112be6189889)
 	pub fn bound_jid(&self) -> Option<&str> {
 		unsafe {
 			FFI(sys::xmpp_conn_get_bound_jid(self.inner)).receive()
@@ -122,7 +121,7 @@ impl<'cb> Connection<'cb> {
 	}
 
 
-	/// [xmpp_conn_set_jid](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L351)
+	/// [xmpp_conn_set_jid](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga8dff6d97ac458d5f3fc901d688d86084)
 	pub fn set_jid<RefStr: AsRef<str>>(&mut self, jid: RefStr) {
 		let jid = FFI(jid.as_ref()).send();
 		unsafe {
@@ -130,14 +129,14 @@ impl<'cb> Connection<'cb> {
 		}
 	}
 
-	/// [xmpp_conn_get_pass](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L368)
+	/// [xmpp_conn_get_pass](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gaa5e1ce97c2d8ad50380b92b2ca204dec)
 	pub fn pass(&self) -> Option<&str> {
 		unsafe {
 			FFI(sys::xmpp_conn_get_pass(self.inner)).receive()
 		}
 	}
 
-	/// [xmpp_conn_set_pass](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L381)
+	/// [xmpp_conn_set_pass](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gac64373b712d9d8af12e57b753d9b3bfc)
 	pub fn set_pass<RefStr: AsRef<str>>(&mut self, pass: RefStr) {
 		let pass = FFI(pass.as_ref()).send();
 		unsafe {
@@ -150,28 +149,28 @@ impl<'cb> Connection<'cb> {
 		self.ctx.clone().into()
 	}
 
-	/// [xmpp_conn_disable_tls](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L958)
+	/// [xmpp_conn_disable_tls](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga1730868abcec1c6c63f2351bb81a43ac)
 	pub fn disable_tls(&mut self) {
 		unsafe {
 			sys::xmpp_conn_disable_tls(self.inner)
 		}
 	}
 
-	/// [xmpp_conn_is_secured](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L977)
+	/// [xmpp_conn_is_secured](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga331bfca7c9c9ce3a17c909e770a73b02)
 	pub fn is_secured(&self) -> bool {
 		unsafe {
 			FFI(sys::xmpp_conn_is_secured(self.inner)).receive_bool()
 		}
 	}
 
-	/// [xmpp_conn_set_keepalive](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L194)
+	/// [xmpp_conn_set_keepalive](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga0c75095f31ee66febcf71cad1e60d4f6)
 	pub fn set_keepalive(&mut self, timeout: time::Duration, interval: time::Duration) {
 		unsafe {
 			sys::xmpp_conn_set_keepalive(self.inner, timeout.as_secs() as raw::c_int, interval.as_secs() as raw::c_int)
 		}
 	}
 
-	/// [xmpp_connect_client](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L408)
+	/// [xmpp_connect_client](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gaf81281d31f398cfac039f32429061c03)
 	///
 	/// Pre-last `error: i32` argument in the handler contains a TLS error code that can be passed
 	/// together with `XMPP_CONN_DISCONNECT` event. The specific meaning if that code depends on the
@@ -186,7 +185,7 @@ impl<'cb> Connection<'cb> {
 	///   * `ECONNRESET`/`WSAECONNRESET`
 	///   * `ECONNABORTED`/`WSAECONNABORTED`
 	///
-	/// [`SSL_get_error()`]: https://wiki.openssl.org/index.php/Manual:SSL_get_error(3)
+	/// [`SSL_get_error()`]: https://www.openssl.org/docs/manmaster/man3/SSL_get_error.html#RETURN-VALUES
 	/// [`WSAGetLastError()`]: https://msdn.microsoft.com/nl-nl/library/windows/desktop/ms741580(v=vs.85).aspx
 	pub fn connect_client<U16, CB>(&mut self, alt_host: Option<&str>, alt_port: U16, handler: &'cb CB) -> error::EmptyResult
 		where
@@ -209,7 +208,7 @@ impl<'cb> Connection<'cb> {
 		})
 	}
 
-	/// [xmpp_connect_component](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L484)
+	/// [xmpp_connect_component](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga80c8cd7906a48fc27664fcce8f15ed7d)
 	///
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
 	pub fn connect_component<RefStr, U16, CB>(&mut self, host: RefStr, port: U16, handler: &'cb CB) -> error::EmptyResult
@@ -231,7 +230,7 @@ impl<'cb> Connection<'cb> {
 		})
 	}
 
-	/// [xmpp_connect_raw](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L529)
+	/// [xmpp_connect_raw](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gae64b7a2ec8e138a1501bb7bf12089776)
 	///
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
 	pub fn connect_raw<U16, CB>(&mut self, alt_host: Option<&str>, alt_port: U16, handler: &'cb CB) -> error::EmptyResult
@@ -255,7 +254,16 @@ impl<'cb> Connection<'cb> {
 		})
 	}
 
-	/// [xmpp_conn_open_stream](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L605)
+	/// [xmpp_conn_open_stream_default](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gaac72cb61c7a69499fd1387c1d499c08e)
+	///
+	/// Related to [`connect_raw()`](#method.connect_raw).
+	pub fn open_stream_default(&self) -> error::EmptyResult {
+		error::code_to_result(unsafe {
+			sys::xmpp_conn_open_stream_default(self.inner)
+		})
+	}
+
+	/// [xmpp_conn_open_stream](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga85ccb1c2d95caf29dff0c9b70424c53e)
 	///
 	/// Related to [`connect_raw()`](#method.connect_raw).
 	pub fn open_stream(&self, attributes: &collections::HashMap<&str, &str>) -> error::EmptyResult {
@@ -276,7 +284,7 @@ impl<'cb> Connection<'cb> {
 		})
 	}
 
-	/// [xmpp_conn_tls_start](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L640)
+	/// [xmpp_conn_tls_start](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga759b1ae6fd1e40335afd8acc26d3858f)
 	///
 	/// Related to [`connect_raw()`](#method.connect_raw).
 	pub fn tls_start(&self) -> error::EmptyResult {
@@ -285,14 +293,14 @@ impl<'cb> Connection<'cb> {
 		})
 	}
 
-	/// [xmpp_disconnect](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L702)
+	/// [xmpp_disconnect](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga809ee4c8bb95e86ec2119db1052849ce)
 	pub fn disconnect(&mut self) {
 		unsafe {
 			sys::xmpp_disconnect(self.inner)
 		}
 	}
 
-	/// [xmpp_send_raw_string](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L725)
+	/// [xmpp_send_raw_string](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga606ee8f53d8992941d93ecf27e41595b)
 	///
 	/// Be aware that this method performs a lot of allocations internally so you might want to use
 	/// [`send_raw()`](#method.send_raw) instead.
@@ -303,7 +311,7 @@ impl<'cb> Connection<'cb> {
 		}
 	}
 
-	/// [xmpp_send_raw](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L776)
+	/// [xmpp_send_raw](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gadd1c8707fa269e6d6845d6b856584add)
 	///
 	/// Be aware that this method doesn't print debug log line with the message being sent (unlike
 	/// [`send_raw_string()`](#method.send_raw_string)).
@@ -314,10 +322,10 @@ impl<'cb> Connection<'cb> {
 		}
 	}
 
-	/// [xmpp_send](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L822)
+	/// [xmpp_send](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gac064b81b22a3166d5b396b5aa8e40b7d)
 	pub fn send(&mut self, stanza: &Stanza) { unsafe { sys::xmpp_send(self.inner, stanza.as_inner()) } }
 
-	/// [xmpp_timed_handler_add](https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L464)
+	/// [xmpp_timed_handler_add](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#ga0a74b20f2367389e5dc8852b4d3fdcda)
 	pub fn timed_handler_add<CB>(&mut self, handler: &'cb CB, period: time::Duration)
 		where
 			CB: FnMut(&mut Connection<'cb>) -> bool + 'cb,
@@ -327,7 +335,7 @@ impl<'cb> Connection<'cb> {
 		}
 	}
 
-	/// [xmpp_timed_handler_add](https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L464)
+	/// [xmpp_timed_handler_add](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#ga0a74b20f2367389e5dc8852b4d3fdcda)
 	///
 	/// Please see module level documentation, [Callbacks section][docs] about the reasoning behind
 	/// this method.
@@ -345,7 +353,7 @@ impl<'cb> Connection<'cb> {
 		)
 	}
 
-	/// [timed_handler_delete](https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L248)
+	/// [xmpp_timed_handler_delete](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#gae70f02f84a0f232c6a8c2866ecb47b82)
 	#[allow(unused_variables)]
 	pub fn timed_handler_delete<CB>(&mut self, handler: &CB)
 		where
@@ -356,7 +364,7 @@ impl<'cb> Connection<'cb> {
 		}
 	}
 
-	/// [xmpp_id_handler_add](https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L505)
+	/// [xmpp_id_handler_add](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#ga2142d78b7d6e8d278eebfa8a63f194a4)
 	pub fn id_handler_add<CB, RefStr: AsRef<str>>(&mut self, handler: &'cb CB, id: RefStr)
 		where
 			CB: FnMut(&mut Connection<'cb>, &Stanza) -> bool + 'cb,
@@ -366,7 +374,7 @@ impl<'cb> Connection<'cb> {
 		}
 	}
 
-	/// [xmpp_id_handler_add](https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L505)
+	/// [xmpp_id_handler_add](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#ga2142d78b7d6e8d278eebfa8a63f194a4)
 	///
 	/// Please see module level documentation, [Callbacks section][docs] about the reasoning behind
 	/// this method.
@@ -380,7 +388,7 @@ impl<'cb> Connection<'cb> {
 		sys::xmpp_id_handler_add(self.inner, Some(Self::handler_cb::<CB>), id.as_ptr(), as_udata(handler))
 	}
 
-	/// [xmpp_id_handler_delete](https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L324)
+	/// [xmpp_id_handler_delete](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#ga6bd02f7254b2a53214824d3d5e4f59ce)
 	#[allow(unused_variables)]
 	pub fn id_handler_delete<CB, RefStr: AsRef<str>>(&mut self, handler: &CB, id: RefStr)
 		where
@@ -392,7 +400,7 @@ impl<'cb> Connection<'cb> {
 		}
 	}
 
-	/// [xmpp_handler_add](https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L546)
+	/// [xmpp_handler_add](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#gad307e5a22d16ef3d6fa18d503b68944f)
 	pub fn handler_add<CB>(&mut self, handler: &'cb CB, ns: Option<&str>, name: Option<&str>, typ: Option<&str>)
 		where
 			CB: FnMut(&mut Connection<'cb>, &Stanza) -> bool + 'cb,
@@ -402,7 +410,7 @@ impl<'cb> Connection<'cb> {
 		}
 	}
 
-	/// [xmpp_handler_add](https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L546)
+	/// [xmpp_handler_add](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#gad307e5a22d16ef3d6fa18d503b68944f)
 	///
 	/// Please see module level documentation, [Callbacks section][docs] about the reasoning behind
 	/// this method.
@@ -425,7 +433,7 @@ impl<'cb> Connection<'cb> {
 		)
 	}
 
-	/// [xmpp_handler_delete](https://github.com/strophe/libstrophe/blob/0.9.1/src/handler.c#L427)
+	/// [xmpp_handler_delete](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#ga881756ae98f74748212bcbc61e6a4c89)
 	#[allow(unused_variables)]
 	pub fn handler_delete<CB>(&mut self, handler: &CB)
 		where
@@ -446,7 +454,7 @@ impl<'cb> PartialEq for Connection<'cb> {
 impl<'cb> Eq for Connection<'cb> {}
 
 impl<'cb> Drop for Connection<'cb> {
-	/// [xmpp_conn_release](https://github.com/strophe/libstrophe/blob/0.9.1/src/conn.c#L222)
+	/// [xmpp_conn_release](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga16967e3375efa5032ed2e08b407d8ae9)
 	fn drop(&mut self) {
 		unsafe {
 			if self.owned {

@@ -9,6 +9,6 @@ See [full documentation](https://docs.rs/libstrophe)
 Add this to your Cargo.toml:
 ```
 [dependencies]
-libstrophe = "0.8"
+libstrophe = "0.9"
 ```
 

@@ -5,7 +5,7 @@ mod libstrophe {
 	pub use *;
 }
 
-/// Port of the [bot.c](https://github.com/strophe/libstrophe/blob/0.9.1/examples/bot.c) code
+/// Port of the [bot.c](https://github.com/strophe/libstrophe/blob/0.9.2/examples/bot.c) code
 #[allow(dead_code)]
 pub fn main() {
 	env_logger::init();
