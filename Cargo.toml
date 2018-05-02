@@ -13,12 +13,12 @@ repository = "https://github.com/twistedfall/libstrophe"
 [dependencies]
 bitflags = "1.0"
 error-chain = "0.11"
-log = {version = "0.3", optional = true}
+log = {version = "0.4", optional = true}
 num = "0.1"
 libstrophe-sys-bindgen = "1.0"
 
 [dev-dependencies]
-env_logger = "0.4"
+env_logger = "0.5"
 matches = "0.1"
 
 [features]
