@@ -2,8 +2,7 @@ use std::{ops, ptr, time};
 use std::default::Default;
 use std::os::raw;
 use std::sync::Arc;
-
-use super::{sys, Logger};
+use super::{FFI, Logger, sys};
 
 /// Proxy to underlying `xmpp_ctx_t` struct.
 ///
@@ -101,6 +100,49 @@ impl<'lg> Context<'lg> {
 	/// [xmpp_free](https://github.com/strophe/libstrophe/blob/0.9.2/src/ctx.c#L214)
 	pub unsafe fn free<T>(&self, p: *mut T) {
 		sys::xmpp_free(self.inner, p as *mut raw::c_void)
+	}
+
+	/// [xmpp_jid_new](https://github.com/strophe/libstrophe/blob/0.9.2/src/jid.c#L21)
+	pub fn jid_new<RefStr: AsRef<str>>(&self, node: Option<&str>, domain: RefStr, resource: Option<&str>) -> Option<String>
+	{
+		let node = FFI(node).send();
+		let domain = FFI(domain.as_ref()).send();
+		let resource = FFI(resource).send();
+		unsafe {
+			FFI(sys::xmpp_jid_new(self.inner, node.as_ptr(), domain.as_ptr(), resource.as_ptr())).receive_with_free(|x| self.free(x))
+		}
+	}
+
+	/// [xmpp_jid_bare](https://github.com/strophe/libstrophe/blob/0.9.2/src/jid.c#L65)
+	pub fn jid_bare<RefStr: AsRef<str>>(&self, jid: RefStr) -> Option<String> {
+		let jid = FFI(jid.as_ref()).send();
+		unsafe {
+			FFI(sys::xmpp_jid_bare(self.inner, jid.as_ptr())).receive_with_free(|x| self.free(x))
+		}
+	}
+
+	/// [xmpp_jid_node](https://github.com/strophe/libstrophe/blob/0.9.2/src/jid.c#L87)
+	pub fn jid_node<RefStr: AsRef<str>>(&self, jid: RefStr) -> Option<String> {
+		let jid = FFI(jid.as_ref()).send();
+		unsafe {
+			FFI(sys::xmpp_jid_node(self.inner, jid.as_ptr())).receive_with_free(|x| self.free(x))
+		}
+	}
+
+	/// [xmpp_jid_domain](https://github.com/strophe/libstrophe/blob/0.9.2/src/jid.c#L112)
+	pub fn jid_domain<RefStr: AsRef<str>>(&self, jid: RefStr) -> Option<String> {
+		let jid = FFI(jid.as_ref()).send();
+		unsafe {
+			FFI(sys::xmpp_jid_domain(self.inner, jid.as_ptr())).receive_with_free(|x| self.free(x))
+		}
+	}
+
+	/// [xmpp_jid_resource](https://github.com/strophe/libstrophe/blob/0.9.2/src/jid.c#L143)
+	pub fn jid_resource<RefStr: AsRef<str>>(&self, jid: RefStr) -> Option<String> {
+		let jid = FFI(jid.as_ref()).send();
+		unsafe {
+			FFI(sys::xmpp_jid_resource(self.inner, jid.as_ptr())).receive_with_free(|x| self.free(x))
+		}
 	}
 }
 

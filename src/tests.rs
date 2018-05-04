@@ -136,6 +136,27 @@ fn stanza_handler_in_conn() {
 }
 
 #[test]
+fn jid() {
+	let ctx = Context::new_with_default_logger();
+	assert_eq!(Some("node@domain.com/test".to_string()), ctx.jid_new(Some("node"), "domain.com", Some("test")));
+	assert_eq!(Some("domain.com/test".to_string()), ctx.jid_new(None, "domain.com", Some("test")));
+	assert_eq!(Some("domain.com".to_string()), ctx.jid_new(None, "domain.com", None));
+
+	let jid = ctx.jid_new(Some("node"), "domain.com", Some("test")).unwrap();
+	let jid_domain = ctx.jid_new(None, "domain.com", None).unwrap();
+	assert_eq!(Some("node@domain.com".to_string()), ctx.jid_bare(&jid));
+
+	assert_eq!(Some("node".to_string()), ctx.jid_node(&jid));
+	assert_eq!(None, ctx.jid_node(&jid_domain));
+
+	assert_eq!(Some("domain.com".to_string()), ctx.jid_domain(&jid));
+	assert_eq!(Some("domain.com".to_string()), ctx.jid_domain(&jid_domain));
+
+	assert_eq!(Some("test".to_string()), ctx.jid_resource(&jid));
+	assert_eq!(None, ctx.jid_resource(&jid_domain));
+}
+
+#[test]
 fn eq_test() {
 	let ctx = Context::new_with_default_logger();
 
