@@ -146,7 +146,7 @@ impl<'cx> Stanza<'cx> {
 		let buf: *mut raw::c_char = unsafe { mem::uninitialized() };
 		let mut buflen: usize = unsafe { mem::uninitialized() };
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_to_text(self.inner as *const _ as *mut _, &buf, &mut buflen)
+			sys::xmpp_stanza_to_text(self.inner, &buf, &mut buflen)
 		}).and_then(|_| {
 			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as *mut u8, buflen + 1)) };
 			let out = buf.to_str()?.to_owned();
@@ -369,7 +369,7 @@ impl<'cx> Stanza<'cx> {
 	/// [xmpp_stanza_add_child](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga9cfdeabcfc45409d2dfff4b364f84a0c)
 	pub fn add_child(&mut self, child: Stanza) -> error::EmptyResult {
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_add_child(self.inner, child.inner as *const _ as *mut _)
+			sys::xmpp_stanza_add_child(self.inner, child.inner)
 		})
 	}
 
@@ -391,7 +391,7 @@ impl<'cx> Stanza<'cx> {
 	/// [xmpp_message_get_body](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga3ad5f7e64be52d04ed6f6680d80303fb)
 	pub fn body(&self) -> Option<String> {
 		unsafe {
-			FFI(sys::xmpp_message_get_body(self.inner as *const _ as *mut _)).receive_with_free(|x| {
+			FFI(sys::xmpp_message_get_body(self.inner)).receive_with_free(|x| {
 				self.context().free(x)
 			})
 		}
@@ -403,7 +403,7 @@ impl<'cx> fmt::Display for Stanza<'cx> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let buf: *mut raw::c_char = unsafe { mem::uninitialized() };
 		let mut buflen: usize = unsafe { mem::uninitialized() };
-		let result = error::code_to_result(unsafe { sys::xmpp_stanza_to_text(self.inner as *const _ as *mut _, &buf, &mut buflen) });
+		let result = error::code_to_result(unsafe { sys::xmpp_stanza_to_text(self.inner, &buf, &mut buflen) });
 		if result.is_ok() {
 			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as *mut u8, buflen + 1)) };
 			let out = write!(f, "{}", buf.to_str().map_err(|_| fmt::Error)?);
