@@ -1,12 +1,11 @@
 use std::{collections, ffi, fmt, marker, mem, ops, ptr, slice};
 use std::os::raw;
 use std::sync::Arc;
-
 use super::{
-	error,
-	sys,
 	Context,
 	ContextRef,
+	error,
+	sys,
 };
 use super::ffi_types::FFI;
 
@@ -243,11 +242,8 @@ impl<'cx> Stanza<'cx> {
 	/// [xmpp_stanza_get_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaceb6c04c44e2387f5918a2edf5853a8c)
 	pub fn text(&self) -> Option<String> {
 		unsafe {
-			let text = sys::xmpp_stanza_get_text(self.inner);
-			text.as_mut().and_then(|x| {
-				let out = ffi::CStr::from_ptr(x).to_owned().into_string().ok();
-				self.context().free(x);
-				out
+			FFI(sys::xmpp_stanza_get_text(self.inner)).receive_with_free(|x| {
+				self.context().free(x)
 			})
 		}
 	}
@@ -395,11 +391,8 @@ impl<'cx> Stanza<'cx> {
 	/// [xmpp_message_get_body](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga3ad5f7e64be52d04ed6f6680d80303fb)
 	pub fn body(&self) -> Option<String> {
 		unsafe {
-			let text = sys::xmpp_message_get_body(self.inner as *const _ as *mut _);
-			text.as_mut().and_then(|x| {
-				let out = ffi::CStr::from_ptr(x).to_owned().into_string().ok();
-				self.context().free(x);
-				out
+			FFI(sys::xmpp_message_get_body(self.inner as *const _ as *mut _)).receive_with_free(|x| {
+				self.context().free(x)
 			})
 		}
 	}

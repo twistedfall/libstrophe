@@ -1,7 +1,6 @@
-use std::{error, fmt, result, str};
+use std::{error, fmt, os::raw, result, str};
 use std::error::Error as StdError;
-
-use super::{sys, Stanza, StanzaMutRef};
+use super::{Stanza, StanzaMutRef, sys};
 use super::ffi_types::FFI;
 
 error_chain! {
@@ -56,7 +55,7 @@ impl<'i> From<&'i sys::xmpp_stream_error_t> for StreamError<'i> {
 	fn from(inner: &'i sys::xmpp_stream_error_t) -> Self {
 		StreamError {
 			typ: inner.type_,
-			text: unsafe { FFI(inner.text).receive() },
+			text: unsafe { FFI(inner.text as * const raw::c_char).receive() },
 			stanza: unsafe { Stanza::from_inner_ref_mut(inner.stanza) }
 		}
 	}

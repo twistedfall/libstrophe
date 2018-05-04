@@ -25,23 +25,23 @@ impl<'s> FFI<*const raw::c_char> {
 	/// The lifetime of the returned reference is bound to "lifetime" of the pointer
 	#[inline]
 	pub unsafe fn receive(self) -> Option<&'s str> {
-		if self.0.is_null() {
-			None
-		} else {
-			Some(ffi::CStr::from_ptr(self.0).to_str().expect("Cannot convert non-null pointer into CStr"))
-		}
+		self.0.as_ref().map(|x| {
+			ffi::CStr::from_ptr(x).to_str().expect("Cannot convert non-null pointer into &str")
+		})
 	}
 }
 
 impl<'s> FFI<*mut raw::c_char> {
-	/// The lifetime of the returned reference is bound to "lifetime" of the pointer
 	#[inline]
-	pub unsafe fn receive(self) -> Option<&'s str> {
-		if self.0.is_null() {
-			None
-		} else {
-			Some(ffi::CStr::from_ptr(self.0).to_str().expect("Cannot convert non-null pointer into CStr"))
-		}
+	pub unsafe fn receive_with_free<CB>(self, free: CB) -> Option<String>
+		where
+			CB: FnOnce(*mut raw::c_char)
+	{
+		self.0.as_mut().map(|x| {
+			let out = ffi::CStr::from_ptr(x).to_owned().into_string().expect("Cannot convert non-null pointer into String");
+			free(x);
+			out
+		})
 	}
 }
 
