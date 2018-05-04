@@ -9,7 +9,7 @@ See [full documentation](https://docs.rs/libstrophe)
 Add this to your Cargo.toml:
 ```
 [dependencies]
-libstrophe = "0.8"
+libstrophe = "0.9"
 ```
 
 ## libstrophe - ergonomic wrapper for Rust
@@ -81,11 +81,11 @@ let connection_handler = |conn: &mut libstrophe::Connection,
 };
 
 let ctx = libstrophe::Context::new_with_default_logger();
-let mut conn = libstrophe::Connection::new(ctx);
+let mut conn = libstrophe::Connection::new(ctx.clone());
 conn.set_jid("example@127.0.0.1");
 conn.set_pass("password");
 conn.connect_client(None, None, &connection_handler).unwrap();
-// ctx.run();
+ctx.run();
 libstrophe::shutdown();
 ```
 
@@ -97,13 +97,14 @@ For more complete examples see this crate `src/examples` directory and [libstrop
 The following features are provided:
 
   * `rust-log` - enabled by default, makes the create integrate into Rust logging facilities
+  * `libstrophe-0_9_2` - enabled by default, enables functionality specific to libstrophe-0.9.2
   * `fail-tests` - development feature, enables some additional tests that must fail unless
                    safety contracts are broken
 
 [libstrophe]: http://strophe.im/libstrophe/
 [`log`]: https://crates.io/crates/log
-[docs]: http://strophe.im/libstrophe/doc/0.8-snapshot/
-[libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.9.1/examples
+[docs]: http://strophe.im/libstrophe/doc/0.9.2/
+[libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.9.2/examples
 [`Context`]: https://docs.rs/libstrophe/*/libstrophe/struct.Context.html
 [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
 [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
