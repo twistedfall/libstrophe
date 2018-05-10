@@ -1,16 +1,14 @@
-use std::{collections, marker, time};
-use std::os::raw;
-use std::sync::Arc;
+use std::{collections, marker, os::raw, sync::Arc, time::Duration};
 use super::{
-	error,
-	sys,
 	as_udata,
-	udata_as,
+	ConnectionEvent,
 	ConnectionFlags,
 	Context,
 	ContextRef,
-	ConnectionEvent,
+	error,
 	Stanza,
+	sys,
+	udata_as,
 };
 use super::ffi_types::{FFI, Nullable};
 
@@ -32,17 +30,17 @@ use super::ffi_types::{FFI, Nullable};
 /// [conn.c]: https://github.com/strophe/libstrophe/blob/0.9.2/src/conn.c
 /// [handler.c]: https://github.com/strophe/libstrophe/blob/0.9.2/src/handler.c
 /// [xmpp_conn_release]: http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga16967e3375efa5032ed2e08b407d8ae9
-#[derive(Debug, Hash)]
 pub struct Connection<'cb> {
 	inner: *mut sys::xmpp_conn_t,
 	ctx: Arc<Context<'cb>>,
 	owned: bool,
+	cb: Option<Box<FnMut(&mut Connection<'cb>, ConnectionEvent, i32, Option<&error::StreamError>) + 'cb>>,
 	_callbacks: marker::PhantomData<&'cb fn()>,
 }
 
 impl<'cb> Connection<'cb> {
 	/// [xmpp_conn_new](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga76c161884c23f69cd1d7fc025122cf21)
-	pub fn new(ctx: Arc<Context<'cb>>) -> Connection<'cb> {
+	pub fn new(ctx: Arc<Context<'cb>>) -> Self {
 		unsafe {
 			Connection::from_inner(sys::xmpp_conn_new(ctx.as_inner()), ctx)
 		}
@@ -53,7 +51,7 @@ impl<'cb> Connection<'cb> {
 		if inner.is_null() {
 			panic!("Cannot allocate memory for Connection");
 		}
-		Connection { inner, ctx, owned, _callbacks: marker::PhantomData }
+		Connection { inner, ctx, owned, cb: None, _callbacks: marker::PhantomData }
 	}
 
 	pub unsafe fn from_inner(inner: *mut sys::xmpp_conn_t, ctx: Arc<Context<'cb>>) -> Connection<'cb> {
@@ -120,7 +118,6 @@ impl<'cb> Connection<'cb> {
 		}
 	}
 
-
 	/// [xmpp_conn_set_jid](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga8dff6d97ac458d5f3fc901d688d86084)
 	pub fn set_jid<RefStr: AsRef<str>>(&mut self, jid: RefStr) {
 		let jid = FFI(jid.as_ref()).send();
@@ -164,7 +161,7 @@ impl<'cb> Connection<'cb> {
 	}
 
 	/// [xmpp_conn_set_keepalive](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga0c75095f31ee66febcf71cad1e60d4f6)
-	pub fn set_keepalive(&mut self, timeout: time::Duration, interval: time::Duration) {
+	pub fn set_keepalive(&mut self, timeout: Duration, interval: Duration) {
 		unsafe {
 			sys::xmpp_conn_set_keepalive(self.inner, timeout.as_secs() as raw::c_int, interval.as_secs() as raw::c_int)
 		}
@@ -187,7 +184,7 @@ impl<'cb> Connection<'cb> {
 	///
 	/// [`SSL_get_error()`]: https://www.openssl.org/docs/manmaster/man3/SSL_get_error.html#RETURN-VALUES
 	/// [`WSAGetLastError()`]: https://msdn.microsoft.com/nl-nl/library/windows/desktop/ms741580(v=vs.85).aspx
-	pub fn connect_client<U16, CB>(&mut self, alt_host: Option<&str>, alt_port: U16, handler: &'cb CB) -> error::EmptyResult
+	pub fn connect_client<U16, CB>(&mut self, alt_host: Option<&str>, alt_port: U16, handler: CB) -> error::EmptyResult
 		where
 			U16: Into<Option<u16>>,
 			CB: FnMut(&mut Connection<'cb>, ConnectionEvent, i32, Option<&error::StreamError>) + 'cb,
@@ -197,15 +194,20 @@ impl<'cb> Connection<'cb> {
 		if self.jid().is_none() {
 			bail!(error::ErrorKind::InvalidOperation);
 		}
-		error::code_to_result(unsafe {
+		let handler = Box::new(handler);
+		let out = error::code_to_result(unsafe {
 			sys::xmpp_connect_client(
 				self.inner,
 				alt_host.as_ptr(),
 				alt_port.val(),
 				Some(Self::connection_handler_cb::<CB>),
-				as_udata(handler)
+				as_udata(&*handler)
 			)
-		})
+		});
+		if out.is_ok() {
+			self.cb = Some(handler);
+		}
+		out
 	}
 
 	/// [xmpp_connect_component](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga80c8cd7906a48fc27664fcce8f15ed7d)
@@ -326,7 +328,7 @@ impl<'cb> Connection<'cb> {
 	pub fn send(&mut self, stanza: &Stanza) { unsafe { sys::xmpp_send(self.inner, stanza.as_inner()) } }
 
 	/// [xmpp_timed_handler_add](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#ga0a74b20f2367389e5dc8852b4d3fdcda)
-	pub fn timed_handler_add<CB>(&mut self, handler: &'cb CB, period: time::Duration)
+	pub fn timed_handler_add<CB>(&mut self, handler: &'cb CB, period: Duration)
 		where
 			CB: FnMut(&mut Connection<'cb>) -> bool + 'cb,
 	{
@@ -341,7 +343,7 @@ impl<'cb> Connection<'cb> {
 	/// this method.
 	///
 	/// [docs]: index.html#callbacks
-	pub unsafe fn timed_handler_add_unsafe<CB>(&mut self, handler: &CB, period: time::Duration)
+	pub unsafe fn timed_handler_add_unsafe<CB>(&mut self, handler: &CB, period: Duration)
 		where
 			CB: FnMut(&mut Connection<'cb>) -> bool,
 	{
