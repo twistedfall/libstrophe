@@ -1,12 +1,11 @@
 extern crate matches;
 
-use std::time;
-
+use std::time::Duration;
 use super::{
-	error,
 	Connection,
 	ConnectionEvent,
 	Context,
+	error,
 	Logger,
 	Stanza,
 };
@@ -89,9 +88,9 @@ fn timed_handler() {
 	let timed_handler = |_conn: &mut Connection| { false };
 	let ctx = Context::new_with_default_logger();
 	let mut con = Connection::new(ctx);
-	con.timed_handler_add(&timed_handler, time::Duration::from_secs(1));
+	con.timed_handler_add(&timed_handler, Duration::from_secs(1));
 	con.timed_handler_delete(&timed_handler);
-	unsafe { con.timed_handler_add_unsafe(&timed_handler, time::Duration::from_secs(1)) };
+	unsafe { con.timed_handler_add_unsafe(&timed_handler, Duration::from_secs(1)) };
 	con.timed_handler_delete(&timed_handler);
 }
 
@@ -243,11 +242,11 @@ fn stanza() {
 #[cfg(feature = "fail-test")]
 mod fail {
 	use super::{
-		error,
-		time,
 		Connection,
 		ConnectionEvent,
 		Context,
+		Duration,
+		error,
 		Logger,
 		Stanza,
 	};
@@ -259,7 +258,7 @@ mod fail {
 		let not_long_enough1 = |_conn: &mut Connection,
 		                        _event: ConnectionEvent,
 		                        _error: i32,
-		                        _stream_error: Option<&error::StreamError>, | {};
+		                        _stream_error: Option<&error::StreamError>| {};
 		con.connect_client(None, None, &not_long_enough1).unwrap();
 	}
 
@@ -280,7 +279,7 @@ mod fail {
 		let mut con = Connection::new(Context::new_with_default_logger());
 		{
 			let not_long_enough3 = |_conn: &mut Connection| { false };
-			con.timed_handler_add(&not_long_enough3, time::Duration::from_secs(1));
+			con.timed_handler_add(&not_long_enough3, Duration::from_secs(1));
 			con
 		};
 	}
@@ -309,10 +308,26 @@ mod fail {
 	fn logger_too_short() {
 		{
 			let not_long_enough6 = |_level: LogLevel,
-			                   _area: &str,
-			                   _msg: &str| {};
+			                        _area: &str,
+			                        _msg: &str| {};
 			let logger = Logger::new(&not_long_enough6);
 			Context::new(logger)
 		};
+	}
+
+	#[test]
+	fn add_short_lived_handler() {
+		let handler = |conn: &mut Connection,
+		               _event,
+		               _error,
+		               _stream_error: Option<&error::StreamError>| {
+			let not_long_enough7 = |_: &mut Connection, _: &Stanza| {
+				let _ = 0;
+				false
+			};
+			conn.handler_add(&not_long_enough7, None, None, None);
+		};
+		let mut con = Connection::new(Context::new_with_default_logger());
+		con.connect_client(None, None, &handler);
 	}
 }
