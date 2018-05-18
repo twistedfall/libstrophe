@@ -119,7 +119,7 @@ impl<'cb> Connection<'cb> {
 	}
 
 	/// [xmpp_conn_set_jid](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga8dff6d97ac458d5f3fc901d688d86084)
-	pub fn set_jid<RefStr: AsRef<str>>(&mut self, jid: RefStr) {
+	pub fn set_jid(&mut self, jid: impl AsRef<str>) {
 		let jid = FFI(jid.as_ref()).send();
 		unsafe {
 			sys::xmpp_conn_set_jid(self.inner, jid.as_ptr())
@@ -134,7 +134,7 @@ impl<'cb> Connection<'cb> {
 	}
 
 	/// [xmpp_conn_set_pass](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gac64373b712d9d8af12e57b753d9b3bfc)
-	pub fn set_pass<RefStr: AsRef<str>>(&mut self, pass: RefStr) {
+	pub fn set_pass(&mut self, pass: impl AsRef<str>) {
 		let pass = FFI(pass.as_ref()).send();
 		unsafe {
 			sys::xmpp_conn_set_pass(self.inner, pass.as_ptr())
@@ -184,9 +184,8 @@ impl<'cb> Connection<'cb> {
 	///
 	/// [`SSL_get_error()`]: https://www.openssl.org/docs/manmaster/man3/SSL_get_error.html#RETURN-VALUES
 	/// [`WSAGetLastError()`]: https://msdn.microsoft.com/nl-nl/library/windows/desktop/ms741580(v=vs.85).aspx
-	pub fn connect_client<U16, CB>(&mut self, alt_host: Option<&str>, alt_port: U16, handler: CB) -> error::EmptyResult
+	pub fn connect_client<CB>(&mut self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> error::EmptyResult
 		where
-			U16: Into<Option<u16>>,
 			CB: FnMut(&mut Connection<'cb>, ConnectionEvent, i32, Option<&error::StreamError>) + 'cb,
 	{
 		let alt_host = FFI(alt_host).send();
@@ -213,10 +212,8 @@ impl<'cb> Connection<'cb> {
 	/// [xmpp_connect_component](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga80c8cd7906a48fc27664fcce8f15ed7d)
 	///
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
-	pub fn connect_component<RefStr, U16, CB>(&mut self, host: RefStr, port: U16, handler: &'cb CB) -> error::EmptyResult
+	pub fn connect_component<CB>(&mut self, host: impl AsRef<str>, port: impl Into<Option<u16>>, handler: &'cb CB) -> error::EmptyResult
 		where
-			RefStr: AsRef<str>,
-			U16: Into<Option<u16>>,
 			CB: FnMut(&mut Connection<'cb>, ConnectionEvent, i32, Option<&error::StreamError>) + 'cb,
 	{
 		let host = FFI(host.as_ref()).send();
@@ -235,9 +232,8 @@ impl<'cb> Connection<'cb> {
 	/// [xmpp_connect_raw](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gae64b7a2ec8e138a1501bb7bf12089776)
 	///
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
-	pub fn connect_raw<U16, CB>(&mut self, alt_host: Option<&str>, alt_port: U16, handler: &'cb CB) -> error::EmptyResult
+	pub fn connect_raw<CB>(&mut self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: &'cb CB) -> error::EmptyResult
 		where
-			U16: Into<Option<u16>>,
 			CB: FnMut(&mut Connection<'cb>, ConnectionEvent, i32, Option<&error::StreamError>) + 'cb,
 	{
 		let alt_host = FFI(alt_host).send();
@@ -306,7 +302,7 @@ impl<'cb> Connection<'cb> {
 	///
 	/// Be aware that this method performs a lot of allocations internally so you might want to use
 	/// [`send_raw()`](#method.send_raw) instead.
-	pub fn send_raw_string<RefStr: AsRef<str>>(&mut self, data: RefStr) {
+	pub fn send_raw_string(&mut self, data: impl AsRef<str>) {
 		let data = FFI(data.as_ref()).send();
 		unsafe {
 			sys::xmpp_send_raw_string(self.inner, data.as_ptr());
@@ -317,7 +313,7 @@ impl<'cb> Connection<'cb> {
 	///
 	/// Be aware that this method doesn't print debug log line with the message being sent (unlike
 	/// [`send_raw_string()`](#method.send_raw_string)).
-	pub fn send_raw<RefBytes: AsRef<[u8]>>(&mut self, data: RefBytes) {
+	pub fn send_raw(&mut self, data: impl AsRef<[u8]>) {
 		let data = data.as_ref();
 		unsafe {
 			sys::xmpp_send_raw(self.inner, data.as_ptr() as *const raw::c_char, data.len());
@@ -367,7 +363,7 @@ impl<'cb> Connection<'cb> {
 	}
 
 	/// [xmpp_id_handler_add](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#ga2142d78b7d6e8d278eebfa8a63f194a4)
-	pub fn id_handler_add<CB, RefStr: AsRef<str>>(&mut self, handler: &'cb CB, id: RefStr)
+	pub fn id_handler_add<CB>(&mut self, handler: &'cb CB, id: impl AsRef<str>)
 		where
 			CB: FnMut(&mut Connection<'cb>, &Stanza) -> bool + 'cb,
 	{
@@ -382,7 +378,7 @@ impl<'cb> Connection<'cb> {
 	/// this method.
 	///
 	/// [docs]: index.html#callbacks
-	pub unsafe fn id_handler_add_unsafe<CB, RefStr: AsRef<str>>(&mut self, handler: &CB, id: RefStr)
+	pub unsafe fn id_handler_add_unsafe<CB>(&mut self, handler: &CB, id: impl AsRef<str>)
 		where
 			CB: FnMut(&mut Connection<'cb>, &Stanza) -> bool,
 	{
@@ -392,7 +388,7 @@ impl<'cb> Connection<'cb> {
 
 	/// [xmpp_id_handler_delete](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#ga6bd02f7254b2a53214824d3d5e4f59ce)
 	#[allow(unused_variables)]
-	pub fn id_handler_delete<CB, RefStr: AsRef<str>>(&mut self, handler: &CB, id: RefStr)
+	pub fn id_handler_delete<CB>(&mut self, handler: &CB, id: impl AsRef<str>)
 		where
 			CB: FnMut(&mut Connection, &Stanza) -> bool,
 	{
