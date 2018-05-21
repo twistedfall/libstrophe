@@ -63,6 +63,11 @@ impl<'cb> Logger<'cb> {
 		)
 	}
 
+	/// This method returns null logger that doesn't output any information.
+	pub fn new_null() -> Logger<'static> {
+		Logger::new(|_, _, _| {})
+	}
+
 	extern "C" fn log_handler_cb<CB>(userdata: *const raw::c_void, level: sys::xmpp_log_level_t, area: *const raw::c_char, msg: *const raw::c_char)
 		where
 			CB: FnMut(LogLevel, &str, &str) + 'cb,

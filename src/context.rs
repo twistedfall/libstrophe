@@ -50,6 +50,14 @@ impl<'lg> Context<'lg> {
 		Arc::new(Context::new(Logger::default()))
 	}
 
+	/// Shortcut to return a new context with null logger.
+	///
+	/// Equivalent to passing null logger to `Context` constructor. The result is also wrapped in
+	/// `Arc` to allow multiple ownership.
+	pub fn new_with_null_logger() -> Arc<Context<'static>> {
+		Arc::new(Context::new(Logger::new_null()))
+	}
+
 	#[inline]
 	unsafe fn with_inner(inner: *mut sys::xmpp_ctx_t, owned: bool, logger: Option<Logger<'lg>>) -> Context<'lg> {
 		if inner.is_null() {
