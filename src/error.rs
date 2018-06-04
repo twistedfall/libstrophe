@@ -63,7 +63,7 @@ impl<'i> From<&'i sys::xmpp_stream_error_t> for StreamError<'i> {
 
 impl<'i> fmt::Display for StreamError<'i> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}{}", self.description(), self.text.as_ref().map(|x| format!(": {}", x)).unwrap_or("".into()))
+		write!(f, "{}{}", self.description(), self.text.as_ref().map_or_else(|| "".into(), |x| format!(": {}", x)))
 	}
 }
 
