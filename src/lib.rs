@@ -103,6 +103,21 @@ extern crate libstrophe_sys_bindgen as sys;
 #[cfg(feature = "rust-log")]
 #[macro_use]
 extern crate log;
+#[cfg(test)]
+#[macro_use]
+extern crate matches;
+
+pub use connection::Connection;
+pub use context::{Context, ContextRef};
+use ffi_types::FFI;
+pub use logger::Logger;
+pub use stanza::{Stanza, StanzaMutRef, StanzaRef};
+use std::{sync, time};
+use std::os::raw;
+pub use sys::{
+	xmpp_conn_event_t as ConnectionEvent,
+	xmpp_log_level_t as LogLevel,
+};
 
 mod ffi_types;
 mod connection;
@@ -115,23 +130,6 @@ mod stanza;
 mod tests;
 #[cfg(test)]
 mod examples;
-#[cfg(test)]
-#[macro_use]
-extern crate matches;
-
-use std::{sync, time};
-use std::os::raw;
-
-use ffi_types::FFI;
-
-pub use connection::Connection;
-pub use context::{Context, ContextRef};
-pub use logger::Logger;
-pub use stanza::{Stanza, StanzaRef, StanzaMutRef};
-pub use sys::{
-	xmpp_conn_event_t as ConnectionEvent,
-	xmpp_log_level_t as LogLevel,
-};
 
 bitflags! {
 	pub struct ConnectionFlags: raw::c_long {
@@ -153,8 +151,8 @@ fn duration_as_ms(duration: time::Duration) -> raw::c_ulong {
 }
 
 /// Convert type to *void for passing as `userdata`
-fn as_udata<T>(cb: &T) -> *const raw::c_void {
-	cb as *const _ as *const raw::c_void
+fn as_udata<T>(cb: &T) -> *mut raw::c_void {
+	cb as *const _ as *mut raw::c_void
 }
 
 /// Convert *void from `userdata` to appropriate type

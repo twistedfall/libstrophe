@@ -1,6 +1,5 @@
 use std::{ops, ptr, time};
 use std::default::Default;
-use std::os::raw;
 use std::sync::Arc;
 use super::{FFI, Logger, sys};
 
@@ -67,14 +66,14 @@ impl<'lg> Context<'lg> {
 	}
 
 	pub unsafe fn from_inner_ref(inner: *const sys::xmpp_ctx_t) -> Context<'lg> {
-		Context::from_inner_ref_mut(inner as *mut _)
+		Context::from_inner_ref_mut(inner as _)
 	}
 
 	pub unsafe fn from_inner_ref_mut(inner: *mut sys::xmpp_ctx_t) -> Context<'lg> {
 		Context::with_inner(inner, false, None)
 	}
 
-	pub fn as_inner(&self) -> *const sys::xmpp_ctx_t { self.inner }
+	pub fn as_inner(&self) -> *mut sys::xmpp_ctx_t { self.inner }
 
 	/// [xmpp_set_timeout](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#gab03acfbb7c9aa92f60fedb8f6ca43114)
 	#[cfg(feature = "libstrophe-0_9_2")]
@@ -107,7 +106,7 @@ impl<'lg> Context<'lg> {
 
 	/// [xmpp_free](https://github.com/strophe/libstrophe/blob/0.9.2/src/ctx.c#L214)
 	pub unsafe fn free<T>(&self, p: *mut T) {
-		sys::xmpp_free(self.inner, p as *mut raw::c_void)
+		sys::xmpp_free(self.inner, p as _)
 	}
 
 	/// [xmpp_jid_new](https://github.com/strophe/libstrophe/blob/0.9.2/src/jid.c#L21)

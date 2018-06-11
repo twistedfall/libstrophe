@@ -45,12 +45,12 @@ impl<'cx> Stanza<'cx> {
 	/// [`set_text()`]: struct.Stanza.html#method.set_text
 	/// [`set_name()`]: struct.Stanza.html#method.set_name
 	pub fn new(ctx: &'cx Context) -> Stanza<'cx> {
-		unsafe { Stanza::from_inner(sys::xmpp_stanza_new(ctx.as_inner() as *mut _)) }
+		unsafe { Stanza::from_inner(sys::xmpp_stanza_new(ctx.as_inner())) }
 	}
 
 	/// [xmpp_presence_new](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga5f3a4cde910ad181b8e569ff0431d7ac)
 	pub fn new_presence(ctx: &'cx Context) -> Stanza<'cx> {
-		unsafe { Stanza::from_inner(sys::xmpp_presence_new(ctx.as_inner() as *mut _)) }
+		unsafe { Stanza::from_inner(sys::xmpp_presence_new(ctx.as_inner())) }
 	}
 
 	/// [xmpp_iq_new](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaf23007ddde78ec028a78ceec056544fd)
@@ -61,7 +61,7 @@ impl<'cx> Stanza<'cx> {
 		unsafe {
 			Stanza::from_inner(
 				sys::xmpp_iq_new(
-					ctx.as_inner() as *mut _,
+					ctx.as_inner(),
 					typ.as_ptr(),
 					id.as_ptr()
 				)
@@ -78,7 +78,7 @@ impl<'cx> Stanza<'cx> {
 		unsafe {
 			Stanza::from_inner(
 				sys::xmpp_message_new(
-					ctx.as_inner() as *mut _,
+					ctx.as_inner(),
 					typ.as_ptr(),
 					to.as_ptr(),
 					id.as_ptr(),
@@ -102,7 +102,7 @@ impl<'cx> Stanza<'cx> {
 
 	/// Create a borrowing stanza from the constant raw pointer, for internal use
 	pub unsafe fn from_inner_ref(inner: *const sys::xmpp_stanza_t) -> StanzaRef<'cx> {
-		Stanza::with_inner(inner as *mut _, false).into()
+		Stanza::with_inner(inner as _, false).into()
 	}
 
 	/// Create a borrowing stanza from the mutable raw pointer, for internal use
@@ -111,7 +111,7 @@ impl<'cx> Stanza<'cx> {
 	}
 
 	/// Return internal raw pointer to stanza, for internal use
-	pub fn as_inner(&self) -> *const sys::xmpp_stanza_t { self.inner }
+	pub fn as_inner(&self) -> *mut sys::xmpp_stanza_t { self.inner }
 
 	/// Return context for this `Stanza`
 	///
@@ -143,12 +143,12 @@ impl<'cx> Stanza<'cx> {
 
 	/// [xmpp_stanza_to_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga49d188283a22e228ebf188aa06cf55b6)
 	pub fn to_text(&self) -> error::Result<String> {
-		let buf: *mut raw::c_char = unsafe { mem::uninitialized() };
+		let mut buf: *mut raw::c_char = unsafe { mem::uninitialized() };
 		let mut buflen: usize = unsafe { mem::uninitialized() };
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_to_text(self.inner, &buf, &mut buflen)
+			sys::xmpp_stanza_to_text(self.inner, &mut buf, &mut buflen)
 		}).and_then(|_| {
-			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as *mut u8, buflen + 1)) };
+			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as _, buflen + 1)) };
 			let out = buf.to_str()?.to_owned();
 			unsafe {
 				self.context().free(buf.as_ptr() as *mut raw::c_char);
@@ -203,9 +203,9 @@ impl<'cx> Stanza<'cx> {
 	/// This method returns data as `HashMap` unlike underlying function.
 	pub fn attributes(&self) -> collections::HashMap<&str, &str> {
 		let count = self.attribute_count();
-		let mut out = collections::HashMap::with_capacity(count as usize);
+		let mut out = collections::HashMap::with_capacity(count as _);
 		unsafe {
-			let mut arr = vec![ptr::null() as *const raw::c_char; count as usize * 2];
+			let mut arr = vec![ptr::null() as _; count as usize * 2];
 			sys::xmpp_stanza_get_attributes(self.inner, arr.as_mut_ptr(), count * 2);
 			let mut iter = arr.into_iter();
 			loop {
@@ -236,7 +236,7 @@ impl<'cx> Stanza<'cx> {
 	/// Be aware that calling this method changes the internal type of stanza to `XMPP_STANZA_TEXT`.
 	pub fn set_text(&mut self, text: impl AsRef<str>) -> error::EmptyResult {
 		let text = text.as_ref();
-		error::code_to_result(unsafe { sys::xmpp_stanza_set_text_with_size(self.inner, text.as_ptr() as *const raw::c_char, text.len()) })
+		error::code_to_result(unsafe { sys::xmpp_stanza_set_text_with_size(self.inner, text.as_ptr() as _, text.len()) })
 	}
 
 	/// [xmpp_stanza_get_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaceb6c04c44e2387f5918a2edf5853a8c)
@@ -401,11 +401,11 @@ impl<'cx> Stanza<'cx> {
 impl<'cx> fmt::Display for Stanza<'cx> {
 	/// [xmpp_stanza_to_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga49d188283a22e228ebf188aa06cf55b6)
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		let buf: *mut raw::c_char = unsafe { mem::uninitialized() };
+		let mut buf: *mut raw::c_char = unsafe { mem::uninitialized() };
 		let mut buflen: usize = unsafe { mem::uninitialized() };
-		let result = error::code_to_result(unsafe { sys::xmpp_stanza_to_text(self.inner, &buf, &mut buflen) });
+		let result = error::code_to_result(unsafe { sys::xmpp_stanza_to_text(self.inner, &mut buf, &mut buflen) });
 		if result.is_ok() {
-			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as *mut u8, buflen + 1)) };
+			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as _, buflen + 1)) };
 			let out = write!(f, "{}", buf.to_str().map_err(|_| fmt::Error)?);
 			unsafe {
 				self.context().free(buf.as_ptr() as *mut raw::c_char);

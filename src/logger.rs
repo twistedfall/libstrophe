@@ -39,7 +39,7 @@ impl<'cb> Logger<'cb> {
 		let handler = Box::new(handler);
 		Logger::with_inner(Box::into_raw(Box::new(sys::xmpp_log_t {
 			handler: Some(Self::log_handler_cb::<CB>),
-			userdata: as_udata(&*handler) as *mut _,
+			userdata: as_udata(&*handler),
 		})), handler, true)
 	}
 
@@ -68,7 +68,7 @@ impl<'cb> Logger<'cb> {
 		Logger::new(|_, _, _| {})
 	}
 
-	extern "C" fn log_handler_cb<CB>(userdata: *const raw::c_void, level: sys::xmpp_log_level_t, area: *const raw::c_char, msg: *const raw::c_char)
+	extern "C" fn log_handler_cb<CB>(userdata: *mut raw::c_void, level: sys::xmpp_log_level_t, area: *const raw::c_char, msg: *const raw::c_char)
 		where
 			CB: FnMut(LogLevel, &str, &str) + 'cb,
 	{
