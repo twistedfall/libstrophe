@@ -1,8 +1,8 @@
-use std::{alloc, default::Default, mem, ops, os::raw, ptr, sync::Arc, time::Duration};
+use std::{alloc, default::Default, mem, os::raw, ptr, time::Duration};
 
-use super::{FFI, Logger, sys};
+use super::{Connection, FFI, Logger, sys};
 
-/// Proxy to underlying `xmpp_ctx_t` struct.
+/// Proxy to the underlying `xmpp_ctx_t` struct.
 ///
 /// Most of the methods in this struct mimic the methods of the underlying library. So please see
 /// libstrophe docs for [context] and [event loop] plus [ctx.c] and [event.c] sources.
@@ -20,17 +20,18 @@ use super::{FFI, Logger, sys};
 /// [ctx.c]: https://github.com/strophe/libstrophe/blob/0.9.2/src/ctx.c
 /// [event.c]: https://github.com/strophe/libstrophe/blob/0.9.2/src/event.c
 /// [xmpp_ctx_free]: http://strophe.im/libstrophe/doc/0.9.2/group___context.html#ga3ae5f04bc23ab2e7b55760759e21d623
-#[derive(Debug, Hash)]
-pub struct Context<'lg> {
+#[derive(Debug)]
+pub struct Context<'lg, 'cn> {
 	inner: *mut sys::xmpp_ctx_t,
 	owned: bool,
-	_logger: Option<Logger<'lg>>,
+	connections: Vec<Connection<'cn, 'lg>>,
+	logger: Option<Logger<'lg>>,
 	memory: Option<Box<sys::xmpp_mem_t>>,
 }
 
-impl<'lg> Context<'lg> {
+impl<'lg, 'cn> Context<'lg, 'cn> {
 	/// [xmpp_ctx_new](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#gaeb32490f33760a7ffc0f86a0565b43b2)
-	pub fn new(logger: Logger<'lg>) -> Context<'lg> {
+	pub fn new(logger: Logger<'lg>) -> Self {
 		super::init();
 		let memory = Box::new(sys::xmpp_mem_t {
 			alloc: Some(Self::custom_alloc),
@@ -39,7 +40,7 @@ impl<'lg> Context<'lg> {
 			userdata: ptr::null_mut(),
 		});
 		unsafe {
-			Context::with_inner(
+			Self::with_inner(
 				sys::xmpp_ctx_new(memory.as_ref(), logger.as_inner()),
 				true,
 				Some(memory),
@@ -50,37 +51,39 @@ impl<'lg> Context<'lg> {
 
 	/// Shortcut to return a new context with default logger.
 	///
-	/// Equivalent to passing default logger to `Context` constructor. The result is also wrapped in
-	/// `Arc` to allow multiple ownership.
-	pub fn new_with_default_logger<'cx>() -> Arc<Context<'cx>> {
-		Arc::new(Context::new(Logger::default()))
+	/// Equivalent to passing default logger to `Context` constructor.
+	pub fn new_with_default_logger() -> Context<'static, 'cn> {
+		Context::new(Logger::default())
 	}
 
 	/// Shortcut to return a new context with null logger.
 	///
-	/// Equivalent to passing null logger to `Context` constructor. The result is also wrapped in
-	/// `Arc` to allow multiple ownership.
-	pub fn new_with_null_logger<'cx>() -> Arc<Context<'cx>> {
-		Arc::new(Context::new(Logger::new_null()))
+	/// Equivalent to passing null logger to `Context` constructor.
+	pub fn new_with_null_logger() -> Context<'static, 'cn> {
+		Context::new(Logger::new_null())
 	}
 
 	#[inline]
-	unsafe fn with_inner(inner: *mut sys::xmpp_ctx_t, owned: bool, memory: Option<Box<sys::xmpp_mem_t>>, logger: Option<Logger<'lg>>) -> Context<'lg> {
+	unsafe fn with_inner(inner: *mut sys::xmpp_ctx_t, owned: bool, memory: Option<Box<sys::xmpp_mem_t>>, logger: Option<Logger<'lg>>) -> Self {
 		if inner.is_null() {
 			panic!("Cannot allocate memory for Context");
 		}
 		if owned && (memory.is_none() || logger.is_none()) {
 			panic!("Memory and logger must be supplied for owned Context instances");
 		}
-		Context { inner, owned, memory, _logger: logger }
+		Self { inner, owned, connections: Vec::with_capacity(0), memory, logger }
 	}
 
-	pub unsafe fn from_inner_ref(inner: *const sys::xmpp_ctx_t) -> Context<'lg> {
-		Context::from_inner_ref_mut(inner as _)
+	pub(crate) fn consume_connection(&mut self, conn: Connection<'cn, 'lg>) {
+		self.connections.push(conn);
 	}
 
-	pub unsafe fn from_inner_ref_mut(inner: *mut sys::xmpp_ctx_t) -> Context<'lg> {
-		Context::with_inner(inner, false, None, None)
+	pub unsafe fn from_inner_ref(inner: *const sys::xmpp_ctx_t) -> Self {
+		Self::from_inner_ref_mut(inner as _)
+	}
+
+	pub unsafe fn from_inner_ref_mut(inner: *mut sys::xmpp_ctx_t) -> Self {
+		Self::with_inner(inner, false, None, None)
 	}
 
 	pub fn as_inner(&self) -> *mut sys::xmpp_ctx_t { self.inner }
@@ -122,8 +125,8 @@ impl<'lg> Context<'lg> {
 
 	/// [xmpp_set_timeout](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#gab03acfbb7c9aa92f60fedb8f6ca43114)
 	#[cfg(feature = "libstrophe-0_9_2")]
-	pub fn set_timeout(&self, timeout: Duration) {
-		unsafe  {
+	pub fn set_timeout(&mut self, timeout: Duration) {
+		unsafe {
 			sys::xmpp_ctx_set_timeout(self.inner, super::duration_as_ms(timeout))
 		}
 	}
@@ -155,8 +158,7 @@ impl<'lg> Context<'lg> {
 	}
 
 	/// [xmpp_jid_new](https://github.com/strophe/libstrophe/blob/0.9.2/src/jid.c#L21)
-	pub fn jid_new(&self, node: Option<&str>, domain: impl AsRef<str>, resource: Option<&str>) -> Option<String>
-	{
+	pub fn jid_new(&self, node: Option<&str>, domain: impl AsRef<str>, resource: Option<&str>) -> Option<String> {
 		let node = FFI(node).send();
 		let domain = FFI(domain.as_ref()).send();
 		let resource = FFI(resource).send();
@@ -198,46 +200,24 @@ impl<'lg> Context<'lg> {
 	}
 }
 
-impl<'lg> PartialEq for Context<'lg> {
+impl<'lg, 'cn> PartialEq for Context<'lg, 'cn> {
 	fn eq(&self, other: &Context) -> bool {
 		self.inner == other.inner
 	}
 }
 
-impl<'lg> Eq for Context<'lg> {}
+impl<'lg, 'cn> Eq for Context<'lg, 'cn> {}
 
-impl<'lg> Drop for Context<'lg> {
+impl<'lg, 'cn> Drop for Context<'lg, 'cn> {
 	/// [xmpp_ctx_free](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#ga3ae5f04bc23ab2e7b55760759e21d623)
 	fn drop(&mut self) {
 		unsafe {
 			if self.owned {
+				self.connections.truncate(0);
 				sys::xmpp_ctx_free(self.inner);
 			}
 		}
 	}
 }
 
-unsafe impl<'lg> Send for Context<'lg> {}
-
-/// Wrapper for constant ref to `Arc<Context>`, implements `Deref` to `Arc<Context>`.
-///
-/// You can obtain such object by calling e.g. [`context()`] method of [`Connection`].
-///
-/// [`context()`]: struct.Connection.html#method.context
-/// [`Connection`]: struct.Connection.html
-#[derive(Debug, Hash, PartialEq)]
-pub struct ContextRef<'lg>(Arc<Context<'lg>>);
-
-impl<'lg> ops::Deref for ContextRef<'lg> {
-	type Target = Context<'lg>;
-
-	fn deref(&self) -> &Self::Target {
-		&self.0
-	}
-}
-
-impl<'lg> Into<ContextRef<'lg>> for Arc<Context<'lg>> {
-	fn into(self) -> ContextRef<'lg> {
-		ContextRef(self)
-	}
-}
+unsafe impl<'lg, 'cn> Send for Context<'lg, 'cn> {}

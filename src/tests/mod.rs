@@ -1,13 +1,14 @@
 extern crate env_logger;
 extern crate matches;
 
-use std::{mem, rc::Rc, sync::Arc, time::Duration};
+use std::{mem, rc::Rc, time::Duration};
+
 use super::*;
 
 #[test]
 fn examples() {
-//	super::examples::bot_fn_safe::main();
-//	super::examples::bot_closure_unsafe::main();
+//	super::examples::bot_fn::main();
+//	super::examples::bot_closure::main();
 }
 
 #[test]
@@ -34,12 +35,12 @@ fn null_logger() {
 fn custom_logger() {
 	let mut i = 0;
 	{
-		let ctx = Arc::new(Context::new(Logger::new(|_, _, _| {
+		let ctx = Context::new(Logger::new(|_, _, _| {
 			i = i + 1;
-		})));
-		let mut conn = Connection::new(ctx.clone());
+		}));
+		let mut conn = Connection::new(ctx);
 		conn.set_jid("test-JID@127.50.60.70");
-		conn.connect_client(None, None, |_, _, _, _| {}).unwrap();
+		let ctx = conn.connect_client(None, None, |_, _, _, _, _| {}).unwrap();
 		ctx.run_once(Duration::from_secs(1));
 	}
 	assert_eq!(i, 5);
@@ -47,71 +48,70 @@ fn custom_logger() {
 
 #[test]
 fn conn_client_wo_jid() {
-	let ctx = Context::new_with_null_logger();
-	let mut conn = Connection::new(ctx.clone());
+	let conn = Connection::new(Context::new_with_null_logger());
 	// no JID supplied
-	assert_matches!(conn.connect_client(None, None, |_, _, _, _| {}).map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
+	assert_matches!(conn.connect_client(None, None, |_, _, _, _, _| {}).map_err(|e| e.error.downcast().unwrap()), Err(error::Error::InvalidOperation));
 }
 
 #[test]
 fn conn_client() {
-	let conn_handler = |conn: &mut Connection,
+	let conn_handler = |ctx: &Context,
+	                    _: &mut Connection,
 	                    event: ConnectionEvent,
-	                    _error: i32,
-	                    _stream_error: Option<&error::StreamError>, | {
+	                    _: i32,
+	                    _: Option<&error::StreamError>, | {
 		assert_eq!(event, ConnectionEvent::XMPP_CONN_DISCONNECT);
-		conn.context().stop();
+		ctx.stop();
 	};
 
-	let ctx = Context::new_with_null_logger();
 	// ref closure
 	{
-		let mut conn = Connection::new(ctx.clone());
+		let mut conn = Connection::new(Context::new_with_null_logger());
 		conn.set_jid("test-JID@127.50.60.70");
-		conn.connect_client(None, None, &conn_handler).unwrap();
+		let ctx = conn.connect_client(None, None, &conn_handler).unwrap();
 		ctx.run();
 	}
 
 	// own closure
 	{
-		let mut conn = Connection::new(ctx.clone());
+		let mut conn = Connection::new(Context::new_with_null_logger());
 		conn.set_jid("test-JID@127.50.60.70");
-		conn.connect_client(None, None, conn_handler).unwrap();
+		let ctx = conn.connect_client(None, None, conn_handler).unwrap();
 		ctx.run();
 	}
 }
 
 #[test]
 fn conn_raw() {
-	let conn_handler = |conn: &mut Connection,
+	let conn_handler = |ctx: &Context,
+	                    _: &mut Connection,
 	                    event: ConnectionEvent,
-	                    _error: i32,
-	                    _stream_error: Option<&error::StreamError>, | {
+	                    _: i32,
+	                    _: Option<&error::StreamError>, | {
 		assert_eq!(event, ConnectionEvent::XMPP_CONN_DISCONNECT);
-		conn.context().stop();
+		ctx.stop();
 	};
 
-	let ctx = Context::new_with_null_logger();
 	// ref closure
 	{
-		let mut conn = Connection::new(ctx.clone());
+		let mut conn = Connection::new(Context::new_with_null_logger());
 		conn.set_jid("test-JID@127.50.60.70");
-		conn.connect_raw(None, None, &conn_handler).unwrap();
+		let ctx = conn.connect_raw(None, None, &conn_handler).unwrap();
 		ctx.run();
 	}
 
 	// own closure
 	{
-		let mut conn = Connection::new(ctx.clone());
+		let mut conn = Connection::new(Context::new_with_null_logger());
 		conn.set_jid("test-JID@127.50.60.70");
-		conn.connect_raw(None, None, conn_handler).unwrap();
+		let ctx = conn.connect_raw(None, None, conn_handler).unwrap();
 		ctx.run();
 	}
 }
 
 #[test]
 fn timed_handler() {
-	let timed_handler = |_conn: &mut Connection| { false };
+	let timed_handler = |_: &Context, _: &mut Connection| { false };
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
 	let handle = conn.timed_handler_add(&timed_handler, Duration::from_secs(1)).unwrap();
@@ -121,8 +121,7 @@ fn timed_handler() {
 
 #[test]
 fn stanza_handler() {
-	let stanza_handler = |_conn: &mut Connection,
-	                      _stanza: &Stanza| { false };
+	let stanza_handler = |_: &Context, _: &mut Connection, _: &Stanza| { false };
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
 	let handle = conn.handler_add(&stanza_handler, Some("ns"), None, None).unwrap();
@@ -134,8 +133,7 @@ fn stanza_handler() {
 
 #[test]
 fn id_handler() {
-	let id_handler = |_conn: &mut Connection,
-	                  _stanza: &Stanza| { false };
+	let id_handler = |_: &Context, _: &mut Connection, _: &Stanza| { false };
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
 	let h = conn.id_handler_add(&id_handler, "test").unwrap();
@@ -145,12 +143,12 @@ fn id_handler() {
 
 #[test]
 fn stanza_handler_in_con() {
-	let stanza_handler = |_con: &mut Connection,
-	                      _stanza: &Stanza| { false };
-	let con_handler = move |conn: &mut Connection,
-	                         _event: ConnectionEvent,
-	                         _error: i32,
-	                         _stream_error: Option<&error::StreamError>, | {
+	let stanza_handler = |_: &Context, _: &mut Connection, _: &Stanza| { false };
+	let con_handler = move |_: &Context,
+	                        conn: &mut Connection,
+	                        _: ConnectionEvent,
+	                        _: i32,
+	                        _: Option<&error::StreamError>, | {
 		conn.handler_add(stanza_handler, None, None, None);
 	};
 	let ctx = Context::new_with_null_logger();
@@ -178,21 +176,6 @@ fn jid() {
 
 	assert_eq!(Some("test".to_string()), ctx.jid_resource(&jid));
 	assert_eq!(None, ctx.jid_resource(&jid_domain));
-}
-
-#[test]
-fn context_eq_test() {
-	let ctx = Context::new_with_null_logger();
-
-	{
-		let stanza = Stanza::new(&ctx);
-		assert_eq!(*ctx, *stanza.context());
-	}
-
-	{
-		let conn = Connection::new(ctx.clone());
-		assert_eq!(*ctx, *conn.context());
-	}
 }
 
 #[test]
@@ -266,13 +249,14 @@ fn stanza() {
 #[cfg(feature = "creds-test")]
 mod with_credentials {
 	use std::{cell::{Cell, RefCell}};
+
 	use super::*;
 
 	// testing is done on vanilla local ejabberd-17.04
 	const JID: &'static str = "";
 	const PASS: &'static str = "";
 
-	fn make_conn<'c>() -> Connection<'c> {
+	fn make_conn<'cn>() -> Connection<'cn, 'static> {
 		let mut conn = Connection::new(Context::new_with_default_logger());
 		conn.set_jid(JID);
 		conn.set_pass(PASS);
@@ -286,7 +270,7 @@ mod with_credentials {
 		{
 			let i_incrementer = {
 				let i = i.clone();
-				move |_: &mut Connection, _: &Stanza| {
+				move |_: &Context, _: &mut Connection, _: &Stanza| {
 					i.set(i.get() + 1);
 					false
 				}
@@ -294,33 +278,32 @@ mod with_credentials {
 
 			// zero sized handlers are called
 			{
-				let zero_sized = |conn: &mut Connection, _: &Stanza| {
-					let ctx = conn.context();
-					let pres = Stanza::new_presence(&ctx);
+				let zero_sized = |ctx: &Context, conn: &mut Connection, _: &Stanza| {
+					let pres = Stanza::new_presence(ctx);
 					conn.send(&pres);
 					return false;
 				};
 				assert_eq!(mem::size_of_val(&zero_sized), 0);
 
-				let mut conn = make_conn();
-				conn.connect_client(None, None, {
+				let conn = make_conn();
+				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					move |conn, evt, _, _| {
+					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
 								conn.handler_add(zero_sized, None, None, None);
 								conn.handler_add(i_incrementer.clone(), None, Some("presence"), None);
-								conn.timed_handler_add(|conn| {
+								conn.timed_handler_add(|_, conn| {
 									conn.disconnect();
 									false
 								}, Duration::from_secs(1));
 							}
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => conn.context().stop(),
+							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
 							_ => ()
 						}
 					}
 				}).unwrap();
-				conn.context().run();
+				ctx.run();
 			}
 			assert_eq!(i.get(), 1);
 
@@ -329,45 +312,43 @@ mod with_credentials {
 			{
 				assert_ne!(mem::size_of_val(&i_incrementer), 0);
 
-				let mut conn = make_conn();
-				conn.connect_client(None, None, {
+				let conn = make_conn();
+				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					move |conn, evt, _, _| {
+					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
 								conn.handler_add(i_incrementer.clone(), None, Some("presence"), None);
-								let ctx = conn.context();
-								let pres = Stanza::new_presence(&ctx);
+								let pres = Stanza::new_presence(ctx);
 								conn.send(&pres);
-								conn.timed_handler_add(|conn| {
+								conn.timed_handler_add(|_, conn| {
 									conn.disconnect();
 									false
 								}, Duration::from_secs(1));
 							}
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => conn.context().stop(),
+							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
 							_ => ()
 						}
 					}
 				}).unwrap();
-				conn.context().run();
+				ctx.run();
 			}
 			assert_eq!(i.get(), 1);
 
 			// handlers_clear clears zs and non-zs handlers
 			i.set(0);
 			{
-				let zero_sized = |conn: &mut Connection, _: &Stanza| {
-					let ctx = conn.context();
-					let pres = Stanza::new_presence(&ctx);
+				let zero_sized = |ctx: &Context, conn: &mut Connection, _: &Stanza| {
+					let pres = Stanza::new_presence(ctx);
 					conn.send(&pres);
 					return false;
 				};
 				assert_eq!(mem::size_of_val(&zero_sized), 0);
 
-				let mut conn = make_conn();
-				conn.connect_client(None, None, {
+				let conn = make_conn();
+				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					move |conn, evt, _, _| {
+					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
 								conn.handler_add(zero_sized.clone(), None, None, None);
@@ -376,17 +357,17 @@ mod with_credentials {
 								conn.handler_add(i_incrementer.clone(), None, None, None);
 								conn.handlers_clear();
 								conn.handler_add(i_incrementer.clone(), None, Some("presence"), None);
-								conn.timed_handler_add(|conn| {
+								conn.timed_handler_add(|_, conn| {
 									conn.disconnect();
 									false
 								}, Duration::from_secs(1));
 							}
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => conn.context().stop(),
+							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
 							_ => ()
 						}
 					}
 				}).unwrap();
-				conn.context().run();
+				ctx.run();
 			}
 			assert_eq!(i.get(), 0);
 		}
@@ -402,9 +383,9 @@ mod with_credentials {
 			let mut conn = Connection::new(ctx);
 			conn.set_jid(JID);
 			conn.set_pass(PASS);
-			conn.connect_client(None, None, {
+			let ctx = conn.connect_client(None, None, {
 				let flags = flags.clone();
-				move |conn, evt, _, _| {
+				move |ctx, conn, evt, _, _| {
 					match evt {
 						ConnectionEvent::XMPP_CONN_CONNECT => {
 							flags.borrow_mut().0 += 1;
@@ -415,7 +396,7 @@ mod with_credentials {
 						}
 						ConnectionEvent::XMPP_CONN_DISCONNECT => {
 							flags.borrow_mut().2 += 1;
-							conn.context().stop();
+							ctx.stop();
 						}
 						ConnectionEvent::XMPP_CONN_FAIL => {
 							flags.borrow_mut().3 += 1;
@@ -425,69 +406,23 @@ mod with_credentials {
 			}).unwrap();
 
 			// can't connect_client twice until disconnect
-			let res = conn.connect_client(None, None, |_, _, _, _| {});
-			assert_matches!(res.map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
+//			let res = conn.connect_client(None, None, |_, _, _, _| {});
+//			assert_matches!(res.map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
 
-			conn.context().run();
+			ctx.run();
 
 			// can connect again after disconnect
-			conn.connect_client(None, None, |conn, evt, _, _| {
-				match evt {
-					ConnectionEvent::XMPP_CONN_CONNECT => conn.disconnect(),
-					ConnectionEvent::XMPP_CONN_DISCONNECT => conn.context().stop(),
-					_ => {}
-				}
-			}).unwrap();
-
-			conn.context().run();
+//			let ctx = conn.connect_client(None, None, |conn, evt, _, _| {
+//				match evt {
+//					ConnectionEvent::XMPP_CONN_CONNECT => conn.disconnect(),
+//					ConnectionEvent::XMPP_CONN_DISCONNECT => conn.context().stop(),
+//					_ => {}
+//				}
+//			}).unwrap();
+//
+//			ctx.run();
 		}
 		assert_eq!(Rc::try_unwrap(flags).unwrap().into_inner(), (1, 0, 1, 0));
-	}
-
-	#[test]
-	fn must_fail() {
-		#![allow(unreachable_code)]
-		return;
-		use std::thread;
-		let internal = || {
-			let ctx = Context::new_with_default_logger();
-			let mut conn = Connection::new(ctx);
-			let h = conn.handler_add(|_: &mut Connection, _: &Stanza| false, None, None, None);
-			h
-		};
-		let _h = internal();
-		env_logger::init();
-
-		// e.g. it's possible for Connection to consume context on ::new() and release it on ::connect_client()
-		let ctx = Context::new_with_default_logger();
-		let mut conn = Connection::new(ctx.clone());
-		conn.set_jid(JID);
-		conn.set_pass(PASS);
-		conn.connect_client(None, None, |con, evt, _, _| {
-			match evt {
-				ConnectionEvent::XMPP_CONN_CONNECT => {
-					con.timed_handler_add(|c| {
-						eprintln!("!!!!!!!!!!!!!!!!");
-						let ctx = c.context();
-						let mut pres = Stanza::new(&ctx);
-						pres.set_name("message").unwrap();
-						pres.set_stanza_type("normal").unwrap();
-						c.send(&pres);
-						true
-					}, Duration::from_millis(100));
-				}
-				ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => con.context().stop(),
-				_ => {},
-			}
-
-		}).unwrap();
-		thread::spawn({
-			move || {
-				let _a = conn;
-				thread::sleep(Duration::from_secs(120));
-			}
-		});
-		ctx.run();
 	}
 
 	#[test]
@@ -495,7 +430,7 @@ mod with_credentials {
 		let i = Rc::new(Cell::new(0));
 
 		let do_common_stuff = |conn: &mut Connection| {
-			conn.timed_handler_add(|conn| {
+			conn.timed_handler_add(|_, conn| {
 				conn.disconnect();
 				false
 			}, Duration::from_secs(1));
@@ -504,7 +439,7 @@ mod with_credentials {
 		{
 			let i_incrementer = {
 				let i = i.clone();
-				move |_: &mut Connection| {
+				move |_: &Context, _: &mut Connection| {
 					i.set(i.get() + 1);
 					true
 				}
@@ -512,22 +447,22 @@ mod with_credentials {
 
 			// timed trigger, inside
 			{
-				let mut conn = make_conn();
-				conn.connect_client(None, None, {
+				let conn = make_conn();
+				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
 					let do_common_stuff = do_common_stuff.clone();
-					move |conn, evt, _, _| {
+					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
 								conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1));
 								do_common_stuff(conn);
 							}
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => conn.context().stop(),
+							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
 							_ => {},
 						}
 					}
 				}).unwrap();
-				conn.context().run();
+				ctx.run();
 				assert!(i.get() > 0);
 				assert!(i.get() < 1000);
 			}
@@ -537,21 +472,21 @@ mod with_credentials {
 			{
 				let mut conn = make_conn();
 				conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1));
-				conn.connect_client(None, None, {
+				let ctx = conn.connect_client(None, None, {
 					let do_common_stuff = do_common_stuff.clone();
-					move |conn, evt, _, _| {
+					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
 								do_common_stuff(conn);
 							},
 							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
-								conn.context().stop();
+								ctx.stop();
 							},
 							_ => {},
 						}
 					}
 				}).unwrap();
-				conn.context().run();
+				ctx.run();
 				assert!(i.get() > 0);
 				assert!(i.get() < 1000);
 			}
@@ -559,11 +494,11 @@ mod with_credentials {
 			// delete
 			i.set(0);
 			{
-				let mut conn = make_conn();
-				conn.connect_client(None, None, {
+				let conn = make_conn();
+				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
 					let do_common_stuff = do_common_stuff.clone();
-					move |conn, evt, _, _| {
+					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
 								let handler = conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1)).unwrap();
@@ -571,24 +506,24 @@ mod with_credentials {
 								do_common_stuff(conn);
 							},
 							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
-								conn.context().stop();
+								ctx.stop();
 							},
 							_ => {},
 						}
 					}
 				}).unwrap();
-				conn.context().run();
+				ctx.run();
 				assert_eq!(i.get(), 0);
 			}
 
 			// clear
 			i.set(0);
 			{
-				let mut conn = make_conn();
-				conn.connect_client(None, None, {
+				let conn = make_conn();
+				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
 					let do_common_stuff = do_common_stuff.clone();
-					move |conn, evt, _, _| {
+					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
 								conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1));
@@ -596,13 +531,13 @@ mod with_credentials {
 								do_common_stuff(conn);
 							},
 							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
-								conn.context().stop();
+								ctx.stop();
 							},
 							_ => {},
 						}
 					}
 				}).unwrap();
-				conn.context().run();
+				ctx.run();
 				assert_eq!(i.get(), 0);
 			}
 		}
@@ -627,8 +562,7 @@ mod with_credentials {
 	fn id_handler() {
 		let i = Rc::new(Cell::new(0));
 
-		let do_common_stuff = |conn: &mut Connection| {
-			let ctx = conn.context();
+		let do_common_stuff = |ctx: &Context, conn: &mut Connection| {
 			let mut iq = Stanza::new_iq(&ctx, Some("get"), Some("get_roster"));
 			let mut query = Stanza::new(&ctx);
 			query.set_name("query").unwrap();
@@ -636,7 +570,7 @@ mod with_credentials {
 			iq.add_child(query).unwrap();
 			conn.send(&iq);
 
-			conn.timed_handler_add(|conn| {
+			conn.timed_handler_add(|_, conn| {
 				conn.disconnect();
 				false
 			}, Duration::from_secs(1));
@@ -645,7 +579,7 @@ mod with_credentials {
 		{
 			let i_incrementer = {
 				let i = i.clone();
-				move |_: &mut Connection, _: &Stanza| {
+				move |_: &Context, _: &mut Connection, _: &Stanza| {
 					i.set(i.get() + 1);
 					true
 				}
@@ -653,33 +587,32 @@ mod with_credentials {
 
 			// iq trigger, inside
 			{
-				let mut conn = make_conn();
-				conn.connect_client(None, None, {
+				let conn = make_conn();
+				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
 					let do_common_stuff = do_common_stuff.clone();
-					move |conn, evt, _, _| {
+					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
 								conn.id_handler_add(i_incrementer.clone(), "get_roster");
 
-								let ctx = conn.context();
-								let mut iq = Stanza::new_iq(&ctx, Some("get"), Some("get_roster1"));
-								let mut query = Stanza::new(&ctx);
+								let mut iq = Stanza::new_iq(ctx, Some("get"), Some("get_roster1"));
+								let mut query = Stanza::new(ctx);
 								query.set_name("query").unwrap();
 								query.set_ns("jabber:iq:roster").unwrap();
 								iq.add_child(query).unwrap();
 								conn.send(&iq);
 
-								do_common_stuff(conn);
+								do_common_stuff(ctx, conn);
 							},
 							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
-								conn.context().stop();
+								ctx.stop();
 							},
 							_ => {},
 						}
 					}
 				}).unwrap();
-				conn.context().run();
+				ctx.run();
 				assert_eq!(i.get(), 1);
 			}
 
@@ -688,80 +621,79 @@ mod with_credentials {
 			{
 				let mut conn = make_conn();
 				conn.id_handler_add(i_incrementer.clone(), "get_roster");
-				conn.connect_client(None, None, {
+				let ctx = conn.connect_client(None, None, {
 					let do_common_stuff = do_common_stuff.clone();
-					move |conn, evt, _, _| {
+					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
-								let ctx = conn.context();
-								let mut iq = Stanza::new_iq(&ctx, Some("get"), Some("get_roster1"));
-								let mut query = Stanza::new(&ctx);
+								let mut iq = Stanza::new_iq(ctx, Some("get"), Some("get_roster1"));
+								let mut query = Stanza::new(ctx);
 								query.set_name("query").unwrap();
 								query.set_ns("jabber:iq:roster").unwrap();
 								iq.add_child(query).unwrap();
 								conn.send(&iq);
 
-								do_common_stuff(conn);
+								do_common_stuff(ctx, conn);
 							},
 							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
-								conn.context().stop();
+								ctx.stop();
 							},
 							_ => {},
 						}
 					}
 				}).unwrap();
-				conn.context().run();
+				ctx.run();
 				assert_eq!(i.get(), 1);
 			}
 
 			// delete
 			i.set(0);
 			{
-				let mut conn = make_conn();
-				conn.connect_client(None, None, {
+				let conn = make_conn();
+				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
 					let do_common_stuff = do_common_stuff.clone();
-					move |conn, evt, _, _| {
+					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
 								let handler = conn.id_handler_add(i_incrementer.clone(), "get_roster").unwrap();
 								conn.id_handler_delete(handler);
 
-								do_common_stuff(conn);
+								do_common_stuff(ctx, conn);
 							},
 							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
-								conn.context().stop();
+								ctx.stop();
 							},
 							_ => {},
 						}
 					}
 				}).unwrap();
-				conn.context().run();
+				ctx.run();
 				assert_eq!(i.get(), 0);
 			}
 
 			// clear
 			i.set(0);
 			{
-				let mut conn = make_conn();
-				conn.connect_client(None, None, {
+				let conn = make_conn();
+				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
 					let do_common_stuff = do_common_stuff.clone();
-					move |conn, evt, _, _| {
+					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
 								conn.id_handler_add(i_incrementer.clone(), "get_roster").unwrap();
 								conn.id_handlers_clear();
-								do_common_stuff(conn);
+								do_common_stuff(ctx, conn);
 							},
 							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
-								conn.context().stop();
+								ctx.stop();
 							},
 							_ => {},
 						}
 					}
 				}).unwrap();
-				conn.context().run();
+				ctx.run();
 				assert_eq!(i.get(), 0);
 			}
 		}
@@ -772,13 +704,13 @@ mod with_credentials {
 	fn handler() {
 		let i = Rc::new(Cell::new(0));
 
-		let default_con_handler = |conn: &mut Connection, evt: ConnectionEvent, _: i32, _: Option<&error::StreamError>| {
+		let default_con_handler = |ctx: &Context, conn: &mut Connection, evt: ConnectionEvent, _: i32, _: Option<&error::StreamError>| {
 			match evt {
 				ConnectionEvent::XMPP_CONN_CONNECT => {
 					conn.disconnect();
 				},
 				ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
-					conn.context().stop();
+					ctx.stop();
 				},
 				_ => {},
 			}
@@ -786,7 +718,7 @@ mod with_credentials {
 
 		let i_incrementer = {
 			let i = i.clone();
-			move |_: &mut Connection, _: &Stanza| {
+			move |_: &Context, _: &mut Connection, _: &Stanza| {
 				i.set(i.get() + 1);
 				true
 			}
@@ -795,9 +727,9 @@ mod with_credentials {
 		// handler call stanza name filter
 		{
 			let mut conn = make_conn();
-			conn.connect_client(None, None, default_con_handler).unwrap();
 			conn.handler_add(i_incrementer.clone(), None, Some("iq"), None);
-			conn.context().run();
+			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
+			ctx.run();
 			assert_eq!(i.get(), 1);
 		}
 
@@ -805,9 +737,9 @@ mod with_credentials {
 		i.set(0);
 		{
 			let mut conn = make_conn();
-			conn.connect_client(None, None, default_con_handler).unwrap();
 			conn.handler_add(i_incrementer.clone(), None, Some("non-existent"), None);
-			conn.context().run();
+			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
+			ctx.run();
 			assert_eq!(i.get(), 0);
 		}
 
@@ -815,10 +747,10 @@ mod with_credentials {
 		i.set(0);
 		{
 			let mut conn = make_conn();
-			conn.connect_client(None, None, default_con_handler).unwrap();
 			let handler = conn.handler_add(i_incrementer.clone(), None, None, None).unwrap();
 			conn.handler_delete(handler);
-			conn.context().run();
+			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
+			ctx.run();
 			assert_eq!(i.get(), 0);
 		}
 
@@ -826,10 +758,10 @@ mod with_credentials {
 		i.set(0);
 		{
 			let mut conn = make_conn();
-			conn.connect_client(None, None, default_con_handler).unwrap();
 			conn.handler_add(i_incrementer.clone(), None, None, None);
 			conn.handlers_clear();
-			conn.context().run();
+			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
+			ctx.run();
 			assert_eq!(i.get(), 0);
 		}
 
@@ -837,10 +769,10 @@ mod with_credentials {
 		i.set(0);
 		{
 			let mut conn = make_conn();
-			conn.connect_client(None, None, default_con_handler).unwrap();
 			assert!(matches!(conn.handler_add(&i_incrementer, None, Some("iq"), None,), Some(..)));
 			assert!(matches!(conn.handler_add(&i_incrementer, None, Some("iq"), None), None));
-			conn.context().run();
+			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
+			ctx.run();
 			assert_eq!(i.get(), 1);
 		}
 
@@ -848,10 +780,10 @@ mod with_credentials {
 		i.set(0);
 		{
 			let mut conn = make_conn();
-			conn.connect_client(None, None, default_con_handler).unwrap();
 			assert!(matches!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None,), Some(..)));
 			assert!(matches!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None), None));
-			conn.context().run();
+			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
+			ctx.run();
 			assert_eq!(i.get(), 1);
 		}
 	}

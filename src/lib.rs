@@ -59,18 +59,19 @@
 //!
 //! # Examples
 //! ```
-//! let connection_handler = |conn: &mut libstrophe::Connection,
+//! let connection_handler = |ctx: &libstrophe::Context,
+//!                           _conn: &mut libstrophe::Connection,
 //!                           _evt: libstrophe::ConnectionEvent,
 //!                           _error: i32,
 //!                           _stream_error: Option<&libstrophe::error::StreamError>| {
-//!    conn.context().stop();
+//!    ctx.stop();
 //! };
 //!
 //! let ctx = libstrophe::Context::new_with_default_logger();
-//! let mut conn = libstrophe::Connection::new(ctx.clone());
+//! let mut conn = libstrophe::Connection::new(ctx);
 //! conn.set_jid("example@127.0.0.1");
 //! conn.set_pass("password");
-//! conn.connect_client(None, None, connection_handler).unwrap();
+//! let ctx = conn.connect_client(None, None, connection_handler).unwrap();
 //! ctx.run();
 //! libstrophe::shutdown();
 //! ```
@@ -109,7 +110,7 @@ extern crate log;
 extern crate matches;
 
 pub use connection::{Connection, HandlerId, IdHandlerId, TimedHandlerId};
-pub use context::{Context, ContextRef};
+pub use context::Context;
 use ffi_types::FFI;
 pub use logger::Logger;
 pub use stanza::{Stanza, StanzaMutRef, StanzaRef};

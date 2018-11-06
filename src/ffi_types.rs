@@ -19,17 +19,17 @@ impl<T: num::Zero + PartialEq> FFI<T> {
 	}
 }
 
-impl<'s> FFI<*const raw::c_char> {
+impl FFI<*const raw::c_char> {
 	/// The lifetime of the returned reference is bound to "lifetime" of the pointer
 	#[inline]
-	pub unsafe fn receive(self) -> Option<&'s str> {
+	pub unsafe fn receive<'s>(self) -> Option<&'s str> {
 		self.0.as_ref().map(|x| {
 			ffi::CStr::from_ptr(x).to_str().expect("Cannot convert non-null pointer into &str")
 		})
 	}
 }
 
-impl<'s> FFI<*mut raw::c_char> {
+impl FFI<*mut raw::c_char> {
 	#[inline]
 	pub unsafe fn receive_with_free<CB>(self, free: CB) -> Option<String>
 		where
@@ -59,7 +59,7 @@ pub enum Nullable<T> {
 	Val(T),
 }
 
-impl<'s> Nullable<ffi::CString> {
+impl Nullable<ffi::CString> {
 	#[inline]
 	pub fn as_ptr(&self) -> *const raw::c_char {
 		match *self {

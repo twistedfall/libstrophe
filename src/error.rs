@@ -1,5 +1,6 @@
 extern crate failure;
 
+use super::Connection;
 use std::{error, fmt, result, str};
 use std::error::Error as StdError;
 use super::{Stanza, StanzaMutRef, sys};
@@ -13,6 +14,12 @@ pub enum Error {
 	InvalidOperation,
 	#[fail(display = "Internal error")]
 	InternalError,
+}
+
+#[derive(Debug)]
+pub struct ConnectError<'cb, 'cx>{
+	pub conn: Connection<'cb, 'cx>,
+	pub error: failure::Error,
 }
 
 /// `Result` with failure `Error`
@@ -33,23 +40,22 @@ impl From<i32> for Error {
 }
 
 /// Converts library-specific error code into an `EmptyResult`, for internal use
-pub fn code_to_result(code: i32) -> EmptyResult {
+pub(crate) fn code_to_result(code: i32) -> EmptyResult {
 	match code {
 		sys::XMPP_EOK => Ok(()),
 		_ => Err(Error::from(code).into()),
 	}
 }
 
-// todo covert to failure maybe?
 #[derive(Debug)]
-pub struct StreamError<'i> {
+pub struct StreamError<'t, 'cx, 'cn> {
 	pub typ: sys::xmpp_error_type_t,
-	pub text: Option<&'i str>,
-	pub stanza: StanzaMutRef<'i>,
+	pub text: Option<&'t str>,
+	pub stanza: StanzaMutRef<'cx, 'cn>,
 }
 
-impl<'i> From<&'i sys::xmpp_stream_error_t> for StreamError<'i> {
-	fn from(inner: &'i sys::xmpp_stream_error_t) -> Self {
+impl<'t, 'cx, 'cn> From<&'t sys::xmpp_stream_error_t> for StreamError<'t, 'cx, 'cn> {
+	fn from(inner: &'t sys::xmpp_stream_error_t) -> Self {
 		StreamError {
 			typ: inner.type_,
 			text: unsafe { FFI(inner.text as _).receive() },
@@ -58,13 +64,13 @@ impl<'i> From<&'i sys::xmpp_stream_error_t> for StreamError<'i> {
 	}
 }
 
-impl<'i> fmt::Display for StreamError<'i> {
+impl<'t, 'cx, 'cn> fmt::Display for StreamError<'t, 'cx, 'cn> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}{}", self.description(), self.text.as_ref().map_or_else(|| "".into(), |x| format!(": {}", x)))
 	}
 }
 
-impl<'i> error::Error for StreamError<'i> {
+impl<'i, 'cx, 'cn> error::Error for StreamError<'i, 'cx, 'cn> {
 	fn description(&self) -> &str {
 		match self.typ {
 			sys::xmpp_error_type_t::XMPP_SE_BAD_FORMAT => "Bad format",
