@@ -264,8 +264,8 @@ impl<'cb> Connection<'cb> {
 	{
 		let alt_host = FFI(alt_host).send();
 		let alt_port: Nullable<_> = alt_port.into().into();
-		if let None = self.jid() {
-			bail!(error::ErrorKind::InvalidOperation);
+		if self.jid().is_none() {
+			return Err(error::Error::InvalidOperation.into());
 		}
 		let callback = Self::connection_handler_cb::<CB>;
 		let new_handler = Some(self.make_fat_handler(Box::new(handler) as _, callback as _, ()));
@@ -319,8 +319,8 @@ impl<'cb> Connection<'cb> {
 	{
 		let alt_host = FFI(alt_host).send();
 		let alt_port: Nullable<_> = alt_port.into().into();
-		if let None = self.jid() {
-			bail!(error::ErrorKind::InvalidOperation);
+		if self.jid().is_none() {
+			return Err(error::Error::InvalidOperation.into());
 		}
 		let callback = Self::connection_handler_cb::<CB>;
 		let new_handler = Some(self.make_fat_handler(Box::new(handler) as _, callback as _, ()));

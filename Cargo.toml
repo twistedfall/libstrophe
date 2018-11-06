@@ -12,7 +12,8 @@ repository = "https://github.com/twistedfall/libstrophe"
 
 [dependencies]
 bitflags = "1.0"
-error-chain = "0.12"
+failure = "0.1"
+failure_derive = "0.1"
 log = {version = "0.4", optional = true}
 num = "0.2"
 libstrophe-sys-bindgen = "2.0"

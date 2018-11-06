@@ -97,8 +97,9 @@
 
 #[macro_use]
 extern crate bitflags;
+extern crate failure;
 #[macro_use]
-extern crate error_chain;
+extern crate failure_derive;
 extern crate libstrophe_sys_bindgen as sys;
 #[cfg(feature = "rust-log")]
 #[macro_use]

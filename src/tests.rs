@@ -50,7 +50,7 @@ fn conn_client_wo_jid() {
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx.clone());
 	// no JID supplied
-	assert_matches!(conn.connect_client(None, None, |_, _, _, _| {}), Err(error::Error(error::ErrorKind::InvalidOperation, ..)));
+	assert_matches!(conn.connect_client(None, None, |_, _, _, _| {}).map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
 }
 
 #[test]
@@ -200,9 +200,9 @@ fn stanza_err() {
 	let ctx = Context::new_with_null_logger();
 
 	let mut stanza = Stanza::new(&ctx);
-	assert_matches!(stanza.to_text(), Err(error::Error(error::ErrorKind::InvalidOperation, ..)));
+	assert_matches!(stanza.to_text().map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
 	stanza.set_name("test").unwrap();
-	assert_matches!(stanza.set_body("body"), Err(error::Error(error::ErrorKind::InvalidOperation, ..)));
+	assert_matches!(stanza.set_body("body").map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
 }
 
 #[test]
@@ -426,7 +426,7 @@ mod with_credentials {
 
 			// can't connect_client twice until disconnect
 			let res = conn.connect_client(None, None, |_, _, _, _| {});
-			assert_matches!(res, Err(error::Error(error::ErrorKind::InvalidOperation, ..)));
+			assert_matches!(res.map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
 
 			conn.context().run();
 

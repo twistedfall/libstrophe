@@ -1,36 +1,32 @@
+extern crate failure;
+
 use std::{error, fmt, result, str};
 use std::error::Error as StdError;
 use super::{Stanza, StanzaMutRef, sys};
 use super::ffi_types::FFI;
 
-error_chain! {
-	types {
-		Error, ErrorKind, ResultExt;
-	}
-
-	errors {
-		MemoryError
-		InvalidOperation
-		InternalError
-	}
-
-	foreign_links {
-		Utf8Error(str::Utf8Error);
-	}
+#[derive(Debug, Fail)]
+pub enum Error {
+	#[fail(display = "Memory error")]
+	MemoryError,
+	#[fail(display = "Invalid operation")]
+	InvalidOperation,
+	#[fail(display = "Internal error")]
+	InternalError,
 }
 
-/// `Result` with module-specific `Error`
-pub type Result<T> = result::Result<T, Error>;
+/// `Result` with failure `Error`
+pub type Result<T> = result::Result<T, failure::Error>;
 
-/// `Result` for methods that don't return any value
-pub type EmptyResult = result::Result<(), Error>;
+/// `Result` for methods that don't return any value on success
+pub type EmptyResult = Result<()>;
 
 impl From<i32> for Error {
 	fn from(code: i32) -> Self {
 		match code {
-			sys::XMPP_EMEM => ErrorKind::MemoryError.into(),
-			sys::XMPP_EINVOP => ErrorKind::InvalidOperation.into(),
-			sys::XMPP_EINT => ErrorKind::InternalError.into(),
+			sys::XMPP_EMEM => Error::MemoryError,
+			sys::XMPP_EINVOP => Error::InvalidOperation,
+			sys::XMPP_EINT => Error::InternalError,
 			_ => panic!("Invalid value for error"),
 		}
 	}
@@ -40,10 +36,11 @@ impl From<i32> for Error {
 pub fn code_to_result(code: i32) -> EmptyResult {
 	match code {
 		sys::XMPP_EOK => Ok(()),
-		_ => Err(code.into()),
+		_ => Err(Error::from(code).into()),
 	}
 }
 
+// todo covert to failure maybe?
 #[derive(Debug)]
 pub struct StreamError<'i> {
 	pub typ: sys::xmpp_error_type_t,
