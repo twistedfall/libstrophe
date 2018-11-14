@@ -19,7 +19,7 @@ num = "0.2"
 libstrophe-sys-bindgen = "2.0"
 
 [dev-dependencies]
-env_logger = "0.5"
+env_logger = "0.6"
 matches = "0.1"
 
 [features]
