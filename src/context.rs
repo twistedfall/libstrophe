@@ -1,4 +1,5 @@
-use std::{default::Default, ops, ptr, sync::Arc, time::Duration};
+use std::{alloc, default::Default, mem, ops, os::raw, ptr, sync::Arc, time::Duration};
+
 use super::{FFI, Logger, sys};
 
 /// Proxy to underlying `xmpp_ctx_t` struct.
@@ -24,17 +25,25 @@ pub struct Context<'lg> {
 	inner: *mut sys::xmpp_ctx_t,
 	owned: bool,
 	_logger: Option<Logger<'lg>>,
+	memory: Option<Box<sys::xmpp_mem_t>>,
 }
 
 impl<'lg> Context<'lg> {
 	/// [xmpp_ctx_new](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#gaeb32490f33760a7ffc0f86a0565b43b2)
 	pub fn new(logger: Logger<'lg>) -> Context<'lg> {
 		super::init();
+		let memory = Box::new(sys::xmpp_mem_t {
+			alloc: Some(Self::custom_alloc),
+			free: Some(Self::custom_free),
+			realloc: Some(Self::custom_realloc),
+			userdata: ptr::null_mut(),
+		});
 		unsafe {
 			Context::with_inner(
-				sys::xmpp_ctx_new(ptr::null(), logger.as_inner()),
+				sys::xmpp_ctx_new(memory.as_ref(), logger.as_inner()),
 				true,
-				Some(logger)
+				Some(memory),
+				Some(logger),
 			)
 		}
 	}
@@ -56,11 +65,14 @@ impl<'lg> Context<'lg> {
 	}
 
 	#[inline]
-	unsafe fn with_inner(inner: *mut sys::xmpp_ctx_t, owned: bool, logger: Option<Logger<'lg>>) -> Context<'lg> {
+	unsafe fn with_inner(inner: *mut sys::xmpp_ctx_t, owned: bool, memory: Option<Box<sys::xmpp_mem_t>>, logger: Option<Logger<'lg>>) -> Context<'lg> {
 		if inner.is_null() {
-			panic!("Cannot allocate memory for Context")
+			panic!("Cannot allocate memory for Context");
 		}
-		Context { inner, owned, _logger: logger }
+		if owned && (memory.is_none() || logger.is_none()) {
+			panic!("Memory and logger must be supplied for owned Context instances");
+		}
+		Context { inner, owned, memory, _logger: logger }
 	}
 
 	pub unsafe fn from_inner_ref(inner: *const sys::xmpp_ctx_t) -> Context<'lg> {
@@ -68,10 +80,45 @@ impl<'lg> Context<'lg> {
 	}
 
 	pub unsafe fn from_inner_ref_mut(inner: *mut sys::xmpp_ctx_t) -> Context<'lg> {
-		Context::with_inner(inner, false, None)
+		Context::with_inner(inner, false, None, None)
 	}
 
 	pub fn as_inner(&self) -> *mut sys::xmpp_ctx_t { self.inner }
+
+	#[inline(always)]
+	fn calculate_real_alloc(size: usize) -> alloc::Layout {
+		alloc::Layout::from_size_align(size + mem::size_of_val(&size), mem::align_of::<u8>()).expect("Cannot create layout")
+	}
+
+	#[inline(always)]
+	fn write_real_alloc(p: *mut u8, size: usize) -> *mut raw::c_void {
+		let out = p as *mut usize;
+		unsafe { *out = size };
+		unsafe { out.add(1) as _ }
+	}
+
+	#[inline(always)]
+	fn read_real_alloc(p: *mut raw::c_void) -> (*mut u8, alloc::Layout) {
+		let memory = unsafe { (p as *mut usize).sub(1) };
+		let size = unsafe { *memory };
+		(memory as _, alloc::Layout::from_size_align(size, mem::align_of::<u8>()).expect("Cannot create layout"))
+	}
+
+	extern "C" fn custom_alloc(size: usize, _userdata: *mut raw::c_void) -> *mut raw::c_void {
+		let layout = Self::calculate_real_alloc(size);
+		Self::write_real_alloc(unsafe { alloc::alloc(layout) }, layout.size())
+	}
+
+	extern "C" fn custom_free(p: *mut raw::c_void, _userdata: *mut raw::c_void) {
+		let (p, layout) = Self::read_real_alloc(p);
+		unsafe { alloc::dealloc(p, layout) };
+	}
+
+	extern "C" fn custom_realloc(p: *mut raw::c_void, size: usize, _userdata: *mut raw::c_void) -> *mut raw::c_void {
+		let new_layout = Self::calculate_real_alloc(size);
+		let (p, layout) = Self::read_real_alloc(p);
+		Self::write_real_alloc(unsafe { alloc::realloc(p, layout, new_layout.size()) }, new_layout.size())
+	}
 
 	/// [xmpp_set_timeout](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#gab03acfbb7c9aa92f60fedb8f6ca43114)
 	#[cfg(feature = "libstrophe-0_9_2")]
