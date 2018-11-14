@@ -5,8 +5,6 @@ use std::os::raw;
 
 pub struct FFI<T>(pub T);
 
-impl<T> FFI<T> {}
-
 impl<'s> FFI<&'s str> {
 	#[inline]
 	pub fn send(self) -> ffi::CString {

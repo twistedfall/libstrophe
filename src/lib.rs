@@ -70,7 +70,7 @@
 //! let mut conn = libstrophe::Connection::new(ctx.clone());
 //! conn.set_jid("example@127.0.0.1");
 //! conn.set_pass("password");
-//! conn.connect_client(None, None, &connection_handler).unwrap();
+//! conn.connect_client(None, None, connection_handler).unwrap();
 //! ctx.run();
 //! libstrophe::shutdown();
 //! ```
@@ -107,7 +107,7 @@ extern crate log;
 #[macro_use]
 extern crate matches;
 
-pub use connection::Connection;
+pub use connection::{Connection, HandlerId, IdHandlerId, TimedHandlerId};
 pub use context::{Context, ContextRef};
 use ffi_types::FFI;
 pub use logger::Logger;
@@ -151,13 +151,13 @@ fn duration_as_ms(duration: time::Duration) -> raw::c_ulong {
 }
 
 /// Convert type to *void for passing as `userdata`
-fn as_udata<T>(cb: &T) -> *mut raw::c_void {
-	cb as *const _ as *mut raw::c_void
+fn as_void_ptr<T>(cb: &T) -> *mut raw::c_void {
+	cb as *const _ as _
 }
 
 /// Convert *void from `userdata` to appropriate type
-unsafe fn udata_as<'cb, T>(u_data: *const raw::c_void) -> &'cb mut T {
-	(u_data as *mut T).as_mut().expect("userdata must be non-null")
+unsafe fn void_ptr_as<'cb, T>(ptr: *const raw::c_void) -> &'cb mut T {
+	(ptr as *mut T).as_mut().expect("userdata must be non-null")
 }
 
 /// Ensure that underlying C library is initialized

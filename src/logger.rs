@@ -1,9 +1,9 @@
 use std::{fmt, hash, os::raw};
 use super::{
-	as_udata,
+	as_void_ptr,
 	LogLevel,
 	sys,
-	udata_as,
+	void_ptr_as,
 };
 use super::ffi_types::FFI;
 
@@ -25,7 +25,7 @@ type LogHandler<'cb> = dyn FnMut(LogLevel, &str, &str) + 'cb;
 pub struct Logger<'cb> {
 	inner: *mut sys::xmpp_log_t,
 	owned: bool,
-	handler: Box<LogHandler<'cb>>,
+	_handler: Box<LogHandler<'cb>>,
 }
 
 impl<'cb> Logger<'cb> {
@@ -39,7 +39,7 @@ impl<'cb> Logger<'cb> {
 		let handler = Box::new(handler);
 		Logger::with_inner(Box::into_raw(Box::new(sys::xmpp_log_t {
 			handler: Some(Self::log_handler_cb::<CB>),
-			userdata: as_udata(&*handler),
+			userdata: as_void_ptr(&*handler),
 		})), handler, true)
 	}
 
@@ -48,7 +48,7 @@ impl<'cb> Logger<'cb> {
 		if inner.is_null() {
 			panic!("Cannot allocate memory for Logger")
 		}
-		Logger { inner, owned, handler }
+		Logger { inner, owned, _handler: handler }
 	}
 
 	/// [xmpp_get_default_logger](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#ga33abde406c7a057006b109cf1b23c8f8)
@@ -75,7 +75,7 @@ impl<'cb> Logger<'cb> {
 		let area = unsafe { FFI(area).receive() }.unwrap();
 		let msg = unsafe { FFI(msg).receive() }.unwrap();
 		unsafe {
-			udata_as::<CB>(userdata)(level, &area, &msg);
+			void_ptr_as::<CB>(userdata)(level, &area, &msg);
 		}
 	}
 

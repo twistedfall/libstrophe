@@ -94,17 +94,15 @@ pub fn main() {
 		true
 	};
 
-	let conn_handler = |conn: &mut libstrophe::Connection,
+	let conn_handler = move |conn: &mut libstrophe::Connection,
 	                    evt: libstrophe::ConnectionEvent,
 	                    _error: i32,
 	                    _stream_error: Option<&libstrophe::error::StreamError>| {
 		if evt == libstrophe::ConnectionEvent::XMPP_CONN_CONNECT {
 			eprintln!("Connected");
 			let ctx = conn.context();
-			unsafe {
-				conn.handler_add_unsafe(&version_handler, Some("jabber:iq:version"), Some("iq"), None);
-				conn.handler_add_unsafe(&message_handler, None, Some("message"), None);
-			}
+			conn.handler_add(version_handler, Some("jabber:iq:version"), Some("iq"), None);
+			conn.handler_add(message_handler, None, Some("message"), None);
 			let pres = libstrophe::Stanza::new_presence(&ctx);
 			conn.send(&pres);
 		} else {

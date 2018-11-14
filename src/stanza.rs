@@ -9,7 +9,7 @@ use super::{
 };
 use super::ffi_types::FFI;
 
-/// Proxy to underlying `xmpp_stanza_t` struct.
+/// Proxy to the underlying `xmpp_stanza_t` struct.
 ///
 /// Most of the methods in this struct mimic the methods of the underlying library. So please see
 /// libstrophe [docs] and [sources]. Only where it's not the case or there is some additional logic

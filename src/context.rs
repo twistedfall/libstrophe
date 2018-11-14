@@ -1,6 +1,4 @@
-use std::{ops, ptr, time};
-use std::default::Default;
-use std::sync::Arc;
+use std::{default::Default, ops, ptr, sync::Arc, time::Duration};
 use super::{FFI, Logger, sys};
 
 /// Proxy to underlying `xmpp_ctx_t` struct.
@@ -45,7 +43,7 @@ impl<'lg> Context<'lg> {
 	///
 	/// Equivalent to passing default logger to `Context` constructor. The result is also wrapped in
 	/// `Arc` to allow multiple ownership.
-	pub fn new_with_default_logger() -> Arc<Context<'static>> {
+	pub fn new_with_default_logger<'cx>() -> Arc<Context<'cx>> {
 		Arc::new(Context::new(Logger::default()))
 	}
 
@@ -53,7 +51,7 @@ impl<'lg> Context<'lg> {
 	///
 	/// Equivalent to passing null logger to `Context` constructor. The result is also wrapped in
 	/// `Arc` to allow multiple ownership.
-	pub fn new_with_null_logger() -> Arc<Context<'static>> {
+	pub fn new_with_null_logger<'cx>() -> Arc<Context<'cx>> {
 		Arc::new(Context::new(Logger::new_null()))
 	}
 
@@ -77,14 +75,14 @@ impl<'lg> Context<'lg> {
 
 	/// [xmpp_set_timeout](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#gab03acfbb7c9aa92f60fedb8f6ca43114)
 	#[cfg(feature = "libstrophe-0_9_2")]
-	pub fn set_timeout(&self, timeout: time::Duration) {
+	pub fn set_timeout(&self, timeout: Duration) {
 		unsafe  {
 			sys::xmpp_ctx_set_timeout(self.inner, super::duration_as_ms(timeout))
 		}
 	}
 
 	/// [xmpp_run_once](http://strophe.im/libstrophe/doc/0.9.2/group___event_loop.html#ga02816aa5ce34d97fe5bbde5f9c6956ce)
-	pub fn run_once(&self, timeout: time::Duration) {
+	pub fn run_once(&self, timeout: Duration) {
 		unsafe {
 			sys::xmpp_run_once(self.inner, super::duration_as_ms(timeout))
 		}
