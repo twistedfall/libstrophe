@@ -48,13 +48,13 @@ pub(crate) fn code_to_result(code: i32) -> EmptyResult {
 }
 
 #[derive(Debug)]
-pub struct StreamError<'t, 'cx, 'cn> {
+pub struct StreamError<'t, 's> {
 	pub typ: sys::xmpp_error_type_t,
 	pub text: Option<&'t str>,
-	pub stanza: StanzaMutRef<'cx, 'cn>,
+	pub stanza: StanzaMutRef<'s>,
 }
 
-impl<'t, 'cx, 'cn> From<&'t sys::xmpp_stream_error_t> for StreamError<'t, 'cx, 'cn> {
+impl<'t> From<&'t sys::xmpp_stream_error_t> for StreamError<'t, 't> {
 	fn from(inner: &'t sys::xmpp_stream_error_t) -> Self {
 		StreamError {
 			typ: inner.type_,
@@ -64,13 +64,13 @@ impl<'t, 'cx, 'cn> From<&'t sys::xmpp_stream_error_t> for StreamError<'t, 'cx, '
 	}
 }
 
-impl<'t, 'cx, 'cn> fmt::Display for StreamError<'t, 'cx, 'cn> {
+impl<'t> fmt::Display for StreamError<'t, 't> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}{}", self.description(), self.text.as_ref().map_or_else(|| "".into(), |x| format!(": {}", x)))
 	}
 }
 
-impl<'i, 'cx, 'cn> error::Error for StreamError<'i, 'cx, 'cn> {
+impl<'t> error::Error for StreamError<'t, 't> {
 	fn description(&self) -> &str {
 		match self.typ {
 			sys::xmpp_error_type_t::XMPP_SE_BAD_FORMAT => "Bad format",

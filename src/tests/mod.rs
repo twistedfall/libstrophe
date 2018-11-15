@@ -211,15 +211,19 @@ fn stanza_hier() {
 	msg.set_body("Test body").unwrap();
 	stanza.add_child(msg).unwrap();
 
-	let child = stanza.get_first_child().unwrap();
-	assert_eq!(child.name().unwrap(), "presence");
-	let child = child.get_next().unwrap();
-	assert_eq!(child.name().unwrap(), "iq");
-	let mut child = stanza.get_first_child_mut().unwrap();
-	let mut child = child.get_next_mut().unwrap();
-	let child = child.get_next_mut().unwrap();
-	assert_eq!(child.name().unwrap(), "message");
-	assert_eq!(child.body().unwrap(), "Test body");
+	{
+		let child = stanza.get_first_child().unwrap();
+		assert_eq!(child.name().unwrap(), "presence");
+		let child = child.get_next().unwrap();
+		assert_eq!(child.name().unwrap(), "iq");
+	}
+	{
+		let mut child = stanza.get_first_child_mut().unwrap();
+		let mut child = child.get_next_mut().unwrap();
+		let child = child.get_next_mut().unwrap();
+		assert_eq!(child.name().unwrap(), "message");
+		assert_eq!(child.body().unwrap(), "Test body");
+	}
 }
 
 #[test]
@@ -921,4 +925,19 @@ mod fail {
 		};
 	}
 
+	#[test]
+	fn stanza_context_too_short() {
+		{
+			let not_long_enough13 = Context::new_with_null_logger();
+			Stanza::new(&not_long_enough13)
+		};
+	}
+
+	#[test]
+	fn stanza_context_too_short_presence() {
+		{
+			let not_long_enough14 = Context::new_with_null_logger();
+			Stanza::new_presence(&not_long_enough14)
+		};
+	}
 }
