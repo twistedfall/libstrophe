@@ -1,10 +1,17 @@
-extern crate failure;
+use std::{
+	error,
+	error::Error as StdError,
+	fmt,
+	result,
+	str,
+};
 
-use super::Connection;
-use std::{error, fmt, result, str};
-use std::error::Error as StdError;
-use super::{Stanza, StanzaMutRef, sys};
-use super::ffi_types::FFI;
+use crate::{
+	Connection,
+	ffi_types::FFI,
+	Stanza,
+	StanzaMutRef,
+};
 
 #[derive(Debug, Fail)]
 pub enum Error {

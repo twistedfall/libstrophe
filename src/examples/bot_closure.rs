@@ -1,8 +1,6 @@
-extern crate env_logger;
-
 // hack to emulate `extern crate libstrophe`
 mod libstrophe {
-	pub use *;
+	pub use crate::*;
 }
 
 /// Port of the [bot.c](https://github.com/strophe/libstrophe/blob/0.9.2/examples/bot.c) code

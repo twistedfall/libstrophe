@@ -1,8 +1,11 @@
 use std::{fmt, hash, os::raw};
+
+#[cfg(feature = "rust-log")]
+use log::{debug, error, info, warn};
+
 use super::{
 	as_void_ptr,
 	LogLevel,
-	sys,
 	void_ptr_as,
 };
 use super::ffi_types::FFI;

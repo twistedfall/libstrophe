@@ -97,29 +97,23 @@
 //! [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
 
 #[macro_use]
-extern crate bitflags;
-extern crate failure;
-#[macro_use]
 extern crate failure_derive;
-extern crate libstrophe_sys_bindgen as sys;
-#[cfg(feature = "rust-log")]
-#[macro_use]
-extern crate log;
-#[cfg(test)]
-#[macro_use]
-extern crate matches;
 
-pub use connection::{Connection, HandlerId, IdHandlerId, TimedHandlerId};
-pub use context::Context;
-use ffi_types::FFI;
-pub use logger::Logger;
-pub use stanza::{Stanza, StanzaMutRef, StanzaRef};
 use std::{sync, time};
 use std::os::raw;
+
+use bitflags::bitflags;
+
 pub use sys::{
 	xmpp_conn_event_t as ConnectionEvent,
 	xmpp_log_level_t as LogLevel,
 };
+
+pub use self::connection::{Connection, HandlerId, IdHandlerId, TimedHandlerId};
+pub use self::context::Context;
+use self::ffi_types::FFI;
+pub use self::logger::Logger;
+pub use self::stanza::{Stanza, StanzaMutRef, StanzaRef};
 
 mod ffi_types;
 mod connection;

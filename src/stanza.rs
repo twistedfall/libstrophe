@@ -4,7 +4,6 @@ use std::os::raw;
 use super::{
 	Context,
 	error,
-	sys,
 };
 use super::ffi_types::FFI;
 
@@ -397,7 +396,7 @@ impl<'cx> Stanza<'cx> {
 	}
 }
 
-impl<'cx> fmt::Display for Stanza<'cx> {
+impl fmt::Display for Stanza<'_> {
 	/// [xmpp_stanza_to_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga49d188283a22e228ebf188aa06cf55b6)
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let mut buf: *mut raw::c_char = unsafe { mem::uninitialized() };
@@ -416,21 +415,21 @@ impl<'cx> fmt::Display for Stanza<'cx> {
 	}
 }
 
-impl<'cx> Clone for Stanza<'cx> {
+impl Clone for Stanza<'_> {
 	fn clone(&self) -> Self {
 		unsafe { Stanza::from_inner(sys::xmpp_stanza_copy(self.inner)) }
 	}
 }
 
-impl<'cx> PartialEq for Stanza<'cx> {
+impl PartialEq for Stanza<'_> {
 	fn eq(&self, other: &Stanza) -> bool {
 		self.inner == other.inner
 	}
 }
 
-impl<'cx> Eq for Stanza<'cx> {}
+impl Eq for Stanza<'_> {}
 
-impl<'cx> Drop for Stanza<'cx> {
+impl Drop for Stanza<'_> {
 	/// [xmpp_stanza_release](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga71a1b5d6974e435aa1dca60a547fd11a)
 	fn drop(&mut self) {
 		if self.owned {
@@ -441,7 +440,7 @@ impl<'cx> Drop for Stanza<'cx> {
 	}
 }
 
-unsafe impl<'cx> Send for Stanza<'cx> {}
+unsafe impl Send for Stanza<'_> {}
 
 impl<'cx> Into<StanzaRef<'cx>> for Stanza<'cx> {
 	fn into(self) -> StanzaRef<'cx> {

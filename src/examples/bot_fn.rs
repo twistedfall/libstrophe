@@ -1,8 +1,6 @@
-extern crate env_logger;
-
 // hack to emulate `extern crate libstrophe`
 mod libstrophe {
-	pub use *;
+	pub use crate::*;
 }
 
 fn version_handler(ctx: &libstrophe::Context, conn: &mut libstrophe::Connection, stanza: &libstrophe::Stanza) -> bool {

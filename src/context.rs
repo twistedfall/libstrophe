@@ -1,6 +1,6 @@
 use std::{alloc, default::Default, mem, os::raw, ptr, time::Duration};
 
-use super::{Connection, FFI, Logger, sys};
+use super::{Connection, FFI, Logger};
 
 /// Proxy to the underlying `xmpp_ctx_t` struct.
 ///
@@ -200,15 +200,15 @@ impl<'lg, 'cn> Context<'lg, 'cn> {
 	}
 }
 
-impl<'lg, 'cn> PartialEq for Context<'lg, 'cn> {
+impl PartialEq for Context<'_, '_> {
 	fn eq(&self, other: &Context) -> bool {
 		self.inner == other.inner
 	}
 }
 
-impl<'lg, 'cn> Eq for Context<'lg, 'cn> {}
+impl Eq for Context<'_, '_> {}
 
-impl<'lg, 'cn> Drop for Context<'lg, 'cn> {
+impl Drop for Context<'_, '_> {
 	/// [xmpp_ctx_free](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#ga3ae5f04bc23ab2e7b55760759e21d623)
 	fn drop(&mut self) {
 		unsafe {
@@ -220,4 +220,4 @@ impl<'lg, 'cn> Drop for Context<'lg, 'cn> {
 	}
 }
 
-unsafe impl<'lg, 'cn> Send for Context<'lg, 'cn> {}
+unsafe impl Send for Context<'_, '_> {}

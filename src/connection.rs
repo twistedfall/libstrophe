@@ -17,7 +17,6 @@ use super::{
 	error,
 	ffi_types::{FFI, Nullable},
 	Stanza,
-	sys,
 	void_ptr_as,
 };
 
@@ -38,7 +37,7 @@ struct FatHandlers<'cb, 'cx> {
 	stanza: Handlers<StanzaFatHandler<'cb, 'cx>>,
 }
 
-impl<'cb, 'cx> fmt::Debug for FatHandlers<'cb, 'cx> {
+impl fmt::Debug for FatHandlers<'_, '_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
 		let mut s = f.debug_struct("FatHandlers");
 		s.field("connection", &if self.connection.is_some() { "set" } else { "unset" });
@@ -612,15 +611,15 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	}
 }
 
-impl<'cb, 'cx> PartialEq for Connection<'cb, 'cx> {
+impl PartialEq for Connection<'_, '_> {
 	fn eq(&self, other: &Connection) -> bool {
 		self.inner == other.inner
 	}
 }
 
-impl<'cb, 'cx> Eq for Connection<'cb, 'cx> {}
+impl Eq for Connection<'_, '_> {}
 
-impl<'cb, 'cx> Drop for Connection<'cb, 'cx> {
+impl Drop for Connection<'_, '_> {
 	/// [xmpp_conn_release](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga16967e3375efa5032ed2e08b407d8ae9)
 	fn drop(&mut self) {
 		if self.owned {
@@ -636,7 +635,7 @@ impl<'cb, 'cx> Drop for Connection<'cb, 'cx> {
 	}
 }
 
-unsafe impl<'cb, 'cx> Send for Connection<'cb, 'cx> {}
+unsafe impl Send for Connection<'_, '_> {}
 
 pub struct HandlerId<'cb, 'cx, CB>(*const FatHandler<'cb, 'cx, CB, ()>);
 

@@ -1,9 +1,8 @@
-extern crate env_logger;
-extern crate matches;
-
 use std::{mem, rc::Rc, time::Duration};
 
-use super::*;
+use matches::assert_matches;
+
+use crate::*;
 
 #[test]
 fn examples() {
@@ -773,8 +772,8 @@ mod with_credentials {
 		i.set(0);
 		{
 			let mut conn = make_conn();
-			assert!(matches!(conn.handler_add(&i_incrementer, None, Some("iq"), None,), Some(..)));
-			assert!(matches!(conn.handler_add(&i_incrementer, None, Some("iq"), None), None));
+			assert_matches!(conn.handler_add(&i_incrementer, None, Some("iq"), None,), Some(..));
+			assert_matches!(conn.handler_add(&i_incrementer, None, Some("iq"), None), None);
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
 			assert_eq!(i.get(), 1);
@@ -784,8 +783,8 @@ mod with_credentials {
 		i.set(0);
 		{
 			let mut conn = make_conn();
-			assert!(matches!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None,), Some(..)));
-			assert!(matches!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None), None));
+			assert_matches!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None,), Some(..));
+			assert_matches!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None), None);
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
 			assert_eq!(i.get(), 1);
@@ -801,9 +800,11 @@ mod fail {
 
 	#[test]
 	fn conn_handler_too_short() {
-		let conn = Connection::new(Context::new_with_null_logger());
-		let not_long_enough1 = |_: &Context, _: &mut Connection, _: ConnectionEvent, _: i32, _: Option<&error::StreamError>| {};
-		conn.connect_client(None, None, &not_long_enough1).unwrap();
+		{
+			let conn = Connection::new(Context::new_with_null_logger());
+			let not_long_enough1 = |_: &Context, _: &mut Connection, _: ConnectionEvent, _: i32, _: Option<&error::StreamError>| {};
+			conn.connect_client(None, None, &not_long_enough1).unwrap()
+		};
 	}
 
 	#[test]

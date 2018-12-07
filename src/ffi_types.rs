@@ -1,11 +1,8 @@
-extern crate num;
-
-use std::{ffi, ptr};
-use std::os::raw;
+use std::{ffi, os::raw, ptr};
 
 pub struct FFI<T>(pub T);
 
-impl<'s> FFI<&'s str> {
+impl FFI<&str> {
 	#[inline]
 	pub fn send(self) -> ffi::CString {
 		ffi::CString::new(self.0).expect("Cannot convert to CString")
@@ -43,7 +40,7 @@ impl FFI<*mut raw::c_char> {
 	}
 }
 
-impl<'s> FFI<Option<&'s str>> {
+impl FFI<Option<&str>> {
 	#[inline]
 	pub fn send(self) -> Nullable<ffi::CString> {
 		match self.0 {
