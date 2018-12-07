@@ -348,7 +348,19 @@ impl<'cx> Stanza<'cx> {
 		}.map(|x| unsafe { Self::from_inner_ref_mut(x) })
 	}
 
-	// todo children iterator
+	pub fn children(&self) -> impl Iterator<Item=StanzaRef> {
+		ChildIterator {
+			cur: self.get_first_child().map(|x| x.as_inner()),
+			_ref: marker::PhantomData,
+		}
+	}
+
+	pub fn children_mut(&mut self) -> impl Iterator<Item=StanzaMutRef> {
+		ChildIteratorMut {
+			cur: self.get_first_child_mut().map(|x| x.as_inner()),
+			_ref: marker::PhantomData,
+		}
+	}
 
 	/// [xmpp_stanza_get_next](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaa9a115b89f245605279120c05d698853)
 	pub fn get_next(&self) -> Option<StanzaRef> {
@@ -470,6 +482,11 @@ impl<'cx> ops::Deref for StanzaRef<'cx> {
 	}
 }
 
+impl fmt::Display for StanzaRef<'_> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		self.0.fmt(f)
+	}
+}
 
 /// Wrapper for mutable ref to [`Stanza`], implements `Deref` to [`Stanza`]
 ///
@@ -487,8 +504,52 @@ impl<'cx> ops::Deref for StanzaMutRef<'cx> {
 	}
 }
 
-impl<'cx> ops::DerefMut for StanzaMutRef<'cx> {
+impl ops::DerefMut for StanzaMutRef<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.0
+	}
+}
+
+impl fmt::Display for StanzaMutRef<'_> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		self.0.fmt(f)
+	}
+}
+
+struct ChildIterator<'rcx> {
+	cur: Option<*mut sys::xmpp_stanza_t>,
+	_ref: marker::PhantomData<&'rcx ()>,
+}
+
+impl<'cx> Iterator for ChildIterator<'cx> {
+	type Item = StanzaRef<'cx>;
+
+	fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+		if let Some(cur) = self.cur {
+			let cur = unsafe { Stanza::from_inner_ref(cur) };
+			self.cur = cur.get_next().map(|x| x.as_inner());
+			Some(cur)
+		} else {
+			None
+		}
+	}
+}
+
+struct ChildIteratorMut<'rcx> {
+	cur: Option<*mut sys::xmpp_stanza_t>,
+	_ref: marker::PhantomData<&'rcx ()>,
+}
+
+impl<'cx> Iterator for ChildIteratorMut<'cx> {
+	type Item = StanzaMutRef<'cx>;
+
+	fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+		if let Some(cur) = self.cur {
+			let cur = unsafe { Stanza::from_inner_ref_mut(cur) };
+			self.cur = cur.get_next().map(|x| x.as_inner());
+			Some(cur)
+		} else {
+			None
+		}
 	}
 }

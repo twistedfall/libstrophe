@@ -216,12 +216,46 @@ fn stanza_hier() {
 		let child = child.get_next().unwrap();
 		assert_eq!(child.name().unwrap(), "iq");
 	}
+
 	{
 		let mut child = stanza.get_first_child_mut().unwrap();
 		let mut child = child.get_next_mut().unwrap();
 		let child = child.get_next_mut().unwrap();
 		assert_eq!(child.name().unwrap(), "message");
 		assert_eq!(child.body().unwrap(), "Test body");
+	}
+
+	{
+		for (i, child) in stanza.children().enumerate() {
+			assert_eq!(stanza.get_first_child().unwrap().name().unwrap(), "presence"); // simultaneous borrow test
+			match i {
+				0 => assert_eq!(child.name().unwrap(), "presence"),
+				1 => assert_eq!(child.name().unwrap(), "iq"),
+				2 => {
+					assert_eq!(child.name().unwrap(), "message");
+					assert_eq!(child.body().unwrap(), "Test body");
+				}
+				_ => panic!("Too many items: {}", child)
+			}
+		}
+	}
+
+	{
+		for (i, mut child) in stanza.children_mut().enumerate() {
+			match i {
+				0 => {
+					assert_eq!(child.name().unwrap(), "presence");
+					child.set_name("presence1").unwrap();
+				}
+				1 => assert_eq!(child.name().unwrap(), "iq"),
+				2 => {
+					assert_eq!(child.name().unwrap(), "message");
+					assert_eq!(child.body().unwrap(), "Test body");
+				}
+				_ => panic!("Too many items: {}", child)
+			}
+		}
+		assert_eq!(stanza.get_first_child().unwrap().name().unwrap(), "presence1");
 	}
 }
 
@@ -940,5 +974,21 @@ mod fail {
 			let not_long_enough14 = Context::new_with_null_logger();
 			Stanza::new_presence(&not_long_enough14)
 		};
+	}
+
+	#[test]
+	fn stanza_iterator_borrow() {
+		let ctx = Context::new_with_null_logger();
+		let mut already_borrowed15 = Stanza::new(&ctx);
+		let _a = already_borrowed15.children();
+		already_borrowed15.get_first_child_mut();
+	}
+
+	#[test]
+	fn stanza_iterator_mut_borrow() {
+		let ctx = Context::new_with_null_logger();
+		let mut already_borrowed16 = Stanza::new(&ctx);
+		let _a = already_borrowed16.children_mut();
+		already_borrowed16.get_first_child();
 	}
 }
