@@ -1,8 +1,10 @@
 use std::{
+	cell::RefCell,
 	collections,
 	fmt,
 	mem,
 	os::raw,
+	rc::Rc,
 	result,
 	time::Duration,
 };
@@ -69,30 +71,30 @@ pub struct Connection<'cb, 'cx> {
 	inner: *mut sys::xmpp_conn_t,
 	ctx: Option<Context<'cx, 'cb>>,
 	owned: bool,
-	fat_handlers: Box<FatHandlers<'cb, 'cx>>,
+	fat_handlers: Rc<RefCell<FatHandlers<'cb, 'cx>>>,
 }
 
 impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_conn_new](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga76c161884c23f69cd1d7fc025122cf21)
 	pub fn new(ctx: Context<'cx, 'cb>) -> Self {
 		unsafe {
-			Self::from_inner(sys::xmpp_conn_new(ctx.as_inner()), ctx, Box::new(FatHandlers {
+			Self::from_inner(sys::xmpp_conn_new(ctx.as_inner()), ctx, Rc::new(RefCell::new(FatHandlers {
 				connection: None,
 				timed: Vec::with_capacity(4),
 				stanza: Vec::with_capacity(4),
-			}))
+			})))
 		}
 	}
 
 	#[inline]
-	unsafe fn with_inner(inner: *mut sys::xmpp_conn_t, ctx: Context<'cx, 'cb>, owned: bool, handlers: Box<FatHandlers<'cb, 'cx>>) -> Self {
+	unsafe fn with_inner(inner: *mut sys::xmpp_conn_t, ctx: Context<'cx, 'cb>, owned: bool, handlers: Rc<RefCell<FatHandlers<'cb, 'cx>>>) -> Self {
 		if inner.is_null() {
 			panic!("Cannot allocate memory for Connection");
 		}
 		Connection { inner, ctx: Some(ctx), owned, fat_handlers: handlers }
 	}
 
-	unsafe fn from_inner(inner: *mut sys::xmpp_conn_t, ctx: Context<'cx, 'cb>, handlers: Box<FatHandlers<'cb, 'cx>>) -> Self {
+	unsafe fn from_inner(inner: *mut sys::xmpp_conn_t, ctx: Context<'cx, 'cb>, handlers: Rc<RefCell<FatHandlers<'cb, 'cx>>>) -> Self {
 		Self::with_inner(
 			inner,
 			ctx,
@@ -101,7 +103,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		)
 	}
 
-	unsafe fn from_inner_ref_mut(inner: *mut sys::xmpp_conn_t, handlers: Box<FatHandlers<'cb, 'cx>>) -> Self {
+	unsafe fn from_inner_ref_mut(inner: *mut sys::xmpp_conn_t, handlers: Rc<RefCell<FatHandlers<'cb, 'cx>>>) -> Self {
 		let ctx = Context::from_inner_ref(sys::xmpp_conn_get_context(inner));
 		Self::with_inner(inner, ctx, false, handlers)
 	}
@@ -109,28 +111,28 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	extern "C" fn connection_handler_cb<CB>(conn: *mut sys::xmpp_conn_t, event: sys::xmpp_conn_event_t, error: raw::c_int,
 	                                        stream_error: *mut sys::xmpp_stream_error_t, userdata: *mut raw::c_void) {
 		let connection_handler = unsafe { void_ptr_as::<ConnectionFatHandler>(userdata) };
-		let mut conn = unsafe { Self::from_inner_ref_mut(conn, Box::from_raw(connection_handler.fat_handlers_ptr)) };
+		let mut conn = unsafe { Self::from_inner_ref_mut(conn, Rc::clone(&connection_handler.fat_handlers)) };
 		let stream_error: Option<error::StreamError> = unsafe { stream_error.as_ref() }.map(|e| e.into());
 		(connection_handler.handler)(conn.context_detached(), &mut conn, event, error, stream_error.as_ref());
 	}
 
 	extern "C" fn timed_handler_cb<CB>(conn: *mut sys::xmpp_conn_t, userdata: *mut raw::c_void) -> i32 {
 		let timed_handler = unsafe { void_ptr_as::<TimedFatHandler>(userdata) };
-		let mut conn = unsafe { Self::from_inner_ref_mut(conn, Box::from_raw(timed_handler.fat_handlers_ptr)) };
+		let mut conn = unsafe { Self::from_inner_ref_mut(conn, Rc::clone(&timed_handler.fat_handlers)) };
 		let res = (timed_handler.handler)(conn.context_detached(), &mut conn);
 		if !res {
-			Self::drop_fat_handler(&mut conn.fat_handlers.timed, timed_handler);
+			Self::drop_fat_handler(&mut conn.fat_handlers.borrow_mut().timed, timed_handler);
 		}
 		res as _
 	}
 
 	extern "C" fn handler_cb<CB>(conn: *mut sys::xmpp_conn_t, stanza: *mut sys::xmpp_stanza_t, userdata: *mut raw::c_void) -> i32 {
 		let stanza_handler = unsafe { void_ptr_as::<StanzaFatHandler>(userdata) };
-		let mut conn = unsafe { Self::from_inner_ref_mut(conn, Box::from_raw(stanza_handler.fat_handlers_ptr)) };
+		let mut conn = unsafe { Self::from_inner_ref_mut(conn, Rc::clone(&stanza_handler.fat_handlers)) };
 		let stanza = unsafe { Stanza::from_inner_ref(stanza) };
 		let res = (stanza_handler.handler)(conn.context_detached(), &mut conn, &stanza);
 		if !res {
-			Self::drop_fat_handler(&mut conn.fat_handlers.stanza, stanza_handler);
+			Self::drop_fat_handler(&mut conn.fat_handlers.borrow_mut().stanza, stanza_handler);
 		}
 		res as _
 	}
@@ -171,7 +173,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 
 	fn make_fat_handler<CB: ?Sized, T>(&self, handler: Box<CB>, cb_addr: *const (), extra: T) -> FatHandler<'cb, 'cx, CB, T> {
 		FatHandler {
-			fat_handlers_ptr: &*self.fat_handlers as *const _ as _,
+			fat_handlers: Rc::clone(&self.fat_handlers),
 			handler,
 			cb_addr,
 			extra
@@ -284,14 +286,14 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}
 		let callback = Self::connection_handler_cb::<CB>;
 		let new_handler = Some(me.make_fat_handler(Box::new(handler) as _, callback as _, ()));
-		let old_handler = mem::replace(&mut me.fat_handlers.connection, new_handler);
+		let old_handler = mem::replace(&mut me.fat_handlers.borrow_mut().connection, new_handler);
 		let out = error::code_to_result(unsafe {
 			sys::xmpp_connect_client(
 				me.inner,
 				alt_host.as_ptr(),
 				alt_port.val(),
 				Some(callback),
-				as_void_ptr(me.fat_handlers.connection.as_ref().unwrap()),
+				as_void_ptr(me.fat_handlers.borrow().connection.as_ref().unwrap()),
 			)
 		});
 		match out {
@@ -301,7 +303,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 				Ok(out)
 			},
 			Err(e) => {
-				me.fat_handlers.connection = old_handler;
+				me.fat_handlers.borrow_mut().connection = old_handler;
 				Err(error::ConnectError {
 					conn: me,
 					error: e,
@@ -322,14 +324,14 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		let port: Nullable<_> = port.into().into();
 		let callback = Self::connection_handler_cb::<CB>;
 		let new_handler = Some(me.make_fat_handler(Box::new(handler) as _, callback as _, ()));
-		let old_handler = mem::replace(&mut me.fat_handlers.connection, new_handler);
+		let old_handler = mem::replace(&mut me.fat_handlers.borrow_mut().connection, new_handler);
 		let out = error::code_to_result(unsafe {
 			sys::xmpp_connect_component(
 				me.inner,
 				host.as_ptr(),
 				port.val(),
 				Some(callback),
-				as_void_ptr(&me.fat_handlers.connection),
+				as_void_ptr(&me.fat_handlers.borrow().connection),
 			)
 		});
 		match out {
@@ -339,7 +341,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 				Ok(out)
 			},
 			Err(e) => {
-				me.fat_handlers.connection = old_handler;
+				me.fat_handlers.borrow_mut().connection = old_handler;
 				Err(error::ConnectError {
 					conn: me,
 					error: e,
@@ -366,14 +368,14 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}
 		let callback = Self::connection_handler_cb::<CB>;
 		let new_handler = Some(me.make_fat_handler(Box::new(handler) as _, callback as _, ()));
-		let old_handler = mem::replace(&mut me.fat_handlers.connection, new_handler);
+		let old_handler = mem::replace(&mut me.fat_handlers.borrow_mut().connection, new_handler);
 		let out = error::code_to_result(unsafe {
 			sys::xmpp_connect_raw(
 				me.inner,
 				alt_host.as_ptr(),
 				alt_port.val(),
 				Some(callback),
-				as_void_ptr(me.fat_handlers.connection.as_ref().unwrap()),
+				as_void_ptr(me.fat_handlers.borrow().connection.as_ref().unwrap()),
 			)
 		});
 		match out {
@@ -383,7 +385,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 				Ok(out)
 			},
 			Err(e) => {
-				me.fat_handlers.connection = old_handler;
+				me.fat_handlers.borrow_mut().connection = old_handler;
 				Err(error::ConnectError {
 					conn: me,
 					error: e,
@@ -472,7 +474,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	{
 		let callback = Self::timed_handler_cb::<CB>;
 		let handler = self.make_fat_handler(Box::new(handler) as _, callback as _, ());
-		Self::store_fat_handler(&mut self.fat_handlers.timed, handler).map(|fat_handler_ptr| {
+		Self::store_fat_handler(&mut self.fat_handlers.borrow_mut().timed, handler).map(|fat_handler_ptr| {
 			unsafe {
 				sys::xmpp_timed_handler_add(
 					self.inner,
@@ -492,15 +494,15 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		unsafe {
 			sys::xmpp_timed_handler_delete(self.inner, Some(Self::timed_handler_cb::<CB>))
 		}
-		Self::drop_fat_handler(&mut self.fat_handlers.timed, handler_id.0 as _);
+		Self::drop_fat_handler(&mut self.fat_handlers.borrow_mut().timed, handler_id.0 as _);
 	}
 
 	/// See `handlers_clear()` for additional information.
 	pub fn timed_handlers_clear(&mut self) {
-		for handler in self.fat_handlers.timed.drain(..) {
+		for handler in self.fat_handlers.borrow_mut().timed.drain(..) {
 			unsafe { sys::xmpp_timed_handler_delete(self.inner, Some(mem::transmute(handler.cb_addr))) };
 		}
-		self.fat_handlers.timed.shrink_to_fit();
+		self.fat_handlers.borrow_mut().timed.shrink_to_fit();
 	}
 
 	/// [xmpp_id_handler_add](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#ga2142d78b7d6e8d278eebfa8a63f194a4)
@@ -518,7 +520,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			callback as _,
 			Some(id),
 		);
-		Self::store_fat_handler(&mut self.fat_handlers.stanza, handler).map(|fat_handler_ptr| {
+		Self::store_fat_handler(&mut self.fat_handlers.borrow_mut().stanza, handler).map(|fat_handler_ptr| {
 			unsafe {
 				sys::xmpp_id_handler_add(
 					self.inner,
@@ -535,18 +537,18 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	///
 	/// See `handler_delete()` for additional information.
 	pub fn id_handler_delete<CB>(&mut self, handler_id: IdHandlerId<CB>) {
-		if let Some(fat_handler) = Self::validate_fat_handler(&mut self.fat_handlers.stanza, handler_id.0 as _) {
+		if let Some(fat_handler) = Self::validate_fat_handler(&self.fat_handlers.borrow().stanza, handler_id.0 as _) {
 			let id = FFI(fat_handler.extra.as_ref().unwrap().as_str()).send();
 			unsafe {
 				sys::xmpp_id_handler_delete(self.inner, Some(Self::handler_cb::<CB>), id.as_ptr())
 			}
 		}
-		Self::drop_fat_handler(&mut self.fat_handlers.stanza, handler_id.0 as _);
+		Self::drop_fat_handler(&mut self.fat_handlers.borrow_mut().stanza, handler_id.0 as _);
 	}
 
 	/// See `handlers_clear()` for additional information.
 	pub fn id_handlers_clear(&mut self) {
-		self.fat_handlers.stanza.retain(|x| {
+		self.fat_handlers.borrow_mut().stanza.retain(|x| {
 			if let Some(ref id) = x.extra {
 				unsafe { sys::xmpp_id_handler_delete(self.inner, Some(mem::transmute(x.cb_addr)), FFI(id.as_str()).send().as_ptr()) };
 				false
@@ -554,7 +556,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 				true
 			}
 		});
-		self.fat_handlers.stanza.shrink_to_fit();
+		self.fat_handlers.borrow_mut().stanza.shrink_to_fit();
 	}
 
 	/// [xmpp_handler_add](http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html#gad307e5a22d16ef3d6fa18d503b68944f)
@@ -569,7 +571,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		let typ = FFI(typ).send();
 		let callback = Self::handler_cb::<CB>;
 		let handler = self.make_fat_handler(Box::new(handler) as _, callback as _, None);
-		Self::store_fat_handler(&mut self.fat_handlers.stanza, handler).map(|fat_handler_ptr| {
+		Self::store_fat_handler(&mut self.fat_handlers.borrow_mut().stanza, handler).map(|fat_handler_ptr| {
 			unsafe {
 				sys::xmpp_handler_add(
 					self.inner,
@@ -592,13 +594,13 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		unsafe {
 			sys::xmpp_handler_delete(self.inner, Some(Self::handler_cb::<CB>))
 		}
-		Self::drop_fat_handler(&mut self.fat_handlers.stanza, handler_id.0 as _);
+		Self::drop_fat_handler(&mut self.fat_handlers.borrow_mut().stanza, handler_id.0 as _);
 	}
 
 	/// Removes all handlers that were set up with `handler_add()`. This function does *not* remove handlers added via `id_handler_add()`. You can use
 	/// this function if you can't keep track of specific closure handles returned from `handler_add()`, but want to remove handlers anyway.
 	pub fn handlers_clear(&mut self) {
-		self.fat_handlers.stanza.retain(|x| {
+		self.fat_handlers.borrow_mut().stanza.retain(|x| {
 			if x.extra.is_none() {
 				unsafe { sys::xmpp_handler_delete(self.inner, Some(mem::transmute(x.cb_addr))) };
 				false
@@ -606,7 +608,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 				true
 			}
 		});
-		self.fat_handlers.stanza.shrink_to_fit();
+		self.fat_handlers.borrow_mut().stanza.shrink_to_fit();
 	}
 }
 
@@ -621,17 +623,15 @@ impl<'cb, 'cx> Eq for Connection<'cb, 'cx> {}
 impl<'cb, 'cx> Drop for Connection<'cb, 'cx> {
 	/// [xmpp_conn_release](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga16967e3375efa5032ed2e08b407d8ae9)
 	fn drop(&mut self) {
-		unsafe {
-			if self.owned {
+		if self.owned {
+			unsafe {
 				sys::xmpp_conn_release(self.inner);
-			} else {
-				// intentionally leak handlers because they are owned by other Connection
-				Box::into_raw(mem::replace(&mut self.fat_handlers, Box::new(FatHandlers {
-					connection: None,
-					timed: Vec::with_capacity(0),
-					stanza: Vec::with_capacity(0),
-				})));
 			}
+			// clear the handlers manually to break the Rc cycle to self.fat_handlers
+			let mut handlers = self.fat_handlers.borrow_mut();
+			handlers.connection = None;
+			handlers.stanza.clear();
+			handlers.timed.clear();
 		}
 	}
 }
@@ -663,7 +663,7 @@ impl<CB> fmt::Debug for IdHandlerId<'_, '_, CB> {
 }
 
 pub struct FatHandler<'cb, 'cx, CB: ?Sized, T> {
-	fat_handlers_ptr: *mut FatHandlers<'cb, 'cx>,
+	fat_handlers: Rc<RefCell<FatHandlers<'cb, 'cx>>>,
 	handler: Box<CB>,
 	cb_addr: *const (),
 	extra: T,

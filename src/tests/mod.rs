@@ -422,7 +422,7 @@ mod with_credentials {
 //
 //			ctx.run();
 		}
-		assert_eq!(Rc::try_unwrap(flags).unwrap().into_inner(), (1, 0, 1, 0));
+		assert_eq!(Rc::try_unwrap(flags).expect("There are hanging references to Rc value").into_inner(), (1, 0, 1, 0));
 	}
 
 	#[test]
