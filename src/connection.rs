@@ -20,15 +20,15 @@ use super::{
 	void_ptr_as,
 };
 
-type ConnectionCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&error::StreamError>) + 'cb;
+type ConnectionCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&error::StreamError>) + Send + 'cb;
 type ConnectionFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, ConnectionCallback<'cb, 'cx>, ()>;
 
 type Handlers<H> = Vec<Box<H>>;
 
-type TimedCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + 'cb;
+type TimedCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + Send + 'cb;
 type TimedFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, TimedCallback<'cb, 'cx>, ()>;
 
-type StanzaCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza<'cx>) -> bool + 'cb;
+type StanzaCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza<'cx>) -> bool + Send + 'cb;
 type StanzaFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, StanzaCallback<'cb, 'cx>, Option<String>>;
 
 struct FatHandlers<'cb, 'cx> {
@@ -272,7 +272,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [`WSAGetLastError()`]: https://docs.microsoft.com/en-us/windows/desktop/api/winsock/nf-winsock-wsagetlasterror#return-value
 	pub fn connect_client<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, error::ConnectError<'cb, 'cx>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&error::StreamError>) + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&error::StreamError>) + Send + 'cb,
 	{
 		let mut me = self; // hack to not expose mutability via function interface
 		let alt_host = FFI(alt_host).send();
@@ -316,7 +316,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
 	pub fn connect_component<CB>(self, host: impl AsRef<str>, port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, error::ConnectError<'cb, 'cx>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&error::StreamError>) + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&error::StreamError>) + Send + 'cb,
 	{
 		let mut me = self; // hack to not expose mutability via function interface
 		let host = FFI(host.as_ref()).send();
@@ -354,7 +354,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
 	pub fn connect_raw<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, error::ConnectError<'cb, 'cx>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&error::StreamError>) + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&error::StreamError>) + Send + 'cb,
 	{
 		let mut me = self; // hack to not expose mutability via function interface
 		let alt_host = FFI(alt_host).send();
@@ -469,7 +469,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See `handler_add()` for additional information.
 	pub fn timed_handler_add<CB>(&mut self, handler: CB, period: Duration) -> Option<TimedHandlerId<'cb, 'cx, CB>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + Send + 'cb,
 	{
 		let callback = Self::timed_handler_cb::<CB>;
 		let handler = self.make_fat_handler(Box::new(handler) as _, callback as _, ());
@@ -509,7 +509,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See `handler_add()` for additional information.
 	pub fn id_handler_add<CB>(&mut self, handler: CB, id: impl Into<String>) -> Option<IdHandlerId<'cb, 'cx, CB>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza<'cx>) -> bool + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza<'cx>) -> bool + Send + 'cb,
 	{
 		let id = id.into();
 		let ffi_id = FFI(id.as_str()).send();
@@ -563,7 +563,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// This function returns `HandlerId` which is later can be used to remove the handler using `handler_delete()`.
 	pub fn handler_add<CB>(&mut self, handler: CB, ns: Option<&str>, name: Option<&str>, typ: Option<&str>) -> Option<HandlerId<'cb, 'cx, CB>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza<'cx>) -> bool + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza<'cx>) -> bool + Send + 'cb,
 	{
 		let ns = FFI(ns).send();
 		let name = FFI(name).send();

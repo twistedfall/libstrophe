@@ -1,4 +1,4 @@
-use std::{collections::HashMap, mem, rc::Rc, time::Duration};
+use std::{collections::HashMap, mem, sync::{Arc, RwLock}, time::Duration};
 
 use matches::assert_matches;
 
@@ -319,8 +319,6 @@ fn stanza_attributes() {
 
 #[cfg(feature = "creds-test")]
 mod with_credentials {
-	use std::{cell::{Cell, RefCell}};
-
 	use super::*;
 
 	// testing is done on vanilla local ejabberd-17.04
@@ -336,13 +334,13 @@ mod with_credentials {
 
 	#[test]
 	fn zero_sized_handlers() {
-		let i = Rc::new(Cell::new(0));
+		let i = Arc::new(RwLock::new(0));
 
 		{
 			let i_incrementer = {
 				let i = i.clone();
 				move |_: &Context, _: &mut Connection, _: &Stanza| {
-					i.set(i.get() + 1);
+					*i.write().unwrap() += 1;
 					false
 				}
 			};
@@ -376,10 +374,10 @@ mod with_credentials {
 				}).unwrap();
 				ctx.run();
 			}
-			assert_eq!(i.get(), 1);
+			assert_eq!(*i.read().unwrap(), 1);
 
 			// non zero sized handlers are called
-			i.set(0);
+			*i.write().unwrap() = 0;
 			{
 				assert_ne!(mem::size_of_val(&i_incrementer), 0);
 
@@ -404,10 +402,10 @@ mod with_credentials {
 				}).unwrap();
 				ctx.run();
 			}
-			assert_eq!(i.get(), 1);
+			assert_eq!(*i.read().unwrap(), 1);
 
 			// handlers_clear clears zs and non-zs handlers
-			i.set(0);
+			*i.write().unwrap() = 0;
 			{
 				let zero_sized = |ctx: &Context, conn: &mut Connection, _: &Stanza| {
 					let pres = Stanza::new_presence(ctx);
@@ -440,15 +438,15 @@ mod with_credentials {
 				}).unwrap();
 				ctx.run();
 			}
-			assert_eq!(i.get(), 0);
+			assert_eq!(*i.read().unwrap(), 0);
 		}
 
-		assert_eq!(Rc::try_unwrap(i).expect("There are hanging references to Rc value").into_inner(), 0);
+		assert_eq!(Arc::try_unwrap(i).expect("There are hanging references to Rc value").into_inner().unwrap(), 0);
 	}
 
 	#[test]
 	fn connection_handler() {
-		let flags = Rc::new(RefCell::new((0, 0, 0, 0)));
+		let flags = Arc::new(RwLock::new((0, 0, 0, 0)));
 		let ctx = Context::new_with_default_logger();
 		{
 			let mut conn = Connection::new(ctx);
@@ -459,18 +457,18 @@ mod with_credentials {
 				move |ctx, conn, evt, _, _| {
 					match evt {
 						ConnectionEvent::XMPP_CONN_CONNECT => {
-							flags.borrow_mut().0 += 1;
+							flags.write().unwrap().0 += 1;
 							conn.disconnect();
 						}
 						ConnectionEvent::XMPP_CONN_RAW_CONNECT => {
-							flags.borrow_mut().1 += 1;
+							flags.write().unwrap().1 += 1;
 						}
 						ConnectionEvent::XMPP_CONN_DISCONNECT => {
-							flags.borrow_mut().2 += 1;
+							flags.write().unwrap().2 += 1;
 							ctx.stop();
 						}
 						ConnectionEvent::XMPP_CONN_FAIL => {
-							flags.borrow_mut().3 += 1;
+							flags.write().unwrap().3 += 1;
 						}
 					}
 				}
@@ -493,12 +491,12 @@ mod with_credentials {
 //
 //			ctx.run();
 		}
-		assert_eq!(Rc::try_unwrap(flags).expect("There are hanging references to Rc value").into_inner(), (1, 0, 1, 0));
+		assert_eq!(Arc::try_unwrap(flags).expect("There are hanging references to Rc value").into_inner().unwrap(), (1, 0, 1, 0));
 	}
 
 	#[test]
 	fn timed_handler() {
-		let i = Rc::new(Cell::new(0));
+		let i = Arc::new(RwLock::new(0));
 
 		let do_common_stuff = |conn: &mut Connection| {
 			conn.timed_handler_add(|_, conn| {
@@ -511,7 +509,7 @@ mod with_credentials {
 			let i_incrementer = {
 				let i = i.clone();
 				move |_: &Context, _: &mut Connection| {
-					i.set(i.get() + 1);
+					*i.write().unwrap() += 1;
 					true
 				}
 			};
@@ -534,12 +532,12 @@ mod with_credentials {
 					}
 				}).unwrap();
 				ctx.run();
-				assert!(i.get() > 0);
-				assert!(i.get() < 1000);
+				assert!(*i.read().unwrap() > 0);
+				assert!(*i.read().unwrap() < 1000);
 			}
 
 			// outside
-			i.set(0);
+			*i.write().unwrap() = 0;
 			{
 				let mut conn = make_conn();
 				conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1));
@@ -558,12 +556,12 @@ mod with_credentials {
 					}
 				}).unwrap();
 				ctx.run();
-				assert!(i.get() > 0);
-				assert!(i.get() < 1000);
+				assert!(*i.read().unwrap() > 0);
+				assert!(*i.read().unwrap() < 1000);
 			}
 
 			// delete
-			i.set(0);
+			*i.write().unwrap() = 0;
 			{
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
@@ -584,11 +582,11 @@ mod with_credentials {
 					}
 				}).unwrap();
 				ctx.run();
-				assert_eq!(i.get(), 0);
+				assert_eq!(*i.read().unwrap(), 0);
 			}
 
 			// clear
-			i.set(0);
+			*i.write().unwrap() = 0;
 			{
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
@@ -609,10 +607,10 @@ mod with_credentials {
 					}
 				}).unwrap();
 				ctx.run();
-				assert_eq!(i.get(), 0);
+				assert_eq!(*i.read().unwrap(), 0);
 			}
 		}
-		assert_eq!(Rc::try_unwrap(i).expect("There are hanging references to Rc value").into_inner(), 0);
+		assert_eq!(Arc::try_unwrap(i).expect("There are hanging references to Rc value").into_inner().unwrap(), 0);
 	}
 
 	/*#[test]
@@ -631,7 +629,7 @@ mod with_credentials {
 
 	#[test]
 	fn id_handler() {
-		let i = Rc::new(Cell::new(0));
+		let i = Arc::new(RwLock::new(0));
 
 		let do_common_stuff = |ctx: &Context, conn: &mut Connection| {
 			let mut iq = Stanza::new_iq(&ctx, Some("get"), Some("get_roster"));
@@ -651,7 +649,7 @@ mod with_credentials {
 			let i_incrementer = {
 				let i = i.clone();
 				move |_: &Context, _: &mut Connection, _: &Stanza| {
-					i.set(i.get() + 1);
+					*i.write().unwrap() += 1;
 					true
 				}
 			};
@@ -684,11 +682,11 @@ mod with_credentials {
 					}
 				}).unwrap();
 				ctx.run();
-				assert_eq!(i.get(), 1);
+				assert_eq!(*i.read().unwrap(), 1);
 			}
 
 			// outside
-			i.set(0);
+			*i.write().unwrap() = 0;
 			{
 				let mut conn = make_conn();
 				conn.id_handler_add(i_incrementer.clone(), "get_roster");
@@ -714,11 +712,11 @@ mod with_credentials {
 					}
 				}).unwrap();
 				ctx.run();
-				assert_eq!(i.get(), 1);
+				assert_eq!(*i.read().unwrap(), 1);
 			}
 
 			// delete
-			i.set(0);
+			*i.write().unwrap() = 0;
 			{
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
@@ -740,11 +738,11 @@ mod with_credentials {
 					}
 				}).unwrap();
 				ctx.run();
-				assert_eq!(i.get(), 0);
+				assert_eq!(*i.read().unwrap(), 0);
 			}
 
 			// clear
-			i.set(0);
+			*i.write().unwrap() = 0;
 			{
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
@@ -765,15 +763,15 @@ mod with_credentials {
 					}
 				}).unwrap();
 				ctx.run();
-				assert_eq!(i.get(), 0);
+				assert_eq!(*i.read().unwrap(), 0);
 			}
 		}
-		assert_eq!(Rc::try_unwrap(i).expect("There are hanging references to Rc value").into_inner(), 0);
+		assert_eq!(Arc::try_unwrap(i).expect("There are hanging references to Rc value").into_inner().unwrap(), 0);
 	}
 
 	#[test]
 	fn handler() {
-		let i = Rc::new(Cell::new(0));
+		let i = Arc::new(RwLock::new(0));
 
 		let default_con_handler = |ctx: &Context, conn: &mut Connection, evt: ConnectionEvent, _: i32, _: Option<&error::StreamError>| {
 			match evt {
@@ -790,7 +788,7 @@ mod with_credentials {
 		let i_incrementer = {
 			let i = i.clone();
 			move |_: &Context, _: &mut Connection, _: &Stanza| {
-				i.set(i.get() + 1);
+				*i.write().unwrap() += 1;
 				true
 			}
 		};
@@ -801,61 +799,61 @@ mod with_credentials {
 			conn.handler_add(i_incrementer.clone(), None, Some("iq"), None);
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
-			assert_eq!(i.get(), 1);
+			assert_eq!(*i.read().unwrap(), 1);
 		}
 
 		// handler call stanza name not existent
-		i.set(0);
+		*i.write().unwrap() = 0;
 		{
 			let mut conn = make_conn();
 			conn.handler_add(i_incrementer.clone(), None, Some("non-existent"), None);
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
-			assert_eq!(i.get(), 0);
+			assert_eq!(*i.read().unwrap(), 0);
 		}
 
 		// handler delete
-		i.set(0);
+		*i.write().unwrap() = 0;
 		{
 			let mut conn = make_conn();
 			let handler = conn.handler_add(i_incrementer.clone(), None, None, None).unwrap();
 			conn.handler_delete(handler);
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
-			assert_eq!(i.get(), 0);
+			assert_eq!(*i.read().unwrap(), 0);
 		}
 
 		// handler clear
-		i.set(0);
+		*i.write().unwrap() = 0;
 		{
 			let mut conn = make_conn();
 			conn.handler_add(i_incrementer.clone(), None, None, None);
 			conn.handlers_clear();
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
-			assert_eq!(i.get(), 0);
+			assert_eq!(*i.read().unwrap(), 0);
 		}
 
 		// same handler twice
-		i.set(0);
+		*i.write().unwrap() = 0;
 		{
 			let mut conn = make_conn();
 			assert_matches!(conn.handler_add(&i_incrementer, None, Some("iq"), None,), Some(..));
 			assert_matches!(conn.handler_add(&i_incrementer, None, Some("iq"), None), None);
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
-			assert_eq!(i.get(), 1);
+			assert_eq!(*i.read().unwrap(), 1);
 		}
 
 		// cloned handler twice, not sure if this behaviour is right
-		i.set(0);
+		*i.write().unwrap() = 0;
 		{
 			let mut conn = make_conn();
 			assert_matches!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None,), Some(..));
 			assert_matches!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None), None);
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
-			assert_eq!(i.get(), 1);
+			assert_eq!(*i.read().unwrap(), 1);
 		}
 	}
 }

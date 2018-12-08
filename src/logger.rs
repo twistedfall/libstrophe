@@ -10,7 +10,7 @@ use super::{
 };
 use super::ffi_types::FFI;
 
-type LogHandler<'cb> = dyn FnMut(LogLevel, &str, &str) + 'cb;
+type LogHandler<'cb> = dyn FnMut(LogLevel, &str, &str) + Send + 'cb;
 
 /// Wrapper around the underlying `xmpp_log_t` struct.
 ///
@@ -37,7 +37,7 @@ impl<'cb> Logger<'cb> {
 	/// The callback argument will be called every time a log message needs to be printed.
 	pub fn new<CB>(handler: CB) -> Logger<'cb>
 		where
-			CB: FnMut(LogLevel, &str, &str) + 'cb,
+			CB: FnMut(LogLevel, &str, &str) + Send + 'cb,
 	{
 		let handler = Box::new(handler);
 		Logger::with_inner(Box::into_raw(Box::new(sys::xmpp_log_t {
@@ -73,7 +73,7 @@ impl<'cb> Logger<'cb> {
 
 	extern "C" fn log_handler_cb<CB>(userdata: *mut raw::c_void, level: sys::xmpp_log_level_t, area: *const raw::c_char, msg: *const raw::c_char)
 		where
-			CB: FnMut(LogLevel, &str, &str) + 'cb,
+			CB: FnMut(LogLevel, &str, &str) + Send + 'cb,
 	{
 		let area = unsafe { FFI(area).receive() }.unwrap();
 		let msg = unsafe { FFI(msg).receive() }.unwrap();
