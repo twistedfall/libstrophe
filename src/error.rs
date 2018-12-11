@@ -1,10 +1,4 @@
-use std::{
-	error,
-	error::Error as StdError,
-	fmt,
-	result,
-	str,
-};
+use std::{fmt, result, str};
 
 use crate::{
 	Connection,
@@ -71,15 +65,9 @@ impl<'t> From<&'t sys::xmpp_stream_error_t> for StreamError<'t, 't> {
 	}
 }
 
-impl<'t> fmt::Display for StreamError<'t, 't> {
+impl fmt::Display for StreamError<'_, '_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}{}", self.description(), self.text.as_ref().map_or_else(|| "".into(), |x| format!(": {}", x)))
-	}
-}
-
-impl<'t> error::Error for StreamError<'t, 't> {
-	fn description(&self) -> &str {
-		match self.typ {
+		let text_type = match self.typ {
 			sys::xmpp_error_type_t::XMPP_SE_BAD_FORMAT => "Bad format",
 			sys::xmpp_error_type_t::XMPP_SE_BAD_NS_PREFIX => "Bad namespace prefix",
 			sys::xmpp_error_type_t::XMPP_SE_CONFLICT => "Conflict",
@@ -104,6 +92,7 @@ impl<'t> error::Error for StreamError<'t, 't> {
 			sys::xmpp_error_type_t::XMPP_SE_UNSUPPORTED_STANZA_TYPE => "Unsupported stanza type",
 			sys::xmpp_error_type_t::XMPP_SE_UNSUPPORTED_VERSION => "Unsupported version",
 			sys::xmpp_error_type_t::XMPP_SE_XML_NOT_WELL_FORMED => "XML is not well formed",
-		}
+		};
+		write!(f, "{}{}", text_type, self.text.map_or_else(|| "".into(), |x| format!(": {}", x)))
 	}
 }
