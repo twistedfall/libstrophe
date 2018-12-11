@@ -149,7 +149,7 @@ static DEINIT: sync::Once = sync::ONCE_INIT;
 /// Convert `Duration` to milliseconds
 #[inline]
 fn duration_as_ms(duration: time::Duration) -> raw::c_ulong {
-	(duration.as_secs() * 1_000 + duration.subsec_nanos() as u64 / 1_000_000) as raw::c_ulong
+	(duration.as_secs() * 1_000 + u64::from(duration.subsec_millis())) as raw::c_ulong
 }
 
 /// Convert type to *void for passing as `userdata`
