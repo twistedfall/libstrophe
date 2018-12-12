@@ -1,4 +1,4 @@
-use std::{mem, rc::Rc, time::Duration};
+use std::{collections::HashMap, mem, rc::Rc, time::Duration};
 
 use matches::assert_matches;
 
@@ -281,6 +281,40 @@ fn stanza() {
 	let mut stanza3 = stanza.clone();
 	stanza3.set_id("iq").unwrap();
 	assert_ne!(stanza.id(), stanza3.id());
+}
+
+#[test]
+fn stanza_attributes() {
+	let ctx = Context::new_with_null_logger();
+
+	let mut stanza = Stanza::new(&ctx);
+
+	assert_matches!(stanza.set_id("stanza_id").map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
+	assert_eq!(stanza.attribute_count(), 0);
+
+	stanza.set_name("message").unwrap();
+	stanza.set_id("stanza_id").unwrap();
+	stanza.set_stanza_type("type").unwrap();
+	stanza.set_ns("myns").unwrap();
+
+	assert_eq!(stanza.attribute_count(), 3);
+	assert_matches!(stanza.get_attribute("type"), Some("type"));
+	assert_matches!(stanza.get_attribute("non-existent"), None);
+
+	stanza.set_attribute("xmlns", "myotherns").unwrap();
+	assert_matches!(stanza.ns(), Some("myotherns"));
+
+	let mut compare = HashMap::new();
+	compare.insert("xmlns", "myotherns");
+	compare.insert("type", "type");
+	compare.insert("id", "stanza_id");
+	assert_eq!(stanza.attributes(), compare);
+
+	stanza.del_attribute("type").unwrap();
+	assert_eq!(stanza.attribute_count(), 2);
+	assert_matches!(stanza.get_attribute("type"), None);
+	compare.remove("type");
+	assert_eq!(stanza.attributes(), compare);
 }
 
 #[cfg(feature = "creds-test")]

@@ -202,21 +202,16 @@ impl<'cx> Stanza<'cx> {
 	pub fn attributes(&self) -> collections::HashMap<&str, &str> {
 		let count = self.attribute_count();
 		let mut out = collections::HashMap::with_capacity(count as _);
+		let mut arr = vec![ptr::null() as _; count as usize * 2];
 		unsafe {
-			let mut arr = vec![ptr::null() as _; count as usize * 2];
 			sys::xmpp_stanza_get_attributes(self.inner, arr.as_mut_ptr(), count * 2);
-			let mut iter = arr.into_iter();
-			loop {
-				if let Some(key) = iter.next() {
-					if let Some(val) = iter.next() {
-						out.insert(FFI(key).receive().unwrap(), FFI(val).receive().unwrap());
-					} else {
-						break
-					}
-				} else {
-					break
-				}
-			}
+		}
+		let mut iter = arr.into_iter();
+		while let (Some(key), Some(val)) = (iter.next(), iter.next()) {
+			out.insert(
+				unsafe { FFI(key).receive() }.expect("Null pointer received for key in attributes() call"),
+				unsafe { FFI(val).receive() }.expect("Null pointer received for value in attributes() call"),
+			);
 		}
 		out
 	}
@@ -413,17 +408,18 @@ impl fmt::Display for Stanza<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let mut buf: *mut raw::c_char = unsafe { mem::uninitialized() };
 		let mut buflen: usize = unsafe { mem::uninitialized() };
-		let result = error::code_to_result(unsafe { sys::xmpp_stanza_to_text(self.inner, &mut buf, &mut buflen) });
-		if result.is_ok() {
+		error::code_to_result(unsafe {
+			sys::xmpp_stanza_to_text(self.inner, &mut buf, &mut buflen)
+		}).map_err(|_| {
+			fmt::Error
+		}).and_then(|_| {
 			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as _, buflen + 1)) };
 			let out = write!(f, "{}", buf.to_str().map_err(|_| fmt::Error)?);
 			unsafe {
 				self.context().free(buf.as_ptr() as *mut raw::c_char);
 			}
 			out
-		} else {
-			Err(fmt::Error)
-		}
+		})
 	}
 }
 
