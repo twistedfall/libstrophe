@@ -9,7 +9,7 @@ See [full documentation](https://docs.rs/libstrophe)
 Add this to your Cargo.toml:
 ```
 [dependencies]
-libstrophe = "0.9"
+libstrophe = "0.10"
 ```
 
 ## libstrophe - ergonomic wrapper for Rust
@@ -27,12 +27,13 @@ library documentation][docs] in most other cases.
 
 The general workflow is quite similar to what you get with the C library. The topmost object is
 [`Context`]. It contains platform-specific bits like logging and memory allocation. Plus an event
-loop used to keep things going. This crate wraps logging with the facilities provide by [`log`]
-crate (provided the default `rust-log` feature is enabled). Memory allocation is not yet handled
-by Rust native means (waiting for allocator API to stabilize). A [`Connection`] is created with a
-specific [`Context`]. A single [`Context`] can be used for multiple [`Connection`]s because they
-accept `Arc<Context>` to allow them to share it without requiring you to keep original [`Context`]
-and handle out references.
+loop used to keep things going. This crate wraps logging with the facilities provided by [`log`]
+crate (provided the default `rust-log` feature is enabled). Memory allocation is also handled by
+Rust native means. When a [`Connection`] is created it will temporarily consume the [`Context`].
+After all of the setup is done, call one of the `connect_*()` methods to retrieve the [`Context`]
+back. In this manner a single [`Context`] can be used for multiple [`Connection`]s consequently.
+When you're done with setting up [`Connection`]s for the [`Context`], use `run()` or `run_once()`
+methods to start the event loop rolling.
 
 
 ## Safety
@@ -41,8 +42,8 @@ This create tries to be as safe as possible. Yet it's not always possible to gua
 wrapping a C library. The following assumptions are made which might not necessary be true and
 thus might introduce unsafety:
 
-  * [`Context`] is considered immutable (or more specifically having interior mutability) so its
-    methods only borrow it immutably
+ * [`Context`] event loop methods are borrowing `self` immutably considering it immutable (or
+   more specifically having interior mutability)
 
 The main objects in this crate are marked as `Send` and it should be indeed be safe to send them
 between threads. Yet, no major investigation of the library source code has been performed to
@@ -59,32 +60,36 @@ lifetime so you won't be able to use the library properly after you called [`shu
 
 ## Callbacks
 
-Due to the nature of the crate it cannot take ownership of the callbacks that are passed to it.
-So all callbacks must be owned and stored outside of the library. Also another consequence is
-that there is no possibility of using `userdata` inside the callbacks so if you need to have
-a state between callback invocations you must use closures. This is because the crate makes use
-of `userdata` to pass the actual user callback.
+The crate has the ability to store callbacks taking ownership of them so you can pass closures
+and not care about storing them externally. There are some things to note about it though. Please
+note though that it's not always possible to know whether the underlying library accepted the
+callback or not. The crate will keep the closure internally in either case, though it may not ever
+be called by the library. You can still remove the callback with the corresponding `*handler_delete()`
+or `*handler_clear()` method.
 
-With closures you might run into lifetime expressivity problems. Basically adding a callback
-from another callback cannot be expressed as safe in terms of current Rust. So if you plan on
-doing so please use corresponding `*_add_unsafe()` handler method. Please also see
-`src/examples/bot_closure_unsafe.rs` for the example of this.
+Due to the fact that the crate uses `userdata` to pass the actual user callback, it's not possible
+to use `userdata` inside the callbacks for your own data. So if you need to have a state between
+callback invocations you must use closures.
+
+Because the main objects are marked as `Send` and we store callbacks inside them, all callbacks
+must also be `Send`.
 
 
 ## Examples
 ```rust
-let connection_handler = |conn: &mut libstrophe::Connection,
+let connection_handler = |ctx: &libstrophe::Context,
+                          _conn: &mut libstrophe::Connection,
                           _evt: libstrophe::ConnectionEvent,
                           _error: i32,
                           _stream_error: Option<&libstrophe::error::StreamError>| {
-   conn.context().stop();
+   ctx.stop();
 };
 
 let ctx = libstrophe::Context::new_with_default_logger();
-let mut conn = libstrophe::Connection::new(ctx.clone());
+let mut conn = libstrophe::Connection::new(ctx);
 conn.set_jid("example@127.0.0.1");
 conn.set_pass("password");
-conn.connect_client(None, None, &connection_handler).unwrap();
+let ctx = conn.connect_client(None, None, connection_handler).unwrap();
 ctx.run();
 libstrophe::shutdown();
 ```
