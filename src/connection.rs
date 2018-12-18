@@ -161,14 +161,17 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	}
 
 	fn get_fat_handler_pos<CB: ?Sized, T>(fat_handlers: &Handlers<FatHandler<'cb, 'cx, CB, T>>, fat_handler_ptr: *const FatHandler<'cb, 'cx, CB, T>) -> Option<usize> {
+		#![allow(clippy::ptr_arg)]
 		fat_handlers.iter().position(|x| fat_handler_ptr == x.as_ref())
 	}
 
 	fn get_fat_handler_pos_by_callback<CB: ?Sized, T>(fat_handlers: &Handlers<FatHandler<'cb, 'cx, CB, T>>, cb_addr: *const ()) -> Option<usize> {
+		#![allow(clippy::ptr_arg)]
 		fat_handlers.iter().position(|x| cb_addr == x.cb_addr)
 	}
 
 	fn validate_fat_handler<'f, CB: ?Sized, T>(fat_handlers: &'f Handlers<FatHandler<'cb, 'cx, CB, T>>, fat_handler_ptr: *const FatHandler<'cb, 'cx, CB, T>) -> Option<&'f FatHandler<'cb, 'cx, CB, T>> {
+		#![allow(clippy::ptr_arg)]
 		Self::get_fat_handler_pos(fat_handlers, fat_handler_ptr).map(|pos| {
 			fat_handlers[pos].as_ref()
 		})
@@ -503,6 +506,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	///
 	/// See `handler_delete()` for additional information.
 	pub fn timed_handler_delete<CB>(&mut self, handler_id: TimedHandlerId<CB>) {
+		#![allow(clippy::needless_pass_by_value)]
 		unsafe {
 			sys::xmpp_timed_handler_delete(self.inner.as_mut(), Some(Self::timed_handler_cb::<CB>))
 		}
@@ -549,6 +553,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	///
 	/// See `handler_delete()` for additional information.
 	pub fn id_handler_delete<CB>(&mut self, handler_id: IdHandlerId<CB>) {
+		#![allow(clippy::needless_pass_by_value)]
 		if let Some(fat_handler) = Self::validate_fat_handler(&self.fat_handlers.borrow().stanza, handler_id.0 as _) {
 			let id = FFI(fat_handler.extra.as_ref().unwrap().as_str()).send();
 			unsafe {
@@ -603,6 +608,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// This version of this function accepts `HandlerId` returned from `add_handler()` function instead of function reference as the underlying
 	/// library does. If you can't keep track of those handles, but still want ability to remove handlers, check `handlers_clear()` function.
 	pub fn handler_delete<CB>(&mut self, handler_id: HandlerId<CB>) {
+		#![allow(clippy::needless_pass_by_value)]
 		unsafe {
 			sys::xmpp_handler_delete(self.inner.as_mut(), Some(Self::handler_cb::<CB>))
 		}

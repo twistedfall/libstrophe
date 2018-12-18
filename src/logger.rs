@@ -1,6 +1,9 @@
 use std::{
 	fmt,
-	hash,
+	hash::{
+		Hash,
+		Hasher,
+	},
 	os::raw,
 	ptr::NonNull,
 };
@@ -26,6 +29,7 @@ type LogHandler<'cb> = dyn FnMut(LogLevel, &str, &str) + Send + 'cb;
 /// This struct implements:
 ///
 ///   * `Eq` by comparing internal pointers
+///   * `Hash` by hashing internal pointer
 ///   * `Send`
 ///
 /// [`Logger::default()`]: struct.Logger.html#method.default
@@ -136,10 +140,9 @@ impl fmt::Debug for Logger<'_> {
 	}
 }
 
-impl hash::Hash for Logger<'_> {
-	fn hash<H: hash::Hasher>(&self, state: &mut H) {
+impl Hash for Logger<'_> {
+	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.inner.hash(state);
-		self.owned.hash(state);
 	}
 }
 

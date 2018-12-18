@@ -1,7 +1,16 @@
 use std::{
 	collections,
 	ffi,
-	fmt,
+	fmt::{
+		Display,
+		Error as FmtError,
+		Formatter,
+		Result as FmtResult,
+	},
+	hash::{
+		Hash,
+		Hasher,
+	},
 	marker,
 	mem,
 	ops,
@@ -27,6 +36,7 @@ use crate::{
 ///
 ///   * `Display` ([xmpp_stanza_to_text])
 ///   * `Eq` by comparing internal pointers
+///   * `Hash` by hashing internal pointer
 ///   * `Drop` ([xmpp_stanza_release])
 ///   * `Clone` ([xmpp_stanza_copy])
 ///   * `Send`
@@ -36,7 +46,7 @@ use crate::{
 /// [xmpp_stanza_to_text]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga49d188283a22e228ebf188aa06cf55b6
 /// [xmpp_stanza_release]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga71a1b5d6974e435aa1dca60a547fd11a
 /// [xmpp_stanza_copy]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaef536615ea184b55e461980a1a8dba02
-#[derive(Debug, Hash)]
+#[derive(Debug)]
 pub struct Stanza<'cx> {
 	inner: NonNull<sys::xmpp_stanza_t>,
 	owned: bool,
@@ -408,18 +418,18 @@ impl<'cx> Stanza<'cx> {
 	}
 }
 
-impl fmt::Display for Stanza<'_> {
+impl Display for Stanza<'_> {
 	/// [xmpp_stanza_to_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga49d188283a22e228ebf188aa06cf55b6)
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+	fn fmt(&self, f: &mut Formatter) -> FmtResult {
 		let mut buf: *mut raw::c_char = unsafe { mem::uninitialized() };
 		let mut buflen: usize = unsafe { mem::uninitialized() };
 		error::code_to_result(unsafe {
 			sys::xmpp_stanza_to_text(self.inner.as_ptr(), &mut buf, &mut buflen)
 		}).map_err(|_| {
-			fmt::Error
+			FmtError
 		}).and_then(|_| {
 			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as _, buflen + 1)) };
-			let out = write!(f, "{}", buf.to_str().map_err(|_| fmt::Error)?);
+			let out = write!(f, "{}", buf.to_str().map_err(|_| FmtError)?);
 			unsafe {
 				self.context().free(buf.as_ptr() as *mut raw::c_char);
 			}
@@ -441,6 +451,12 @@ impl PartialEq for Stanza<'_> {
 }
 
 impl Eq for Stanza<'_> {}
+
+impl Hash for Stanza<'_> {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.inner.hash(state);
+	}
+}
 
 impl Drop for Stanza<'_> {
 	/// [xmpp_stanza_release](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga71a1b5d6974e435aa1dca60a547fd11a)
@@ -467,7 +483,7 @@ impl<'cx> Into<StanzaMutRef<'cx>> for Stanza<'cx> {
 	}
 }
 
-/// Wrapper for constant ref to [`Stanza`], implements `Deref` to [`Stanza`]
+/// Wrapper for constant reference to [`Stanza`], implements `Deref` to [`Stanza`]
 ///
 /// You can obtain such objects by calling [`Stanza`] child search methods.
 ///
@@ -483,13 +499,13 @@ impl<'cx> ops::Deref for StanzaRef<'cx> {
 	}
 }
 
-impl fmt::Display for StanzaRef<'_> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for StanzaRef<'_> {
+	fn fmt(&self, f: &mut Formatter) -> FmtResult {
 		self.0.fmt(f)
 	}
 }
 
-/// Wrapper for mutable ref to [`Stanza`], implements `Deref` to [`Stanza`]
+/// Wrapper for mutable reference to [`Stanza`], implements `Deref` and `DerefMut` to [`Stanza`]
 ///
 /// You can obtain such objects by calling [`Stanza`] child search methods.
 ///
@@ -511,8 +527,8 @@ impl ops::DerefMut for StanzaMutRef<'_> {
 	}
 }
 
-impl fmt::Display for StanzaMutRef<'_> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for StanzaMutRef<'_> {
+	fn fmt(&self, f: &mut Formatter) -> FmtResult {
 		self.0.fmt(f)
 	}
 }

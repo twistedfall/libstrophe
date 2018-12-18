@@ -105,26 +105,31 @@ impl<'lg, 'cn> Context<'lg, 'cn> {
 	pub fn as_inner(&self) -> *mut sys::xmpp_ctx_t { self.inner.as_ptr() }
 
 	#[inline(always)]
-	fn calculate_real_alloc(size: usize) -> alloc::Layout {
-		alloc::Layout::from_size_align(size + mem::size_of_val(&size), mem::align_of::<u8>()).expect("Cannot create layout")
+	fn calculate_layout(size: usize) -> alloc::Layout {
+		// we leave additional sizeof(usize) bytes in front for the actual allocation size, it's needed later for deallocation
+		alloc::Layout::from_size_align(size + mem::size_of_val(&size), mem::align_of_val(&size)).expect("Cannot create layout")
 	}
 
 	#[inline(always)]
 	fn write_real_alloc(p: *mut u8, size: usize) -> *mut raw::c_void {
+		#![allow(clippy::cast_ptr_alignment)]
+		// it's ok to cast it as *mut usize because we align to usize during allocation and p points to the beginning of that buffer
 		let out = p as *mut usize;
-		unsafe { *out = size };
-		unsafe { out.add(1) as _ }
+		unsafe {
+			out.write(size);
+			out.add(1) as _
+		}
 	}
 
 	#[inline(always)]
 	fn read_real_alloc(p: *mut raw::c_void) -> (*mut u8, alloc::Layout) {
-		let memory = unsafe { (p as *mut usize).sub(1) };
-		let size = unsafe { *memory };
-		(memory as _, alloc::Layout::from_size_align(size, mem::align_of::<u8>()).expect("Cannot create layout"))
+		let memory: *mut usize = unsafe { (p as *mut usize).sub(1) };
+		let size = unsafe { memory.read() };
+		(memory as _, alloc::Layout::from_size_align(size, mem::align_of_val(&size)).expect("Cannot create layout"))
 	}
 
 	extern "C" fn custom_alloc(size: usize, _userdata: *mut raw::c_void) -> *mut raw::c_void {
-		let layout = Self::calculate_real_alloc(size);
+		let layout = Self::calculate_layout(size);
 		Self::write_real_alloc(unsafe { alloc::alloc(layout) }, layout.size())
 	}
 
@@ -134,7 +139,7 @@ impl<'lg, 'cn> Context<'lg, 'cn> {
 	}
 
 	extern "C" fn custom_realloc(p: *mut raw::c_void, size: usize, _userdata: *mut raw::c_void) -> *mut raw::c_void {
-		let new_layout = Self::calculate_real_alloc(size);
+		let new_layout = Self::calculate_layout(size);
 		let (p, layout) = Self::read_real_alloc(p);
 		Self::write_real_alloc(unsafe { alloc::realloc(p, layout, new_layout.size()) }, new_layout.size())
 	}
