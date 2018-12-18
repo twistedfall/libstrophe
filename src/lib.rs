@@ -107,6 +107,7 @@ use std::{sync, time};
 use std::os::raw;
 
 use bitflags::bitflags;
+use lazy_static::lazy_static;
 
 pub use sys::{
 	xmpp_conn_event_t as ConnectionEvent,
@@ -114,12 +115,14 @@ pub use sys::{
 };
 
 pub use self::connection::{Connection, HandlerId, IdHandlerId, TimedHandlerId};
+pub use self::alloc_context::AllocContext;
 pub use self::context::Context;
 // fixme, pub(crate) is there to please IDEA
 pub(crate) use self::ffi_types::FFI;
 pub use self::logger::Logger;
 pub use self::stanza::{Stanza, StanzaMutRef, StanzaRef};
 
+mod alloc_context;
 mod ffi_types;
 mod connection;
 mod context;
@@ -144,6 +147,10 @@ bitflags! {
 
 static INIT: sync::Once = sync::ONCE_INIT;
 static DEINIT: sync::Once = sync::ONCE_INIT;
+
+lazy_static! {
+	static ref ALLOC_CONTEXT: AllocContext = { AllocContext::default() };
+}
 
 /// Convert `Duration` to milliseconds
 #[inline]
