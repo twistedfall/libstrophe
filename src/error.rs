@@ -1,8 +1,12 @@
-use std::{fmt, result, str};
+use std::{
+	fmt,
+	result,
+	str,
+};
 
 use crate::{
 	Connection,
-	ffi_types::FFI,
+	FFI,
 	Stanza,
 	StanzaMutRef,
 };

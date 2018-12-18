@@ -1,11 +1,21 @@
-use std::{collections, ffi, fmt, marker, mem, ops, ptr, slice};
-use std::os::raw;
+use std::{
+	collections,
+	ffi,
+	fmt,
+	marker,
+	mem,
+	ops,
+	os::raw,
+	ptr,
+	ptr::NonNull,
+	slice,
+};
 
-use super::{
+use crate::{
 	Context,
 	error,
+	FFI,
 };
-use super::ffi_types::FFI;
 
 /// Proxy to the underlying `xmpp_stanza_t` struct.
 ///
@@ -28,7 +38,7 @@ use super::ffi_types::FFI;
 /// [xmpp_stanza_copy]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaef536615ea184b55e461980a1a8dba02
 #[derive(Debug, Hash)]
 pub struct Stanza<'cx> {
-	inner: *mut sys::xmpp_stanza_t,
+	inner: NonNull<sys::xmpp_stanza_t>,
 	owned: bool,
 	_ctx: marker::PhantomData<&'cx ()>,
 }
@@ -87,10 +97,7 @@ impl<'cx> Stanza<'cx> {
 
 	#[inline]
 	unsafe fn with_inner(inner: *mut sys::xmpp_stanza_t, owned: bool) -> Self {
-		if inner.is_null() {
-			panic!("Cannot allocate memory for Stanza")
-		}
-		Stanza { inner, owned, _ctx: marker::PhantomData }
+		Stanza { inner: NonNull::new(inner).expect("Cannot allocate memory for Stanza"), owned, _ctx: marker::PhantomData }
 	}
 
 	/// Create an owning stanza from the raw pointer, for internal use
@@ -109,7 +116,7 @@ impl<'cx> Stanza<'cx> {
 	}
 
 	/// Return internal raw pointer to stanza, for internal use
-	pub fn as_inner(&self) -> *mut sys::xmpp_stanza_t { self.inner }
+	pub fn as_inner(&self) -> *mut sys::xmpp_stanza_t { self.inner.as_ptr() }
 
 	/// Return context for this `Stanza`
 	///
@@ -123,20 +130,17 @@ impl<'cx> Stanza<'cx> {
 			ref_: raw::c_int,
 			ctx: *mut sys::xmpp_ctx_t,
 		}
-		let ctx_ref = unsafe {
-			(*(self.inner as *mut StanzaLayout)).ctx
-		};
-		unsafe { Context::from_inner_ref_mut(ctx_ref) }
+		unsafe { Context::from_inner_ref_mut(self.inner.cast::<StanzaLayout>().as_ref().ctx) }
 	}
 
 	/// [xmpp_stanza_is_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gafe82902f19a387da45ce08a23b1cded6)
 	pub fn is_text(&self) -> bool {
-		FFI(unsafe { sys::xmpp_stanza_is_text(self.inner) }).receive_bool()
+		FFI(unsafe { sys::xmpp_stanza_is_text(self.inner.as_ptr()) }).receive_bool()
 	}
 
 	/// [xmpp_stanza_is_tag](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga90cda8b1581546b0b93f6aefdeb288ad)
 	pub fn is_tag(&self) -> bool {
-		FFI(unsafe { sys::xmpp_stanza_is_tag(self.inner) }).receive_bool()
+		FFI(unsafe { sys::xmpp_stanza_is_tag(self.inner.as_ptr()) }).receive_bool()
 	}
 
 	/// [xmpp_stanza_to_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga49d188283a22e228ebf188aa06cf55b6)
@@ -144,7 +148,7 @@ impl<'cx> Stanza<'cx> {
 		let mut buf: *mut raw::c_char = unsafe { mem::uninitialized() };
 		let mut buflen: usize = unsafe { mem::uninitialized() };
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_to_text(self.inner, &mut buf, &mut buflen)
+			sys::xmpp_stanza_to_text(self.inner.as_ptr(), &mut buf, &mut buflen)
 		}).and_then(|_| {
 			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as _, buflen + 1)) };
 			let out = buf.to_str()?.to_owned();
@@ -161,21 +165,21 @@ impl<'cx> Stanza<'cx> {
 	pub fn set_name(&mut self, name: impl AsRef<str>) -> error::EmptyResult {
 		let name = FFI(name.as_ref()).send();
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_set_name(self.inner, name.as_ptr())
+			sys::xmpp_stanza_set_name(self.inner.as_mut(), name.as_ptr())
 		})
 	}
 
 	/// [xmpp_stanza_get_name](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gad94f7ab260305ef72be043e3ad327102)
 	pub fn name(&self) -> Option<&str> {
 		unsafe {
-			FFI(sys::xmpp_stanza_get_name(self.inner)).receive()
+			FFI(sys::xmpp_stanza_get_name(self.inner.as_ptr())).receive()
 		}
 	}
 
 	/// [xmpp_stanza_get_attribute_count](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga4f129d65e5222394903522d77e554649)
 	pub fn attribute_count(&self) -> i32 {
 		unsafe {
-			sys::xmpp_stanza_get_attribute_count(self.inner)
+			sys::xmpp_stanza_get_attribute_count(self.inner.as_ptr())
 		}
 	}
 
@@ -184,7 +188,7 @@ impl<'cx> Stanza<'cx> {
 		let name = FFI(name.as_ref()).send();
 		let value = FFI(value.as_ref()).send();
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_set_attribute(self.inner, name.as_ptr(), value.as_ptr())
+			sys::xmpp_stanza_set_attribute(self.inner.as_mut(), name.as_ptr(), value.as_ptr())
 		})
 	}
 
@@ -192,7 +196,7 @@ impl<'cx> Stanza<'cx> {
 	pub fn get_attribute(&self, name: impl AsRef<str>) -> Option<&str> {
 		let name = FFI(name.as_ref()).send();
 		unsafe {
-			FFI(sys::xmpp_stanza_get_attribute(self.inner, name.as_ptr())).receive()
+			FFI(sys::xmpp_stanza_get_attribute(self.inner.as_ptr(), name.as_ptr())).receive()
 		}
 	}
 
@@ -204,7 +208,7 @@ impl<'cx> Stanza<'cx> {
 		let mut out = collections::HashMap::with_capacity(count as _);
 		let mut arr = vec![ptr::null() as _; count as usize * 2];
 		unsafe {
-			sys::xmpp_stanza_get_attributes(self.inner, arr.as_mut_ptr(), count * 2);
+			sys::xmpp_stanza_get_attributes(self.inner.as_ptr(), arr.as_mut_ptr(), count * 2);
 		}
 		let mut iter = arr.into_iter();
 		while let (Some(key), Some(val)) = (iter.next(), iter.next()) {
@@ -220,7 +224,7 @@ impl<'cx> Stanza<'cx> {
 	pub fn del_attribute(&mut self, name: impl AsRef<str>) -> error::EmptyResult {
 		let name = FFI(name.as_ref()).send();
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_del_attribute(self.inner, name.as_ptr())
+			sys::xmpp_stanza_del_attribute(self.inner.as_mut(), name.as_ptr())
 		})
 	}
 
@@ -229,13 +233,13 @@ impl<'cx> Stanza<'cx> {
 	/// Be aware that calling this method changes the internal type of stanza to `XMPP_STANZA_TEXT`.
 	pub fn set_text(&mut self, text: impl AsRef<str>) -> error::EmptyResult {
 		let text = text.as_ref();
-		error::code_to_result(unsafe { sys::xmpp_stanza_set_text_with_size(self.inner, text.as_ptr() as _, text.len()) })
+		error::code_to_result(unsafe { sys::xmpp_stanza_set_text_with_size(self.inner.as_mut(), text.as_ptr() as _, text.len()) })
 	}
 
 	/// [xmpp_stanza_get_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaceb6c04c44e2387f5918a2edf5853a8c)
 	pub fn text(&self) -> Option<String> {
 		unsafe {
-			FFI(sys::xmpp_stanza_get_text(self.inner)).receive_with_free(|x| {
+			FFI(sys::xmpp_stanza_get_text(self.inner.as_ptr())).receive_with_free(|x| {
 				self.context().free(x)
 			})
 		}
@@ -246,68 +250,68 @@ impl<'cx> Stanza<'cx> {
 	pub fn set_id(&mut self, id: impl AsRef<str>) -> error::EmptyResult {
 		let id = FFI(id.as_ref()).send();
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_set_id(self.inner, id.as_ptr())
+			sys::xmpp_stanza_set_id(self.inner.as_mut(), id.as_ptr())
 		})
 	}
 
 	/// [xmpp_stanza_get_id](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gae5ca6ad0e6ca61d3291dcf7b268f69fd)
-	pub fn id(&self) -> Option<&str> { unsafe { FFI(sys::xmpp_stanza_get_id(self.inner)).receive() } }
+	pub fn id(&self) -> Option<&str> { unsafe { FFI(sys::xmpp_stanza_get_id(self.inner.as_ptr())).receive() } }
 
 	/// [xmpp_stanza_set_ns](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gadc05616c1b7f95fc7fea910c6960def7)
 	pub fn set_ns(&mut self, ns: impl AsRef<str>) -> error::EmptyResult {
 		let ns = FFI(ns.as_ref()).send();
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_set_ns(self.inner, ns.as_ptr())
+			sys::xmpp_stanza_set_ns(self.inner.as_mut(), ns.as_ptr())
 		})
 	}
 
 	/// [xmpp_stanza_get_ns](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaa2515e705415cf5735416969b671f9d5)
-	pub fn ns(&self) -> Option<&str> { unsafe { FFI(sys::xmpp_stanza_get_ns(self.inner)).receive() } }
+	pub fn ns(&self) -> Option<&str> { unsafe { FFI(sys::xmpp_stanza_get_ns(self.inner.as_ptr())).receive() } }
 
 	/// [xmpp_stanza_set_type](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga2251d36609c20f2c367d3595dac307da)
 	pub fn set_stanza_type(&mut self, typ: impl AsRef<str>) -> error::EmptyResult {
 		let typ = FFI(typ.as_ref()).send();
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_set_type(self.inner, typ.as_ptr())
+			sys::xmpp_stanza_set_type(self.inner.as_mut(), typ.as_ptr())
 		})
 	}
 
 	/// [xmpp_stanza_get_type](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga6a1a17033a76fb63d2b173a279bf57fa)
-	pub fn stanza_type(&self) -> Option<&str> { unsafe { FFI(sys::xmpp_stanza_get_type(self.inner)).receive() } }
+	pub fn stanza_type(&self) -> Option<&str> { unsafe { FFI(sys::xmpp_stanza_get_type(self.inner.as_ptr())).receive() } }
 
 	/// [xmpp_stanza_set_to](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga37ac2d958f43842038fc70d03fc7114a)
 	pub fn set_to(&mut self, to: impl AsRef<str>) -> error::EmptyResult {
 		let to = FFI(to.as_ref()).send();
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_set_to(self.inner, to.as_ptr())
+			sys::xmpp_stanza_set_to(self.inner.as_mut(), to.as_ptr())
 		})
 	}
 
 	/// [xmpp_stanza_get_to](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gacd7b09bb46f5f3950e81edb946a49a50)
-	pub fn to(&self) -> Option<&str> { unsafe { FFI(sys::xmpp_stanza_get_to(self.inner)).receive() } }
+	pub fn to(&self) -> Option<&str> { unsafe { FFI(sys::xmpp_stanza_get_to(self.inner.as_ptr())).receive() } }
 
 	/// [xmpp_stanza_set_from](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga1f80e0f685c3adf71741a702d36b3bae)
 	pub fn set_from(&mut self, from: impl AsRef<str>) -> error::EmptyResult {
 		let from = FFI(from.as_ref()).send();
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_set_from(self.inner, from.as_ptr())
+			sys::xmpp_stanza_set_from(self.inner.as_mut(), from.as_ptr())
 		})
 	}
 
 	/// [xmpp_stanza_get_from](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga88854ce441147e68835e7215ee53139a)
-	pub fn from(&self) -> Option<&str> { unsafe { FFI(sys::xmpp_stanza_get_from(self.inner)).receive() } }
+	pub fn from(&self) -> Option<&str> { unsafe { FFI(sys::xmpp_stanza_get_from(self.inner.as_ptr())).receive() } }
 
 	/// [xmpp_stanza_get_children](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga95e73cb5be9ba97560416e251da5d8e1)
 	pub fn get_first_child(&self) -> Option<StanzaRef> {
 		unsafe {
-			sys::xmpp_stanza_get_children(self.inner).as_ref()
+			sys::xmpp_stanza_get_children(self.inner.as_ptr()).as_ref()
 		}.map(|x| unsafe { Self::from_inner_ref(x) })
 	}
 
 	/// [xmpp_stanza_get_children](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga95e73cb5be9ba97560416e251da5d8e1)
 	pub fn get_first_child_mut(&mut self) -> Option<StanzaMutRef> {
 		unsafe {
-			sys::xmpp_stanza_get_children(self.inner).as_mut()
+			sys::xmpp_stanza_get_children(self.inner.as_mut()).as_mut()
 		}.map(|x| unsafe { Self::from_inner_ref_mut(x) })
 	}
 
@@ -315,7 +319,7 @@ impl<'cx> Stanza<'cx> {
 	pub fn get_child_by_ns(&self, ns: impl AsRef<str>) -> Option<StanzaRef> {
 		let ns = FFI(ns.as_ref()).send();
 		unsafe {
-			sys::xmpp_stanza_get_child_by_ns(self.inner, ns.as_ptr()).as_ref()
+			sys::xmpp_stanza_get_child_by_ns(self.inner.as_ptr(), ns.as_ptr()).as_ref()
 		}.map(|x| unsafe { Self::from_inner_ref(x) })
 	}
 
@@ -323,7 +327,7 @@ impl<'cx> Stanza<'cx> {
 	pub fn get_child_by_ns_mut(&mut self, ns: impl AsRef<str>) -> Option<StanzaMutRef> {
 		let ns = FFI(ns.as_ref()).send();
 		unsafe {
-			sys::xmpp_stanza_get_child_by_ns(self.inner, ns.as_ptr()).as_mut()
+			sys::xmpp_stanza_get_child_by_ns(self.inner.as_mut(), ns.as_ptr()).as_mut()
 		}.map(|x| unsafe { Self::from_inner_ref_mut(x) })
 	}
 
@@ -331,7 +335,7 @@ impl<'cx> Stanza<'cx> {
 	pub fn get_child_by_name(&self, name: impl AsRef<str>) -> Option<StanzaRef> {
 		let name = FFI(name.as_ref()).send();
 		unsafe {
-			sys::xmpp_stanza_get_child_by_name(self.inner, name.as_ptr()).as_ref()
+			sys::xmpp_stanza_get_child_by_name(self.inner.as_ptr(), name.as_ptr()).as_ref()
 		}.map(|x| unsafe { Self::from_inner_ref(x) })
 	}
 
@@ -339,7 +343,7 @@ impl<'cx> Stanza<'cx> {
 	pub fn get_child_by_name_mut(&mut self, name: impl AsRef<str>) -> Option<StanzaMutRef> {
 		let name = FFI(name.as_ref()).send();
 		unsafe {
-			sys::xmpp_stanza_get_child_by_name(self.inner, name.as_ptr()).as_mut()
+			sys::xmpp_stanza_get_child_by_name(self.inner.as_mut(), name.as_ptr()).as_mut()
 		}.map(|x| unsafe { Self::from_inner_ref_mut(x) })
 	}
 
@@ -360,28 +364,29 @@ impl<'cx> Stanza<'cx> {
 	/// [xmpp_stanza_get_next](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaa9a115b89f245605279120c05d698853)
 	pub fn get_next(&self) -> Option<StanzaRef> {
 		unsafe {
-			sys::xmpp_stanza_get_next(self.inner).as_ref()
+			sys::xmpp_stanza_get_next(self.inner.as_ptr()).as_ref()
 		}.map(|x| unsafe { Self::from_inner_ref(x) })
 	}
 
 	/// [xmpp_stanza_get_next](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaa9a115b89f245605279120c05d698853)
 	pub fn get_next_mut(&mut self) -> Option<StanzaMutRef> {
 		unsafe {
-			sys::xmpp_stanza_get_next(self.inner).as_mut()
+			sys::xmpp_stanza_get_next(self.inner.as_mut()).as_mut()
 		}.map(|x| unsafe { Self::from_inner_ref_mut(x) })
 	}
 
 	/// [xmpp_stanza_add_child](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga9cfdeabcfc45409d2dfff4b364f84a0c)
 	pub fn add_child(&mut self, child: Stanza) -> error::EmptyResult {
+		let mut child = child;
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_add_child(self.inner, child.inner)
+			sys::xmpp_stanza_add_child(self.inner.as_mut(), child.inner.as_mut())
 		})
 	}
 
 	/// [xmpp_stanza_reply](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gab7d75fc56a0558edd8bf45368d50fb15)
 	pub fn reply(&self) -> Self {
 		unsafe {
-			Self::from_inner(sys::xmpp_stanza_reply(self.inner))
+			Self::from_inner(sys::xmpp_stanza_reply(self.inner.as_ptr()))
 		}
 	}
 
@@ -389,14 +394,14 @@ impl<'cx> Stanza<'cx> {
 	pub fn set_body(&mut self, body: impl AsRef<str>) -> error::EmptyResult {
 		let body = FFI(body.as_ref()).send();
 		error::code_to_result(unsafe {
-			sys::xmpp_message_set_body(self.inner, body.as_ptr())
+			sys::xmpp_message_set_body(self.inner.as_mut(), body.as_ptr())
 		})
 	}
 
 	/// [xmpp_message_get_body](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga3ad5f7e64be52d04ed6f6680d80303fb)
 	pub fn body(&self) -> Option<String> {
 		unsafe {
-			FFI(sys::xmpp_message_get_body(self.inner)).receive_with_free(|x| {
+			FFI(sys::xmpp_message_get_body(self.inner.as_ptr())).receive_with_free(|x| {
 				self.context().free(x)
 			})
 		}
@@ -409,7 +414,7 @@ impl fmt::Display for Stanza<'_> {
 		let mut buf: *mut raw::c_char = unsafe { mem::uninitialized() };
 		let mut buflen: usize = unsafe { mem::uninitialized() };
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_to_text(self.inner, &mut buf, &mut buflen)
+			sys::xmpp_stanza_to_text(self.inner.as_ptr(), &mut buf, &mut buflen)
 		}).map_err(|_| {
 			fmt::Error
 		}).and_then(|_| {
@@ -425,7 +430,7 @@ impl fmt::Display for Stanza<'_> {
 
 impl Clone for Stanza<'_> {
 	fn clone(&self) -> Self {
-		unsafe { Stanza::from_inner(sys::xmpp_stanza_copy(self.inner)) }
+		unsafe { Stanza::from_inner(sys::xmpp_stanza_copy(self.inner.as_ptr())) }
 	}
 }
 
@@ -442,7 +447,7 @@ impl Drop for Stanza<'_> {
 	fn drop(&mut self) {
 		if self.owned {
 			unsafe {
-				sys::xmpp_stanza_release(self.inner);
+				sys::xmpp_stanza_release(self.inner.as_mut());
 			}
 		}
 	}

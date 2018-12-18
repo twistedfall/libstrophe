@@ -1,14 +1,19 @@
-use std::{fmt, hash, os::raw};
+use std::{
+	fmt,
+	hash,
+	os::raw,
+	ptr::NonNull,
+};
 
 #[cfg(feature = "rust-log")]
 use log::{debug, error, info, warn};
 
-use super::{
+use crate::{
 	as_void_ptr,
+	FFI,
 	LogLevel,
-	void_ptr_as,
+	void_ptr_as
 };
-use super::ffi_types::FFI;
 
 type LogHandler<'cb> = dyn FnMut(LogLevel, &str, &str) + Send + 'cb;
 
@@ -26,7 +31,7 @@ type LogHandler<'cb> = dyn FnMut(LogLevel, &str, &str) + Send + 'cb;
 /// [`Logger::default()`]: struct.Logger.html#method.default
 /// [`log`]: https://crates.io/crates/log
 pub struct Logger<'cb> {
-	inner: *mut sys::xmpp_log_t,
+	inner: NonNull<sys::xmpp_log_t>,
 	owned: bool,
 	_handler: Box<LogHandler<'cb>>,
 }
@@ -35,7 +40,7 @@ impl<'cb> Logger<'cb> {
 	/// Create a new custom logger.
 	///
 	/// The callback argument will be called every time a log message needs to be printed.
-	pub fn new<CB>(handler: CB) -> Logger<'cb>
+	pub fn new<CB>(handler: CB) -> Self
 		where
 			CB: FnMut(LogLevel, &str, &str) + Send + 'cb,
 	{
@@ -47,11 +52,8 @@ impl<'cb> Logger<'cb> {
 	}
 
 	#[inline]
-	fn with_inner(inner: *mut sys::xmpp_log_t, handler: Box<LogHandler<'cb>>, owned: bool) -> Logger<'cb> {
-		if inner.is_null() {
-			panic!("Cannot allocate memory for Logger")
-		}
-		Logger { inner, owned, _handler: handler }
+	fn with_inner(inner: *mut sys::xmpp_log_t, handler: Box<LogHandler<'cb>>, owned: bool) -> Self {
+		Logger { inner: NonNull::new(inner).expect("Cannot allocate memory for Logger"), owned, _handler: handler }
 	}
 
 	/// [xmpp_get_default_logger](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#ga33abde406c7a057006b109cf1b23c8f8)
@@ -83,7 +85,7 @@ impl<'cb> Logger<'cb> {
 	}
 
 	pub fn as_inner(&self) -> *const sys::xmpp_log_t {
-		self.inner
+		self.inner.as_ptr()
 	}
 }
 
@@ -145,7 +147,7 @@ impl Drop for Logger<'_> {
 	fn drop(&mut self) {
 		if self.owned {
 			unsafe {
-				Box::from_raw(self.inner);
+				Box::from_raw(self.inner.as_mut());
 			}
 		}
 	}

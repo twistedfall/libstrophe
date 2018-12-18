@@ -115,7 +115,8 @@ pub use sys::{
 
 pub use self::connection::{Connection, HandlerId, IdHandlerId, TimedHandlerId};
 pub use self::context::Context;
-use self::ffi_types::FFI;
+// fixme, pub(crate) is there to please IDEA
+pub(crate) use self::ffi_types::FFI;
 pub use self::logger::Logger;
 pub use self::stanza::{Stanza, StanzaMutRef, StanzaRef};
 
