@@ -126,6 +126,7 @@ mod alloc_context;
 mod ffi_types;
 mod connection;
 mod context;
+pub mod jid;
 pub mod error;
 mod logger;
 mod stanza;
