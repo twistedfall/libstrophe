@@ -4,7 +4,10 @@ use std::{
 	fmt,
 	mem,
 	os::raw,
-	rc::Rc,
+	rc::{
+		Rc,
+		Weak,
+	},
 	result,
 	time::Duration,
 };
@@ -110,30 +113,40 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	extern "C" fn connection_handler_cb<CB>(conn: *mut sys::xmpp_conn_t, event: sys::xmpp_conn_event_t, error: raw::c_int,
 	                                        stream_error: *mut sys::xmpp_stream_error_t, userdata: *mut raw::c_void) {
 		let connection_handler = unsafe { void_ptr_as::<ConnectionFatHandler>(userdata) };
-		let mut conn = unsafe { Self::from_inner_ref_mut(conn, Rc::clone(&connection_handler.fat_handlers)) };
-		let stream_error: Option<error::StreamError> = unsafe { stream_error.as_ref() }.map(|e| e.into());
-		(connection_handler.handler)(conn.context_detached(), &mut conn, event, error, stream_error.as_ref());
+		if let Some(fat_handlers) = connection_handler.fat_handlers.upgrade() {
+			let mut conn = unsafe { Self::from_inner_ref_mut(conn, fat_handlers) };
+			let stream_error: Option<error::StreamError> = unsafe { stream_error.as_ref() }.map(|e| e.into());
+			(connection_handler.handler)(conn.context_detached(), &mut conn, event, error, stream_error.as_ref());
+		}
 	}
 
 	extern "C" fn timed_handler_cb<CB>(conn: *mut sys::xmpp_conn_t, userdata: *mut raw::c_void) -> i32 {
 		let timed_handler = unsafe { void_ptr_as::<TimedFatHandler>(userdata) };
-		let mut conn = unsafe { Self::from_inner_ref_mut(conn, Rc::clone(&timed_handler.fat_handlers)) };
-		let res = (timed_handler.handler)(conn.context_detached(), &mut conn);
-		if !res {
-			Self::drop_fat_handler(&mut conn.fat_handlers.borrow_mut().timed, timed_handler);
+		if let Some(fat_handlers) = timed_handler.fat_handlers.upgrade() {
+			let mut conn = unsafe { Self::from_inner_ref_mut(conn, fat_handlers) };
+			let res = (timed_handler.handler)(conn.context_detached(), &mut conn);
+			if !res {
+				Self::drop_fat_handler(&mut conn.fat_handlers.borrow_mut().timed, timed_handler);
+			}
+			res as _
+		} else {
+			0
 		}
-		res as _
 	}
 
 	extern "C" fn handler_cb<CB>(conn: *mut sys::xmpp_conn_t, stanza: *mut sys::xmpp_stanza_t, userdata: *mut raw::c_void) -> i32 {
 		let stanza_handler = unsafe { void_ptr_as::<StanzaFatHandler>(userdata) };
-		let mut conn = unsafe { Self::from_inner_ref_mut(conn, Rc::clone(&stanza_handler.fat_handlers)) };
-		let stanza = unsafe { Stanza::from_inner_ref(stanza) };
-		let res = (stanza_handler.handler)(conn.context_detached(), &mut conn, &stanza);
-		if !res {
-			Self::drop_fat_handler(&mut conn.fat_handlers.borrow_mut().stanza, stanza_handler);
+		if let Some(fat_handlers) = stanza_handler.fat_handlers.upgrade() {
+			let mut conn = unsafe { Self::from_inner_ref_mut(conn, fat_handlers) };
+			let stanza = unsafe { Stanza::from_inner_ref(stanza) };
+			let res = (stanza_handler.handler)(conn.context_detached(), &mut conn, &stanza);
+			if !res {
+				Self::drop_fat_handler(&mut conn.fat_handlers.borrow_mut().stanza, stanza_handler);
+			}
+			res as _
+		} else {
+			0
 		}
-		res as _
 	}
 
 	fn store_fat_handler<CB: ?Sized, T>(fat_handlers: &mut Handlers<FatHandler<'cb, 'cx, CB, T>>, fat_handler: FatHandler<'cb, 'cx, CB, T>) -> Option<*const FatHandler<'cb, 'cx, CB, T>> {
@@ -172,7 +185,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 
 	fn make_fat_handler<CB: ?Sized, T>(&self, handler: Box<CB>, cb_addr: *const (), extra: T) -> FatHandler<'cb, 'cx, CB, T> {
 		FatHandler {
-			fat_handlers: Rc::clone(&self.fat_handlers),
+			fat_handlers: Rc::downgrade(&self.fat_handlers),
 			handler,
 			cb_addr,
 			extra
@@ -626,11 +639,6 @@ impl Drop for Connection<'_, '_> {
 			unsafe {
 				sys::xmpp_conn_release(self.inner);
 			}
-			// clear the handlers manually to break the Rc cycle to self.fat_handlers
-			let mut handlers = self.fat_handlers.borrow_mut();
-			handlers.connection = None;
-			handlers.stanza.clear();
-			handlers.timed.clear();
 		}
 	}
 }
@@ -662,7 +670,7 @@ impl<CB> fmt::Debug for IdHandlerId<'_, '_, CB> {
 }
 
 pub struct FatHandler<'cb, 'cx, CB: ?Sized, T> {
-	fat_handlers: Rc<RefCell<FatHandlers<'cb, 'cx>>>,
+	fat_handlers: Weak<RefCell<FatHandlers<'cb, 'cx>>>,
 	handler: Box<CB>,
 	cb_addr: *const (),
 	extra: T,
