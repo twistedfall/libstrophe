@@ -145,6 +145,8 @@ impl<'lg, 'cn> Context<'lg, 'cn> {
 	}
 
 	/// [xmpp_set_timeout](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#gab03acfbb7c9aa92f60fedb8f6ca43114)
+	///
+	/// Default timeout is 1000ms
 	#[cfg(feature = "libstrophe-0_9_2")]
 	pub fn set_timeout(&mut self, timeout: Duration) {
 		unsafe {
