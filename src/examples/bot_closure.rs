@@ -11,7 +11,7 @@ pub fn main() {
 	let jid = "test@example.com";
 	let pass = "<password>";
 
-	let version_handler = |ctx: &libstrophe::Context,
+	let version_handler = |_ctx: &libstrophe::Context,
 	                       conn: &mut libstrophe::Connection,
 	                       stanza: &libstrophe::Stanza| {
 		eprintln!("Received version request from {}", stanza.from().expect("Empty from"));
@@ -19,25 +19,25 @@ pub fn main() {
 		let mut reply = stanza.reply();
 		reply.set_stanza_type("result").expect("Cannot set stanza type");
 
-		let mut query = libstrophe::Stanza::new(ctx);
+		let mut query = libstrophe::Stanza::new();
 		query.set_name("query").expect("Cannot set stanza name");
 		if let Some(ns) = stanza.get_first_child().expect("No children").ns() {
 			query.set_ns(ns).expect("Cannot set stanza ns");
 		}
 
-		let mut name = libstrophe::Stanza::new(ctx);
+		let mut name = libstrophe::Stanza::new();
 		name.set_name("name").expect("Cannot set stanza name");
 
-		let mut text = libstrophe::Stanza::new(ctx);
+		let mut text = libstrophe::Stanza::new();
 		text.set_text("libstrophe example bot").expect("Cannot set stanza text");
 		name.add_child(text).expect("Cannot add child");
 
 		query.add_child(name).expect("Cannot add child");
 
-		let mut version = libstrophe::Stanza::new(ctx);
+		let mut version = libstrophe::Stanza::new();
 		version.set_name("version").expect("Cannot set stanza name");
 
-		let mut text = libstrophe::Stanza::new(ctx);
+		let mut text = libstrophe::Stanza::new();
 		text.set_text("1.0").expect("Cannot set stanza text");
 		version.add_child(text).expect("Cannot add child");
 
@@ -101,7 +101,7 @@ pub fn main() {
 			eprintln!("Connected");
 			conn.handler_add(version_handler, Some("jabber:iq:version"), Some("iq"), None);
 			conn.handler_add(message_handler, None, Some("message"), None);
-			let pres = libstrophe::Stanza::new_presence(ctx);
+			let pres = libstrophe::Stanza::new_presence();
 			conn.send(&pres);
 		} else {
 			eprintln!("Disconnected");

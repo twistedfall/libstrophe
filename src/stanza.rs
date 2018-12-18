@@ -11,7 +11,7 @@ use std::{
 		Hash,
 		Hasher,
 	},
-	marker,
+	marker::PhantomData,
 	mem,
 	ops,
 	os::raw,
@@ -21,7 +21,7 @@ use std::{
 };
 
 use crate::{
-	Context,
+	ALLOC_CONTEXT,
 	error,
 	FFI,
 };
@@ -47,13 +47,12 @@ use crate::{
 /// [xmpp_stanza_release]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga71a1b5d6974e435aa1dca60a547fd11a
 /// [xmpp_stanza_copy]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaef536615ea184b55e461980a1a8dba02
 #[derive(Debug)]
-pub struct Stanza<'cx> {
+pub struct Stanza {
 	inner: NonNull<sys::xmpp_stanza_t>,
 	owned: bool,
-	_ctx: marker::PhantomData<&'cx ()>,
 }
 
-impl<'cx> Stanza<'cx> {
+impl Stanza {
 	/// [xmpp_stanza_new](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga8e9261485e96c080de3103d8a42001df)
 	///
 	/// The newly created stanza is not really useful until you assign an internal type to it. To do
@@ -62,24 +61,24 @@ impl<'cx> Stanza<'cx> {
 	///
 	/// [`set_text()`]: struct.Stanza.html#method.set_text
 	/// [`set_name()`]: struct.Stanza.html#method.set_name
-	pub fn new(ctx: &'cx Context) -> Self {
-		unsafe { Stanza::from_inner(sys::xmpp_stanza_new(ctx.as_inner())) }
+	pub fn new() -> Self {
+		unsafe { Stanza::from_inner(sys::xmpp_stanza_new(ALLOC_CONTEXT.as_inner())) }
 	}
 
 	/// [xmpp_presence_new](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga5f3a4cde910ad181b8e569ff0431d7ac)
-	pub fn new_presence(ctx: &'cx Context) -> Self {
-		unsafe { Stanza::from_inner(sys::xmpp_presence_new(ctx.as_inner())) }
+	pub fn new_presence() -> Self {
+		unsafe { Stanza::from_inner(sys::xmpp_presence_new(ALLOC_CONTEXT.as_inner())) }
 	}
 
 	/// [xmpp_iq_new](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaf23007ddde78ec028a78ceec056544fd)
-	pub fn new_iq(ctx: &'cx Context, typ: Option<&str>, id: Option<&str>) -> Self
+	pub fn new_iq(typ: Option<&str>, id: Option<&str>) -> Self
 	{
 		let typ = FFI(typ).send();
 		let id = FFI(id).send();
 		unsafe {
 			Stanza::from_inner(
 				sys::xmpp_iq_new(
-					ctx.as_inner(),
+					ALLOC_CONTEXT.as_inner(),
 					typ.as_ptr(),
 					id.as_ptr()
 				)
@@ -88,7 +87,7 @@ impl<'cx> Stanza<'cx> {
 	}
 
 	/// [xmpp_message_new](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga3042d09bbe4aba9018ae617ca07f31a8)
-	pub fn new_message(ctx: &'cx Context, typ: Option<&str>, id: Option<&str>, to: Option<&str>) -> Self
+	pub fn new_message(typ: Option<&str>, id: Option<&str>, to: Option<&str>) -> Self
 	{
 		let typ = FFI(typ).send();
 		let to = FFI(to).send();
@@ -96,7 +95,7 @@ impl<'cx> Stanza<'cx> {
 		unsafe {
 			Stanza::from_inner(
 				sys::xmpp_message_new(
-					ctx.as_inner(),
+					ALLOC_CONTEXT.as_inner(),
 					typ.as_ptr(),
 					to.as_ptr(),
 					id.as_ptr(),
@@ -107,7 +106,7 @@ impl<'cx> Stanza<'cx> {
 
 	#[inline]
 	unsafe fn with_inner(inner: *mut sys::xmpp_stanza_t, owned: bool) -> Self {
-		Stanza { inner: NonNull::new(inner).expect("Cannot allocate memory for Stanza"), owned, _ctx: marker::PhantomData }
+		Stanza { inner: NonNull::new(inner).expect("Cannot allocate memory for Stanza"), owned }
 	}
 
 	/// Create an owning stanza from the raw pointer, for internal use
@@ -116,32 +115,17 @@ impl<'cx> Stanza<'cx> {
 	}
 
 	/// Create a borrowing stanza from the constant raw pointer, for internal use
-	pub unsafe fn from_inner_ref(inner: *const sys::xmpp_stanza_t) -> StanzaRef<'cx> {
+	pub unsafe fn from_inner_ref<'st>(inner: *const sys::xmpp_stanza_t) -> StanzaRef<'st> {
 		Stanza::with_inner(inner as _, false).into()
 	}
 
 	/// Create a borrowing stanza from the mutable raw pointer, for internal use
-	pub unsafe fn from_inner_ref_mut(inner: *mut sys::xmpp_stanza_t) -> StanzaMutRef<'cx> {
+	pub unsafe fn from_inner_ref_mut<'st>(inner: *mut sys::xmpp_stanza_t) -> StanzaMutRef<'st> {
 		Stanza::with_inner(inner, false).into()
 	}
 
 	/// Return internal raw pointer to stanza, for internal use
 	pub fn as_inner(&self) -> *mut sys::xmpp_stanza_t { self.inner.as_ptr() }
-
-	/// Return context for this `Stanza`
-	///
-	/// The underlying library does not provide direct access to its context so this method works
-	/// this around by relying on some of the library internals. With the new version this might need
-	/// rewriting.
-	fn context(&self) -> Context<'cx, 'cx> {
-		// hack to reach unexposed context reference stored inside C structure
-		#[repr(C)]
-		struct StanzaLayout {
-			ref_: raw::c_int,
-			ctx: *mut sys::xmpp_ctx_t,
-		}
-		unsafe { Context::from_inner_ref_mut(self.inner.cast::<StanzaLayout>().as_ref().ctx) }
-	}
 
 	/// [xmpp_stanza_is_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gafe82902f19a387da45ce08a23b1cded6)
 	pub fn is_text(&self) -> bool {
@@ -163,7 +147,7 @@ impl<'cx> Stanza<'cx> {
 			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as _, buflen + 1)) };
 			let out = buf.to_str()?.to_owned();
 			unsafe {
-				self.context().free(buf.as_ptr() as *mut raw::c_char);
+				ALLOC_CONTEXT.free(buf.as_ptr() as *mut raw::c_char);
 			}
 			Ok(out)
 		})
@@ -250,7 +234,7 @@ impl<'cx> Stanza<'cx> {
 	pub fn text(&self) -> Option<String> {
 		unsafe {
 			FFI(sys::xmpp_stanza_get_text(self.inner.as_ptr())).receive_with_free(|x| {
-				self.context().free(x)
+				ALLOC_CONTEXT.free(x)
 			})
 		}
 	}
@@ -360,14 +344,14 @@ impl<'cx> Stanza<'cx> {
 	pub fn children(&self) -> impl Iterator<Item=StanzaRef> {
 		ChildIterator {
 			cur: self.get_first_child().map(|x| x.as_inner()),
-			_ref: marker::PhantomData,
+			_ref: PhantomData,
 		}
 	}
 
 	pub fn children_mut(&mut self) -> impl Iterator<Item=StanzaMutRef> {
 		ChildIteratorMut {
 			cur: self.get_first_child_mut().map(|x| x.as_inner()),
-			_ref: marker::PhantomData,
+			_ref: PhantomData,
 		}
 	}
 
@@ -412,13 +396,13 @@ impl<'cx> Stanza<'cx> {
 	pub fn body(&self) -> Option<String> {
 		unsafe {
 			FFI(sys::xmpp_message_get_body(self.inner.as_ptr())).receive_with_free(|x| {
-				self.context().free(x)
+				ALLOC_CONTEXT.free(x)
 			})
 		}
 	}
 }
 
-impl Display for Stanza<'_> {
+impl Display for Stanza {
 	/// [xmpp_stanza_to_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga49d188283a22e228ebf188aa06cf55b6)
 	fn fmt(&self, f: &mut Formatter) -> FmtResult {
 		let mut buf: *mut raw::c_char = unsafe { mem::uninitialized() };
@@ -431,34 +415,34 @@ impl Display for Stanza<'_> {
 			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as _, buflen + 1)) };
 			let out = write!(f, "{}", buf.to_str().map_err(|_| FmtError)?);
 			unsafe {
-				self.context().free(buf.as_ptr() as *mut raw::c_char);
+				ALLOC_CONTEXT.free(buf.as_ptr() as *mut raw::c_char);
 			}
 			out
 		})
 	}
 }
 
-impl Clone for Stanza<'_> {
+impl Clone for Stanza {
 	fn clone(&self) -> Self {
 		unsafe { Stanza::from_inner(sys::xmpp_stanza_copy(self.inner.as_ptr())) }
 	}
 }
 
-impl PartialEq for Stanza<'_> {
+impl PartialEq for Stanza {
 	fn eq(&self, other: &Stanza) -> bool {
 		self.inner == other.inner
 	}
 }
 
-impl Eq for Stanza<'_> {}
+impl Eq for Stanza {}
 
-impl Hash for Stanza<'_> {
+impl Hash for Stanza {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.inner.hash(state);
 	}
 }
 
-impl Drop for Stanza<'_> {
+impl Drop for Stanza {
 	/// [xmpp_stanza_release](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga71a1b5d6974e435aa1dca60a547fd11a)
 	fn drop(&mut self) {
 		if self.owned {
@@ -469,17 +453,23 @@ impl Drop for Stanza<'_> {
 	}
 }
 
-unsafe impl Send for Stanza<'_> {}
-
-impl<'cx> Into<StanzaRef<'cx>> for Stanza<'cx> {
-	fn into(self) -> StanzaRef<'cx> {
-		StanzaRef(self)
+impl Default for Stanza {
+	fn default() -> Self {
+		Self::new()
 	}
 }
 
-impl<'cx> Into<StanzaMutRef<'cx>> for Stanza<'cx> {
-	fn into(self) -> StanzaMutRef<'cx> {
-		StanzaMutRef(self)
+unsafe impl Send for Stanza {}
+
+impl<'st> Into<StanzaRef<'st>> for Stanza {
+	fn into(self) -> StanzaRef<'st> {
+		StanzaRef(self, PhantomData)
+	}
+}
+
+impl<'st> Into<StanzaMutRef<'st>> for Stanza {
+	fn into(self) -> StanzaMutRef<'st> {
+		StanzaMutRef(self, PhantomData)
 	}
 }
 
@@ -489,10 +479,10 @@ impl<'cx> Into<StanzaMutRef<'cx>> for Stanza<'cx> {
 ///
 /// [`Stanza`]: struct.Stanza.html
 #[derive(Debug)]
-pub struct StanzaRef<'cx>(Stanza<'cx>);
+pub struct StanzaRef<'st>(Stanza, PhantomData<&'st Stanza>);
 
-impl<'cx> ops::Deref for StanzaRef<'cx> {
-	type Target = Stanza<'cx>;
+impl ops::Deref for StanzaRef<'_> {
+	type Target = Stanza;
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
@@ -511,10 +501,10 @@ impl Display for StanzaRef<'_> {
 ///
 /// [`Stanza`]: struct.Stanza.html
 #[derive(Debug)]
-pub struct StanzaMutRef<'cx>(Stanza<'cx>);
+pub struct StanzaMutRef<'st>(Stanza, PhantomData<&'st Stanza>);
 
-impl<'cx> ops::Deref for StanzaMutRef<'cx> {
-	type Target = Stanza<'cx>;
+impl ops::Deref for StanzaMutRef<'_> {
+	type Target = Stanza;
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
@@ -533,13 +523,13 @@ impl Display for StanzaMutRef<'_> {
 	}
 }
 
-struct ChildIterator<'rcx> {
+struct ChildIterator<'st> {
 	cur: Option<*mut sys::xmpp_stanza_t>,
-	_ref: marker::PhantomData<&'rcx ()>,
+	_ref: PhantomData<&'st Stanza>,
 }
 
-impl<'cx> Iterator for ChildIterator<'cx> {
-	type Item = StanzaRef<'cx>;
+impl<'st> Iterator for ChildIterator<'st> {
+	type Item = StanzaRef<'st>;
 
 	fn next(&mut self) -> Option<<Self as Iterator>::Item> {
 		if let Some(cur) = self.cur {
@@ -552,13 +542,13 @@ impl<'cx> Iterator for ChildIterator<'cx> {
 	}
 }
 
-struct ChildIteratorMut<'rcx> {
+struct ChildIteratorMut<'st> {
 	cur: Option<*mut sys::xmpp_stanza_t>,
-	_ref: marker::PhantomData<&'rcx ()>,
+	_ref: PhantomData<&'st Stanza>,
 }
 
-impl<'cx> Iterator for ChildIteratorMut<'cx> {
-	type Item = StanzaMutRef<'cx>;
+impl<'st> Iterator for ChildIteratorMut<'st> {
+	type Item = StanzaMutRef<'st>;
 
 	fn next(&mut self) -> Option<<Self as Iterator>::Item> {
 		if let Some(cur) = self.cur {

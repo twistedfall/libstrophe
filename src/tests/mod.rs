@@ -179,9 +179,7 @@ fn jid() {
 
 #[test]
 fn stanza_err() {
-	let ctx = Context::new_with_null_logger();
-
-	let mut stanza = Stanza::new(&ctx);
+	let mut stanza = Stanza::new();
 	assert_matches!(stanza.to_text().map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
 	stanza.set_name("test").unwrap();
 	assert_matches!(stanza.set_body("body").map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
@@ -189,24 +187,20 @@ fn stanza_err() {
 
 #[test]
 fn stanza_display() {
-	let ctx = Context::new_with_null_logger();
-
-	let mut stanza = Stanza::new(&ctx);
+	let mut stanza = Stanza::new();
 	stanza.set_name("message").unwrap();
 	stanza.set_id("stanza_id").unwrap();
-	stanza.add_child(Stanza::new_iq(&ctx, Some("test"), None)).unwrap();
+	stanza.add_child(Stanza::new_iq(Some("test"), None)).unwrap();
 	assert_eq!(stanza.to_string(), stanza.to_text().unwrap());
 }
 
 #[test]
 fn stanza_hier() {
-	let ctx = Context::new_with_null_logger();
-
-	let mut stanza = Stanza::new(&ctx);
+	let mut stanza = Stanza::new();
 	stanza.set_name("test").unwrap();
-	stanza.add_child(Stanza::new_presence(&ctx)).unwrap();
-	stanza.add_child(Stanza::new_iq(&ctx, Some("test"), None)).unwrap();
-	let mut msg = Stanza::new_message(&ctx, Some("chat"), Some("id"), Some("to"));
+	stanza.add_child(Stanza::new_presence()).unwrap();
+	stanza.add_child(Stanza::new_iq(Some("test"), None)).unwrap();
+	let mut msg = Stanza::new_message(Some("chat"), Some("id"), Some("to"));
 	msg.set_body("Test body").unwrap();
 	stanza.add_child(msg).unwrap();
 
@@ -261,13 +255,11 @@ fn stanza_hier() {
 
 #[test]
 fn stanza() {
-	let ctx = Context::new_with_null_logger();
-
-	let mut stanza = Stanza::new(&ctx);
+	let mut stanza = Stanza::new();
 	stanza.set_name("message").unwrap();
 	stanza.set_id("stanza_id").unwrap();
 
-	let stanza2 = Stanza::new_message(&ctx, None, Some("stanza_id"), None);
+	let stanza2 = Stanza::new_message(None, Some("stanza_id"), None);
 	assert_eq!(stanza.name(), stanza2.name());
 	assert_eq!(stanza.stanza_type(), stanza2.stanza_type());
 	assert_eq!(stanza.id(), stanza2.id());
@@ -275,7 +267,7 @@ fn stanza() {
 	assert_eq!(stanza.body(), stanza2.body());
 
 	stanza.set_name("presence").unwrap();
-	let stanza2 = Stanza::new_presence(&ctx);
+	let stanza2 = Stanza::new_presence();
 	assert_eq!(stanza.name(), stanza2.name());
 
 	let mut stanza3 = stanza.clone();
@@ -285,9 +277,7 @@ fn stanza() {
 
 #[test]
 fn stanza_attributes() {
-	let ctx = Context::new_with_null_logger();
-
-	let mut stanza = Stanza::new(&ctx);
+	let mut stanza = Stanza::new();
 
 	assert_matches!(stanza.set_id("stanza_id").map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
 	assert_eq!(stanza.attribute_count(), 0);
@@ -347,8 +337,8 @@ mod with_credentials {
 
 			// zero sized handlers are called
 			{
-				let zero_sized = |ctx: &Context, conn: &mut Connection, _: &Stanza| {
-					let pres = Stanza::new_presence(ctx);
+				let zero_sized = |_: &Context, conn: &mut Connection, _: &Stanza| {
+					let pres = Stanza::new_presence();
 					conn.send(&pres);
 					return false;
 				};
@@ -388,7 +378,7 @@ mod with_credentials {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
 								conn.handler_add(i_incrementer.clone(), None, Some("presence"), None);
-								let pres = Stanza::new_presence(ctx);
+								let pres = Stanza::new_presence();
 								conn.send(&pres);
 								conn.timed_handler_add(|_, conn| {
 									conn.disconnect();
@@ -407,8 +397,8 @@ mod with_credentials {
 			// handlers_clear clears zs and non-zs handlers
 			*i.write().unwrap() = 0;
 			{
-				let zero_sized = |ctx: &Context, conn: &mut Connection, _: &Stanza| {
-					let pres = Stanza::new_presence(ctx);
+				let zero_sized = |_: &Context, conn: &mut Connection, _: &Stanza| {
+					let pres = Stanza::new_presence();
 					conn.send(&pres);
 					return false;
 				};
@@ -631,9 +621,9 @@ mod with_credentials {
 	fn id_handler() {
 		let i = Arc::new(RwLock::new(0));
 
-		let do_common_stuff = |ctx: &Context, conn: &mut Connection| {
-			let mut iq = Stanza::new_iq(&ctx, Some("get"), Some("get_roster"));
-			let mut query = Stanza::new(&ctx);
+		let do_common_stuff = |_: &Context, conn: &mut Connection| {
+			let mut iq = Stanza::new_iq(Some("get"), Some("get_roster"));
+			let mut query = Stanza::new();
 			query.set_name("query").unwrap();
 			query.set_ns("jabber:iq:roster").unwrap();
 			iq.add_child(query).unwrap();
@@ -665,8 +655,8 @@ mod with_credentials {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
 								conn.id_handler_add(i_incrementer.clone(), "get_roster");
 
-								let mut iq = Stanza::new_iq(ctx, Some("get"), Some("get_roster1"));
-								let mut query = Stanza::new(ctx);
+								let mut iq = Stanza::new_iq(Some("get"), Some("get_roster1"));
+								let mut query = Stanza::new();
 								query.set_name("query").unwrap();
 								query.set_ns("jabber:iq:roster").unwrap();
 								iq.add_child(query).unwrap();
@@ -695,8 +685,8 @@ mod with_credentials {
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
-								let mut iq = Stanza::new_iq(ctx, Some("get"), Some("get_roster1"));
-								let mut query = Stanza::new(ctx);
+								let mut iq = Stanza::new_iq(Some("get"), Some("get_roster1"));
+								let mut query = Stanza::new();
 								query.set_name("query").unwrap();
 								query.set_ns("jabber:iq:roster").unwrap();
 								iq.add_child(query).unwrap();
@@ -861,8 +851,9 @@ mod with_credentials {
 // All of those and only those functions must fail compilation due to lifetime problems
 #[cfg(feature = "fail-test")]
 mod fail {
+	use crate::LogLevel;
+
 	use super::*;
-	use super::super::LogLevel;
 
 	#[test]
 	fn conn_handler_too_short() {
@@ -906,9 +897,8 @@ mod fail {
 
 	#[test]
 	fn stanza_too_short() {
-		let ctx = Context::new_with_null_logger();
-		{
-			let not_long_enough5 = Stanza::new(&ctx);
+		let _a = {
+			let not_long_enough5 = Stanza::new();
 			not_long_enough5.get_first_child()
 		};
 	}
@@ -993,34 +983,16 @@ mod fail {
 	}
 
 	#[test]
-	fn stanza_context_too_short() {
-		{
-			let not_long_enough13 = Context::new_with_null_logger();
-			Stanza::new(&not_long_enough13)
-		};
-	}
-
-	#[test]
-	fn stanza_context_too_short_presence() {
-		{
-			let not_long_enough14 = Context::new_with_null_logger();
-			Stanza::new_presence(&not_long_enough14)
-		};
-	}
-
-	#[test]
 	fn stanza_iterator_borrow() {
-		let ctx = Context::new_with_null_logger();
-		let mut already_borrowed15 = Stanza::new(&ctx);
-		let _a = already_borrowed15.children();
-		already_borrowed15.get_first_child_mut();
+		let mut already_borrowed13 = Stanza::new();
+		let _a = already_borrowed13.children();
+		already_borrowed13.get_first_child_mut();
 	}
 
 	#[test]
 	fn stanza_iterator_mut_borrow() {
-		let ctx = Context::new_with_null_logger();
-		let mut already_borrowed16 = Stanza::new(&ctx);
-		let _a = already_borrowed16.children_mut();
-		already_borrowed16.get_first_child();
+		let mut already_borrowed14 = Stanza::new();
+		let _a = already_borrowed14.children_mut();
+		already_borrowed14.get_first_child();
 	}
 }

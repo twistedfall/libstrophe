@@ -34,7 +34,7 @@ type Handlers<H> = Vec<Box<H>>;
 type TimedCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + Send + 'cb;
 type TimedFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, TimedCallback<'cb, 'cx>, ()>;
 
-type StanzaCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza<'cx>) -> bool + Send + 'cb;
+type StanzaCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb;
 type StanzaFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, StanzaCallback<'cb, 'cx>, Option<String>>;
 
 struct FatHandlers<'cb, 'cx> {
@@ -526,7 +526,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See `handler_add()` for additional information.
 	pub fn id_handler_add<CB>(&mut self, handler: CB, id: impl Into<String>) -> Option<IdHandlerId<'cb, 'cx, CB>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza<'cx>) -> bool + Send + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb,
 	{
 		let id = id.into();
 		let ffi_id = FFI(id.as_str()).send();
@@ -581,7 +581,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// This function returns `HandlerId` which is later can be used to remove the handler using `handler_delete()`.
 	pub fn handler_add<CB>(&mut self, handler: CB, ns: Option<&str>, name: Option<&str>, typ: Option<&str>) -> Option<HandlerId<'cb, 'cx, CB>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza<'cx>) -> bool + Send + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb,
 	{
 		let ns = FFI(ns).send();
 		let name = FFI(name).send();
