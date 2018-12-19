@@ -28,10 +28,7 @@ impl FFI<*const raw::c_char> {
 
 impl FFI<*mut raw::c_char> {
 	#[inline]
-	pub unsafe fn receive_with_free<CB>(self, free: CB) -> Option<String>
-		where
-			CB: FnOnce(*mut raw::c_char)
-	{
+	pub unsafe fn receive_with_free(self, free: impl FnOnce(*mut raw::c_char)) -> Option<String> {
 		self.0.as_mut().map(|x| {
 			let out = ffi::CStr::from_ptr(x).to_owned().into_string().expect("Cannot convert non-null pointer into String");
 			free(x);
