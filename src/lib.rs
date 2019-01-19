@@ -100,15 +100,11 @@
 //! [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
 //! [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
 
-#[macro_use]
-extern crate failure_derive;
-
 use std::{sync, time};
 use std::os::raw;
 
 use bitflags::bitflags;
 use lazy_static::lazy_static;
-
 pub use sys::{
 	xmpp_conn_event_t as ConnectionEvent,
 	xmpp_log_level_t as LogLevel,

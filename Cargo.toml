@@ -14,7 +14,6 @@ repository = "https://github.com/twistedfall/libstrophe"
 [dependencies]
 bitflags = "1.0"
 failure = "0.1"
-failure_derive = "0.1"
 lazy_static = "1.2"
 log = {version = "0.4", optional = true}
 num = "0.2"

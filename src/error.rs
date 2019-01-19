@@ -4,6 +4,8 @@ use std::{
 	sync::Mutex,
 };
 
+use failure::Fail;
+
 use crate::{
 	Connection,
 	FFI,
