@@ -100,8 +100,10 @@
 //! [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
 //! [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
 
-use std::{sync, time};
-use std::os::raw;
+use std::{
+	os::raw,
+	sync,
+};
 
 use bitflags::bitflags;
 use lazy_static::lazy_static;
@@ -147,12 +149,6 @@ static DEINIT: sync::Once = sync::ONCE_INIT;
 
 lazy_static! {
 	static ref ALLOC_CONTEXT: AllocContext = { AllocContext::default() };
-}
-
-/// Convert `Duration` to milliseconds
-#[inline]
-fn duration_as_ms(duration: time::Duration) -> raw::c_ulong {
-	(duration.as_secs() * 1_000 + u64::from(duration.subsec_millis())) as raw::c_ulong
 }
 
 /// Convert type to *void for passing as `userdata`

@@ -18,7 +18,6 @@ use crate::{
 	ConnectionEvent,
 	ConnectionFlags,
 	Context,
-	duration_as_ms,
 	error,
 	FFI,
 	ffi_types::Nullable,
@@ -494,7 +493,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 				sys::xmpp_timed_handler_add(
 					self.inner.as_ptr(),
 					Some(callback),
-					duration_as_ms(period),
+					period.as_millis() as raw::c_ulong,
 					fat_handler_ptr as _,
 				);
 			}

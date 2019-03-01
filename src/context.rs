@@ -1,13 +1,13 @@
 use std::{
 	default::Default,
+	os::raw,
 	ptr::NonNull,
 	time::Duration,
 };
 
 use crate::{
-	Connection,
-	duration_as_ms,
 	AllocContext,
+	Connection,
 	Logger,
 };
 
@@ -101,14 +101,14 @@ impl<'lg, 'cn> Context<'lg, 'cn> {
 	#[cfg(feature = "libstrophe-0_9_2")]
 	pub fn set_timeout(&mut self, timeout: Duration) {
 		unsafe {
-			sys::xmpp_ctx_set_timeout(self.inner.as_mut(), duration_as_ms(timeout))
+			sys::xmpp_ctx_set_timeout(self.inner.as_mut(), timeout.as_millis() as raw::c_ulong)
 		}
 	}
 
 	/// [xmpp_run_once](http://strophe.im/libstrophe/doc/0.9.2/group___event_loop.html#ga02816aa5ce34d97fe5bbde5f9c6956ce)
 	pub fn run_once(&self, timeout: Duration) {
 		unsafe {
-			sys::xmpp_run_once(self.inner.as_ptr(), duration_as_ms(timeout))
+			sys::xmpp_run_once(self.inner.as_ptr(), timeout.as_millis() as raw::c_ulong)
 		}
 	}
 
