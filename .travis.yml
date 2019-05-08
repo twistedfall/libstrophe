@@ -1,0 +1,18 @@
+language: rust
+rust:
+  - stable
+  - beta
+  - nightly
+cache: cargo
+
+sudo: true
+dist: xenial
+
+addons:
+  apt:
+    packages:
+      - libstrophe0
+
+matrix:
+  allow_failures:
+    - rust: nightly
