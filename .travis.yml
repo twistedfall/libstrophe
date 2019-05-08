@@ -8,10 +8,27 @@ cache: cargo
 sudo: true
 dist: xenial
 
+env:
+  matrix:
+    - PKG_VERSION=0.9.2
+
 addons:
   apt:
     packages:
-      - libstrophe-dev
+      - wget
+      - autoconf
+      - libtool
+      - libssl-dev
+      - libxml2-dev
+      - build-essential
+
+before_script:
+  - wget -q -O- https://github.com/strophe/libstrophe/releases/download/$PKG_VERSION/libstrophe-$PKG_VERSION.tar.bz2 | tar xj
+  - pushd libstrophe-$PKG_VERSION
+  - ./bootstrap.sh
+  - ./configure --prefix=/usr
+  - make -j4 install
+  - popd
 
 matrix:
   allow_failures:
