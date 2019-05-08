@@ -11,7 +11,7 @@ dist: xenial
 addons:
   apt:
     packages:
-      - libstrophe0
+      - libstrophe-dev
 
 matrix:
   allow_failures:
