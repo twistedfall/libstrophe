@@ -27,7 +27,7 @@ before_script:
   - pushd libstrophe-$PKG_VERSION
   - ./bootstrap.sh
   - ./configure --prefix=/usr
-  - make -j4 install
+  - sudo make -j4 install
   - popd
 
 matrix:
