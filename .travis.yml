@@ -23,8 +23,8 @@ addons:
       - build-essential
 
 before_script:
-  - wget -q -O- https://github.com/strophe/libstrophe/releases/download/$PKG_VERSION/libstrophe-$PKG_VERSION.tar.bz2 | tar xj
-  - pushd libstrophe-$PKG_VERSION
+  - wget -q -O- https://github.com/strophe/libstrophe/archive/$PKG_VERSION.tar.gz | tar -xzC ~/build
+  - pushd ~/build/libstrophe-$PKG_VERSION
   - ./bootstrap.sh
   - ./configure --prefix=/usr
   - sudo make -j4 install
