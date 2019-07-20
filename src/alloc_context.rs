@@ -2,8 +2,7 @@ use std::{
 	alloc,
 	mem,
 	os::raw,
-	ptr,
-	ptr::NonNull,
+	ptr::{self, NonNull},
 };
 
 /// Internal `Context` that only specifies allocation functions and uses null logger. Needed to not pass
@@ -21,37 +20,44 @@ impl AllocContext {
 	}
 
 	#[inline(always)]
-	fn write_real_alloc(p: *mut u8, size: usize) -> *mut raw::c_void {
+	unsafe fn write_real_alloc(p: *mut u8, size: usize) -> *mut raw::c_void {
 		#![allow(clippy::cast_ptr_alignment)]
 		// it's ok to cast it as *mut usize because we align to usize during allocation and p points to the beginning of that buffer
 		let out = p as *mut usize;
-		unsafe {
-			out.write(size);
-			out.add(1) as _
-		}
+		out.write(size);
+		out.add(1) as _
 	}
 
 	#[inline(always)]
-	fn read_real_alloc(p: *mut raw::c_void) -> (*mut u8, alloc::Layout) {
-		let memory: *mut usize = unsafe { (p as *mut usize).sub(1) };
-		let size = unsafe { memory.read() };
-		(memory as _, alloc::Layout::from_size_align(size, mem::align_of_val(&size)).expect("Cannot create layout"))
+	unsafe fn read_real_alloc(p: *mut raw::c_void) -> (*mut u8, alloc::Layout) {
+		if p.is_null() {
+			(p as _, alloc::Layout::from_size_align(0, mem::align_of::<usize>()).expect("Cannot create layout"))
+		} else {
+			let memory: *mut usize = (p as *mut usize).sub(1);
+			let size = memory.read();
+			(memory as _, alloc::Layout::from_size_align(size, mem::align_of_val(&size)).expect("Cannot create layout"))
+		}
 	}
 
-	extern "C" fn custom_alloc(size: usize, _userdata: *mut raw::c_void) -> *mut raw::c_void {
+	unsafe extern "C" fn custom_alloc(size: usize, _userdata: *mut raw::c_void) -> *mut raw::c_void {
 		let layout = Self::calculate_layout(size);
-		Self::write_real_alloc(unsafe { alloc::alloc(layout) }, layout.size())
+		Self::write_real_alloc(alloc::alloc(layout), layout.size())
 	}
 
-	extern "C" fn custom_free(p: *mut raw::c_void, _userdata: *mut raw::c_void) {
+	unsafe extern "C" fn custom_free(p: *mut raw::c_void, _userdata: *mut raw::c_void) {
 		let (p, layout) = Self::read_real_alloc(p);
-		unsafe { alloc::dealloc(p, layout) };
+		alloc::dealloc(p, layout);
 	}
 
-	extern "C" fn custom_realloc(p: *mut raw::c_void, size: usize, _userdata: *mut raw::c_void) -> *mut raw::c_void {
+	unsafe extern "C" fn custom_realloc(p: *mut raw::c_void, size: usize, _userdata: *mut raw::c_void) -> *mut raw::c_void {
+		let (p, layout) = Self::read_real_alloc(p);
 		let new_layout = Self::calculate_layout(size);
-		let (p, layout) = Self::read_real_alloc(p);
-		Self::write_real_alloc(unsafe { alloc::realloc(p, layout, new_layout.size()) }, new_layout.size())
+		let realloc_p = alloc::realloc(p, layout, new_layout.size());
+		if size > 0 {
+			Self::write_real_alloc(realloc_p, new_layout.size())
+		} else {
+			ptr::null_mut()
+		}
 	}
 
 	pub fn get_xmpp_mem_t() -> Box<sys::xmpp_mem_t> {
@@ -82,3 +88,40 @@ impl Default for AllocContext {
 }
 
 unsafe impl Sync for AllocContext {}
+
+#[cfg(test)]
+mod alloc_test {
+	use std::ptr;
+
+	use crate::AllocContext;
+
+	#[test]
+	fn test_alloc() {
+		{
+			let alloc_mem = unsafe { AllocContext::custom_alloc(10, ptr::null_mut()) };
+			assert!(!alloc_mem.is_null());
+			let realloc_mem = unsafe { AllocContext::custom_realloc(alloc_mem, 20, ptr::null_mut()) };
+			assert!(!realloc_mem.is_null());
+			let realloc_mem2 = unsafe { AllocContext::custom_realloc(realloc_mem, 20, ptr::null_mut()) };
+			assert_eq!(realloc_mem2, realloc_mem);
+			let realloc_mem3 = unsafe { AllocContext::custom_realloc(realloc_mem2, 10, ptr::null_mut()) };
+			assert_eq!(realloc_mem3, realloc_mem2);
+			unsafe { AllocContext::custom_free(realloc_mem3, ptr::null_mut()); }
+		}
+
+		{
+			let alloc_mem = unsafe { AllocContext::custom_realloc(ptr::null_mut(), 10, ptr::null_mut()) }; // equal to alloc
+			assert!(!alloc_mem.is_null());
+			unsafe { AllocContext::custom_free(alloc_mem, ptr::null_mut()); }
+		}
+
+		{
+			let alloc_mem = unsafe { AllocContext::custom_alloc(10, ptr::null_mut()) };
+			assert!(!alloc_mem.is_null());
+			dbg!(&alloc_mem);
+			let dealloc_mem = unsafe { AllocContext::custom_realloc(alloc_mem, 0, ptr::null_mut()) }; // equal to free
+			dbg!(&dealloc_mem);
+			assert!(dealloc_mem.is_null());
+		}
+	}
+}
