@@ -311,8 +311,8 @@ mod with_credentials {
 	use super::*;
 
 	// testing is done on vanilla local ejabberd-17.04
-	const JID: &'static str = "";
-	const PASS: &'static str = "";
+	const JID: &'static str = include_str!("../../jid.txt");
+	const PASS: &'static str = include_str!("../../password.txt");
 
 	fn make_conn<'cn>() -> Connection<'cn, 'static> {
 		let mut conn = Connection::new(Context::new_with_default_logger());
