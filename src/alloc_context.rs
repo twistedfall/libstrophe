@@ -118,9 +118,7 @@ mod alloc_test {
 		{
 			let alloc_mem = unsafe { AllocContext::custom_alloc(10, ptr::null_mut()) };
 			assert!(!alloc_mem.is_null());
-			dbg!(&alloc_mem);
 			let dealloc_mem = unsafe { AllocContext::custom_realloc(alloc_mem, 0, ptr::null_mut()) }; // equal to free
-			dbg!(&dealloc_mem);
 			assert!(dealloc_mem.is_null());
 		}
 	}
