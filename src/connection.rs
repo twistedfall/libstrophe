@@ -43,7 +43,7 @@ struct FatHandlers<'cb, 'cx> {
 }
 
 impl fmt::Debug for FatHandlers<'_, '_> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let mut s = f.debug_struct("FatHandlers");
 		s.field("connection", &if self.connection.is_some() { "set" } else { "unset" });
 		s.field("timed", &format!("{} handlers", self.timed.len()));

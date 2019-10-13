@@ -105,13 +105,12 @@ impl<'t> From<&'t sys::xmpp_stream_error_t> for StreamError<'t, 't> {
 
 impl fmt::Display for StreamError<'_, '_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", error_type_to_str(self.typ)).and_then(|r| {
-			if let Some(text) = self.text {
-				write!(f, ": {}", text)
-			} else {
-				Ok(r)
-			}
-		})
+		write!(f, "{}", error_type_to_str(self.typ))?;
+		if let Some(text) = self.text {
+			write!(f, ": {}", text)
+		} else {
+			Ok(())
+		}
 	}
 }
 
@@ -144,13 +143,12 @@ impl From<&StreamError<'_, '_>> for OwnedStreamError {
 
 impl fmt::Display for OwnedStreamError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", error_type_to_str(self.typ)).and_then(|r| {
-			if let Some(ref text) = self.text {
-				write!(f, ": {}", text)
-			} else {
-				Ok(r)
-			}
-		})
+		write!(f, "{}", error_type_to_str(self.typ))?;
+		if let Some(ref text) = self.text {
+			write!(f, ": {}", text)
+		} else {
+			Ok(())
+		}
 	}
 }
 

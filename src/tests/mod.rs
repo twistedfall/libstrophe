@@ -1,4 +1,7 @@
-use std::{collections::HashMap, mem, sync::{Arc, RwLock}, time::Duration};
+use std::{
+	collections::HashMap,
+	time::Duration,
+};
 
 use matches::assert_matches;
 
@@ -35,7 +38,7 @@ fn custom_logger() {
 	let mut i = 0;
 	{
 		let ctx = Context::new(Logger::new(|_, _, _| {
-			i = i + 1;
+			i += 1;
 		}));
 		let mut conn = Connection::new(ctx);
 		conn.set_jid("test-JID@127.50.60.70");
@@ -308,11 +311,16 @@ fn stanza_attributes() {
 
 #[cfg(feature = "creds-test")]
 mod with_credentials {
+	use std::{
+		mem,
+		sync::{Arc, RwLock},
+	};
+
 	use super::*;
 
 	// testing is done on vanilla local ejabberd-17.04
-	const JID: &'static str = include_str!("../../jid.txt");
-	const PASS: &'static str = include_str!("../../password.txt");
+	const JID: &str = include_str!("../../jid.txt");
+	const PASS: &str = include_str!("../../password.txt");
 
 	fn make_conn<'cn>() -> Connection<'cn, 'static> {
 		let mut conn = Connection::new(Context::new_with_default_logger());
@@ -339,7 +347,7 @@ mod with_credentials {
 				let zero_sized = |_: &Context, conn: &mut Connection, _: &Stanza| {
 					let pres = Stanza::new_presence();
 					conn.send(&pres);
-					return false;
+					false
 				};
 				assert_eq!(mem::size_of_val(&zero_sized), 0);
 
@@ -399,7 +407,7 @@ mod with_credentials {
 				let zero_sized = |_: &Context, conn: &mut Connection, _: &Stanza| {
 					let pres = Stanza::new_presence();
 					conn.send(&pres);
-					return false;
+					false
 				};
 				assert_eq!(mem::size_of_val(&zero_sized), 0);
 

@@ -12,7 +12,7 @@ use std::{
 		Hasher,
 	},
 	marker::PhantomData,
-	mem,
+	mem::MaybeUninit,
 	ops,
 	os::raw,
 	ptr,
@@ -139,12 +139,12 @@ impl Stanza {
 
 	/// [xmpp_stanza_to_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga49d188283a22e228ebf188aa06cf55b6)
 	pub fn to_text(&self) -> error::Result<String> {
-		let mut buf: *mut raw::c_char = unsafe { mem::uninitialized() };
-		let mut buflen: usize = unsafe { mem::uninitialized() };
+		let mut buf: MaybeUninit<*mut raw::c_char> = MaybeUninit::uninit();
+		let mut buflen: MaybeUninit<usize> = MaybeUninit::uninit();
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_to_text(self.inner.as_ptr(), &mut buf, &mut buflen)
+			sys::xmpp_stanza_to_text(self.inner.as_ptr(), buf.as_mut_ptr(), buflen.as_mut_ptr())
 		}).and_then(|_| {
-			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as _, buflen + 1)) };
+			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf.assume_init() as _, buflen.assume_init() + 1)) };
 			let out = buf.to_str()?.to_owned();
 			unsafe {
 				ALLOC_CONTEXT.free(buf.as_ptr() as *mut raw::c_char);
@@ -405,14 +405,14 @@ impl Stanza {
 impl Display for Stanza {
 	/// [xmpp_stanza_to_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga49d188283a22e228ebf188aa06cf55b6)
 	fn fmt(&self, f: &mut Formatter) -> FmtResult {
-		let mut buf: *mut raw::c_char = unsafe { mem::uninitialized() };
-		let mut buflen: usize = unsafe { mem::uninitialized() };
+		let mut buf: MaybeUninit<*mut raw::c_char> = MaybeUninit::uninit();
+		let mut buflen: MaybeUninit<usize> = MaybeUninit::uninit();
 		error::code_to_result(unsafe {
-			sys::xmpp_stanza_to_text(self.inner.as_ptr(), &mut buf, &mut buflen)
+			sys::xmpp_stanza_to_text(self.inner.as_ptr(), buf.as_mut_ptr(), buflen.as_mut_ptr())
 		}).map_err(|_| {
 			FmtError
 		}).and_then(|_| {
-			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as _, buflen + 1)) };
+			let buf = unsafe { ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf.assume_init() as _, buflen.assume_init() + 1)) };
 			let out = write!(f, "{}", buf.to_str().map_err(|_| FmtError)?);
 			unsafe {
 				ALLOC_CONTEXT.free(buf.as_ptr() as *mut raw::c_char);

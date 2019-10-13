@@ -55,18 +55,15 @@ fn message_handler(_ctx: &libstrophe::Context, conn: &mut libstrophe::Connection
 	eprintln!("Incoming message from {}: {}", stanza.from().expect("Cannot get from"), intext);
 
 	let mut reply = stanza.reply();
-	if let None = reply.stanza_type() {
+	if reply.stanza_type().is_none() {
 		reply.set_stanza_type("chat").expect("Cannot set type");
 	}
 
-	let replytext;
-	let mut quit = false;
-	if intext == "quit" {
-		replytext = "bye!".to_owned();
-		quit = true;
+	let (quit, replytext) = if intext == "quit" {
+		(true, "bye!".to_owned())
 	} else {
-		replytext = format!("{} to you too!", intext);
-	}
+		(false, format!("{} to you too!", intext))
+	};
 	reply.set_body(replytext).expect("Cannot set body");
 
 	conn.send(&reply);

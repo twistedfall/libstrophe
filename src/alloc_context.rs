@@ -6,7 +6,7 @@ use std::{
 };
 
 /// Internal `Context` that only specifies allocation functions and uses null logger. Needed to not pass
-/// `Context` to e.g. `Stanza` because it uses onlyh allocation functions from `Context`.
+/// `Context` to e.g. `Stanza` because it uses only allocation functions from `Context`.
 pub struct AllocContext {
 	inner: NonNull<sys::xmpp_ctx_t>,
 	_memory: Box<sys::xmpp_mem_t>,
