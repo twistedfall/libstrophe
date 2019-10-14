@@ -9,7 +9,7 @@ rust:
 
 env:
   matrix:
-    - PKG_VERSION=0.9.3
+    - PKG_VERSION=0.9.3 RUST_LOG=trace
 
 addons:
   apt:
@@ -20,6 +20,7 @@ addons:
       - libssl-dev
       - libxml2-dev
       - build-essential
+      - ejabberd
 
 before_script:
   - wget -q -O- https://github.com/strophe/libstrophe/archive/$PKG_VERSION.tar.gz | tar -xzC ~/build
@@ -28,6 +29,14 @@ before_script:
   - ./configure --prefix=/usr
   - sudo make -j"$(nproc)" install
   - popd
+  - sudo systemctl start ejabberd
+  - echo -n libstrophe@localhost > jid.txt
+  - echo -n NbgNU3fTFu > password.txt
+  - sudo ejabberdctl register libstrophe localhost NbgNU3fTFu
+
+script:
+  - cargo test -v --features=creds-test
+  - cargo test -v --release --features=creds-test
 
 matrix:
   allow_failures:

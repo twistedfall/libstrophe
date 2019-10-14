@@ -42,7 +42,7 @@ fn custom_logger() {
 		}));
 		let mut conn = Connection::new(ctx);
 		conn.set_jid("test-JID@127.50.60.70");
-		let ctx = conn.connect_client(None, None, |_, _, _, _, _| {}).unwrap();
+		let ctx = conn.connect_client(None, Some(1234), |_, _, _, _, _| {}).unwrap();
 		ctx.run_once(Duration::from_secs(1));
 	}
 	assert_eq!(i, 5);
@@ -98,7 +98,7 @@ fn conn_raw() {
 	{
 		let mut conn = Connection::new(Context::new_with_null_logger());
 		conn.set_jid("test-JID@127.50.60.70");
-		let ctx = conn.connect_raw(None, None, &conn_handler).unwrap();
+		let ctx = conn.connect_raw(None, Some(1234), &conn_handler).unwrap();
 		ctx.run();
 	}
 
@@ -106,7 +106,7 @@ fn conn_raw() {
 	{
 		let mut conn = Connection::new(Context::new_with_null_logger());
 		conn.set_jid("test-JID@127.50.60.70");
-		let ctx = conn.connect_raw(None, None, conn_handler).unwrap();
+		let ctx = conn.connect_raw(None, Some(1234), conn_handler).unwrap();
 		ctx.run();
 	}
 }
@@ -326,6 +326,7 @@ mod with_credentials {
 		let mut conn = Connection::new(Context::new_with_default_logger());
 		conn.set_jid(JID);
 		conn.set_pass(PASS);
+		conn.set_flags(ConnectionFlags::TRUST_TLS).expect("Cannot set connection flags");
 		conn
 	}
 
@@ -444,11 +445,8 @@ mod with_credentials {
 	#[test]
 	fn connection_handler() {
 		let flags = Arc::new(RwLock::new((0, 0, 0, 0)));
-		let ctx = Context::new_with_default_logger();
 		{
-			let mut conn = Connection::new(ctx);
-			conn.set_jid(JID);
-			conn.set_pass(PASS);
+			let conn = make_conn();
 			let ctx = conn.connect_client(None, None, {
 				let flags = flags.clone();
 				move |ctx, conn, evt, _, _| {
@@ -470,23 +468,7 @@ mod with_credentials {
 					}
 				}
 			}).unwrap();
-
-			// can't connect_client twice until disconnect
-//			let res = conn.connect_client(None, None, |_, _, _, _| {});
-//			assert_matches!(res.map_err(|e| e.downcast().unwrap()), Err(Error::InvalidOperation));
-
 			ctx.run();
-
-			// can connect again after disconnect
-//			let ctx = conn.connect_client(None, None, |conn, evt, _, _| {
-//				match evt {
-//					ConnectionEvent::XMPP_CONN_CONNECT => conn.disconnect(),
-//					ConnectionEvent::XMPP_CONN_DISCONNECT => conn.context().stop(),
-//					_ => {}
-//				}
-//			}).unwrap();
-//
-//			ctx.run();
 		}
 		assert_eq!(Arc::try_unwrap(flags).expect("There are hanging references to Rc value").into_inner().unwrap(), (1, 0, 1, 0));
 	}
