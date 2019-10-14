@@ -168,7 +168,7 @@ impl StreamError<'_, '_> {
 pub struct OwnedStreamError {
 	pub typ: sys::xmpp_error_type_t,
 	pub text: Option<String>,
-	pub stanza: Mutex<Stanza>, // Mutex because failure requires Sync
+	pub stanza: Mutex<Stanza>,
 }
 
 impl From<&StreamError<'_, '_>> for OwnedStreamError {

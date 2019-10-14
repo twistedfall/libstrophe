@@ -417,8 +417,8 @@ mod with_credentials {
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
-								conn.handler_add(zero_sized.clone(), None, None, None);
-								conn.handler_add(zero_sized.clone(), None, None, None);
+								conn.handler_add(zero_sized, None, None, None);
+								conn.handler_add(zero_sized, None, None, None);
 								conn.handler_add(i_incrementer.clone(), None, None, None);
 								conn.handler_add(i_incrementer.clone(), None, None, None);
 								conn.handlers_clear();
@@ -516,7 +516,6 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					let do_common_stuff = do_common_stuff.clone();
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
@@ -539,7 +538,6 @@ mod with_credentials {
 				let mut conn = make_conn();
 				conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1));
 				let ctx = conn.connect_client(None, None, {
-					let do_common_stuff = do_common_stuff.clone();
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
@@ -563,7 +561,6 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					let do_common_stuff = do_common_stuff.clone();
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
@@ -588,7 +585,6 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					let do_common_stuff = do_common_stuff.clone();
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
@@ -656,7 +652,6 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					let do_common_stuff = do_common_stuff.clone();
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
@@ -688,7 +683,6 @@ mod with_credentials {
 				let mut conn = make_conn();
 				conn.id_handler_add(i_incrementer.clone(), "get_roster");
 				let ctx = conn.connect_client(None, None, {
-					let do_common_stuff = do_common_stuff.clone();
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
@@ -718,7 +712,6 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					let do_common_stuff = do_common_stuff.clone();
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
@@ -744,7 +737,6 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					let do_common_stuff = do_common_stuff.clone();
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
