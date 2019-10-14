@@ -295,7 +295,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		if me.jid().is_none() {
 			return Err(error::ConnectError {
 				conn: me,
-				error: error::Error::InvalidOperation.into(),
+				error: error::Error::InvalidOperation,
 			});
 		}
 		let callback = Self::connection_handler_cb::<CB>;
@@ -377,7 +377,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		if me.jid().is_none() {
 			return Err(error::ConnectError {
 				conn: me,
-				error: error::Error::InvalidOperation.into(),
+				error: error::Error::InvalidOperation,
 			});
 		}
 		let callback = Self::connection_handler_cb::<CB>;

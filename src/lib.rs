@@ -67,7 +67,7 @@
 //!                           _conn: &mut libstrophe::Connection,
 //!                           _evt: libstrophe::ConnectionEvent,
 //!                           _error: i32,
-//!                           _stream_error: Option<&libstrophe::error::StreamError>| {
+//!                           _stream_error: Option<&libstrophe::StreamError>| {
 //!    ctx.stop();
 //! };
 //!
@@ -114,6 +114,7 @@ pub use alloc_context::AllocContext;
 use bitflags::bitflags;
 pub use connection::{Connection, HandlerId, IdHandlerId, TimedHandlerId};
 pub use context::Context;
+pub use error::{ConnectError, Error, OwnedStreamError, Result, StreamError, ToTextError};
 use ffi_types::FFI;
 use lazy_static::lazy_static;
 pub use logger::Logger;
@@ -124,7 +125,7 @@ mod ffi_types;
 mod connection;
 mod context;
 pub mod jid;
-pub mod error;
+mod error;
 mod logger;
 mod stanza;
 

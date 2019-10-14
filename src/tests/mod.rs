@@ -52,7 +52,7 @@ fn custom_logger() {
 fn conn_client_wo_jid() {
 	let conn = Connection::new(Context::new_with_null_logger());
 	// no JID supplied
-	assert_matches!(conn.connect_client(None, None, |_, _, _, _, _| {}).map_err(|e| e.error.downcast().unwrap()), Err(error::Error::InvalidOperation));
+	assert_matches!(conn.connect_client(None, None, |_, _, _, _, _| {}), Err(ConnectError { error: Error::InvalidOperation, .. }));
 }
 
 #[test]
@@ -182,9 +182,9 @@ fn jid_test() {
 #[test]
 fn stanza_err() {
 	let mut stanza = Stanza::new();
-	assert_matches!(stanza.to_text().map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
+	assert_matches!(stanza.to_text(), Err(ToTextError::StropheError(Error::InvalidOperation)));
 	stanza.set_name("test").unwrap();
-	assert_matches!(stanza.set_body("body").map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
+	assert_matches!(stanza.set_body("body"), Err(Error::InvalidOperation));
 }
 
 #[test]
@@ -281,7 +281,7 @@ fn stanza() {
 fn stanza_attributes() {
 	let mut stanza = Stanza::new();
 
-	assert_matches!(stanza.set_id("stanza_id").map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
+	assert_matches!(stanza.set_id("stanza_id"), Err(Error::InvalidOperation));
 	assert_eq!(stanza.attribute_count(), 0);
 
 	stanza.set_name("message").unwrap();

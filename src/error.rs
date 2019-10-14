@@ -1,10 +1,10 @@
 use std::{
+	error::Error as StdError,
 	fmt,
-	result,
+	result::Result as StdResult,
+	str::Utf8Error,
 	sync::Mutex,
 };
-
-use failure::Fail;
 
 use crate::{
 	Connection,
@@ -13,27 +13,24 @@ use crate::{
 	StanzaMutRef,
 };
 
-#[derive(Debug, Fail)]
+#[derive(Copy, Eq, PartialEq, Clone, Debug)]
 pub enum Error {
-	#[fail(display = "Memory error")]
 	MemoryError,
-	#[fail(display = "Invalid operation")]
 	InvalidOperation,
-	#[fail(display = "Internal error")]
 	InternalError,
 }
 
-#[derive(Debug)]
-pub struct ConnectError<'cb, 'cx>{
-	pub conn: Connection<'cb, 'cx>,
-	pub error: failure::Error,
+impl fmt::Display for Error {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Error::MemoryError => write!(f, "Memory error"),
+			Error::InvalidOperation => write!(f, "Invalid operation"),
+			Error::InternalError => write!(f, "Internal error"),
+		}
+	}
 }
 
-/// `Result` with failure `Error`
-pub type Result<T> = result::Result<T, failure::Error>;
-
-/// `Result` for methods that don't return any value on success
-pub type EmptyResult = Result<()>;
+impl StdError for Error {}
 
 impl From<i32> for Error {
 	fn from(code: i32) -> Self {
@@ -46,11 +43,65 @@ impl From<i32> for Error {
 	}
 }
 
+impl From<Error> for fmt::Error {
+	fn from(_s: Error) -> Self {
+		Self
+	}
+}
+
+/// `Result` with failure `Error`
+pub type Result<T, E = Error> = StdResult<T, E>;
+
+/// `Result` for methods that don't return any value on success
+pub type EmptyResult = Result<()>;
+
+#[derive(Copy, Eq, PartialEq, Clone, Debug)]
+pub enum ToTextError {
+	StropheError(Error),
+	Utf8Error(Utf8Error),
+}
+
+impl fmt::Display for ToTextError {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			ToTextError::StropheError(e) => write!(f, "Strophe error: {}", e),
+			ToTextError::Utf8Error(e) => write!(f, "UTF-8 error: {}", e),
+		}
+	}
+}
+
+impl StdError for ToTextError {
+	fn source(&self) -> Option<&(dyn StdError + 'static)> {
+		match self {
+			ToTextError::StropheError(e) => Some(e),
+			ToTextError::Utf8Error(e) => Some(e),
+		}
+	}
+}
+
+impl From<Utf8Error> for ToTextError {
+	fn from(s: Utf8Error) -> Self {
+		ToTextError::Utf8Error(s)
+	}
+}
+
+impl From<Error> for ToTextError {
+	fn from(s: Error) -> Self {
+		ToTextError::StropheError(s)
+	}
+}
+
+#[derive(Debug)]
+pub struct ConnectError<'cb, 'cx> {
+	pub conn: Connection<'cb, 'cx>,
+	pub error: Error,
+}
+
 /// Converts library-specific error code into an `EmptyResult`, for internal use
 pub(crate) fn code_to_result(code: i32) -> EmptyResult {
 	match code {
 		sys::XMPP_EOK => Ok(()),
-		_ => Err(Error::from(code).into()),
+		_ => Err(Error::from(code)),
 	}
 }
 
@@ -120,8 +171,7 @@ impl StreamError<'_, '_> {
 	}
 }
 
-/// Owned version of [`StreamError`]. `stanza` is guarded by Mutex to make the error type `Sync` to
-/// satisfy `failure::Fail` bounds.
+/// Owned version of [`StreamError`]. `stanza` is guarded by Mutex to make the error type `Sync`.
 ///
 /// [`StreamError`]: struct.StreamError.html
 #[derive(Debug)]
@@ -162,4 +212,4 @@ impl Clone for OwnedStreamError {
 	}
 }
 
-impl ::std::error::Error for OwnedStreamError {}
+impl StdError for OwnedStreamError {}
