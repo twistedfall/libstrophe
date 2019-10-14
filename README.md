@@ -9,7 +9,7 @@ See [full documentation](https://docs.rs/libstrophe)
 Add this to your Cargo.toml:
 ```
 [dependencies]
-libstrophe = "0.11.4"
+libstrophe = "0.12.0"
 ```
 
 [![Build Status](https://travis-ci.org/twistedfall/libstrophe.svg?branch=master)](https://travis-ci.org/twistedfall/libstrophe)
@@ -83,7 +83,7 @@ let connection_handler = |ctx: &libstrophe::Context,
                           _conn: &mut libstrophe::Connection,
                           _evt: libstrophe::ConnectionEvent,
                           _error: i32,
-                          _stream_error: Option<&libstrophe::error::StreamError>| {
+                          _stream_error: Option<libstrophe::StreamError>| {
    ctx.stop();
 };
 
@@ -105,8 +105,6 @@ The following features are provided:
 
   * `rust-log` - enabled by default, makes the create integrate into Rust logging facilities
   * `libstrophe-0_9_2` - enabled by default, enables functionality specific to libstrophe-0.9.2
-  * `fail-tests` - development feature, enables some additional tests that must fail unless
-                   safety contracts are broken
 
 [libstrophe]: http://strophe.im/libstrophe/
 [`log`]: https://crates.io/crates/log
