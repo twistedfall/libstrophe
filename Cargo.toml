@@ -1,6 +1,6 @@
 [package]
 name = "libstrophe"
-version = "0.12.1"
+version = "0.12.2"
 edition = "2018"
 description = "Rust ergonomic wrapper for libstrophe"
 keywords = ["jabber", "xmpp", "libstrophe", "messaging", "im"]
