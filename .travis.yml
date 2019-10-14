@@ -1,12 +1,11 @@
+sudo: true
+dist: bionic
+
 language: rust
 rust:
   - stable
   - beta
   - nightly
-cache: cargo
-
-sudo: true
-dist: xenial
 
 env:
   matrix:
@@ -27,7 +26,7 @@ before_script:
   - pushd ~/build/libstrophe-$PKG_VERSION
   - ./bootstrap.sh
   - ./configure --prefix=/usr
-  - sudo make -j4 install
+  - sudo make -j"$(nproc)" install
   - popd
 
 matrix:
