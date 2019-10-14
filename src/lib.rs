@@ -89,8 +89,6 @@
 //!
 //!   * `rust-log` - enabled by default, makes the create integrate into Rust logging facilities
 //!   * `libstrophe-0_9_2` - enabled by default, enables functionality specific to libstrophe-0.9.2
-//!   * `fail-tests` - development feature, enables some additional tests that must fail unless
-//!                    safety contracts are broken
 //!
 //! [libstrophe]: http://strophe.im/libstrophe/
 //! [`log`]: https://crates.io/crates/log

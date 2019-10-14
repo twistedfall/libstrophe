@@ -1,0 +1,9 @@
+error[E0502]: cannot borrow `stanza` as immutable because it is also borrowed as mutable
+ --> $DIR/stanza_iterator_mut_borrow.rs:6:2
+  |
+5 |     let _a = stanza.children_mut();
+  |              ------ mutable borrow occurs here
+6 |     stanza.get_first_child();
+  |     ^^^^^^ immutable borrow occurs here
+7 | }
+  | - mutable borrow might be used here, when `_a` is dropped and runs the destructor for type `impl std::iter::Iterator`
