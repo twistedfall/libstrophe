@@ -89,6 +89,7 @@
 //!
 //!   * `rust-log` - enabled by default, makes the create integrate into Rust logging facilities
 //!   * `libstrophe-0_9_2` - enabled by default, enables functionality specific to libstrophe-0.9.2
+//!   * `libstrophe-0_9_3` - enabled by default, enables functionality specific to libstrophe-0.9.3
 //!
 //! [libstrophe]: http://strophe.im/libstrophe/
 //! [`log`]: https://crates.io/crates/log
@@ -139,6 +140,8 @@ bitflags! {
 		const LEGACY_SSL = sys::XMPP_CONN_FLAG_LEGACY_SSL as raw::c_long;
 		#[cfg(feature = "libstrophe-0_9_2")]
 		const TRUST_TLS = sys::XMPP_CONN_FLAG_TRUST_TLS as raw::c_long;
+		#[cfg(feature = "libstrophe-0_9_3")]
+		const LEGACY_AUTH = sys::XMPP_CONN_FLAG_LEGACY_AUTH as raw::c_long;
 	}
 }
 
