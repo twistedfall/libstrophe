@@ -61,7 +61,7 @@ fn conn_client() {
 	                    _: &mut Connection,
 	                    event: ConnectionEvent,
 	                    _: i32,
-	                    _: Option<&error::StreamError>, | {
+	                    _: Option<&StreamError>, | {
 		assert_eq!(event, ConnectionEvent::XMPP_CONN_DISCONNECT);
 		ctx.stop();
 	};
@@ -89,7 +89,7 @@ fn conn_raw() {
 	                    _: &mut Connection,
 	                    event: ConnectionEvent,
 	                    _: i32,
-	                    _: Option<&error::StreamError>, | {
+	                    _: Option<&StreamError>, | {
 		assert_eq!(event, ConnectionEvent::XMPP_CONN_DISCONNECT);
 		ctx.stop();
 	};
@@ -150,7 +150,7 @@ fn stanza_handler_in_con() {
 	                        conn: &mut Connection,
 	                        _: ConnectionEvent,
 	                        _: i32,
-	                        _: Option<&error::StreamError>, | {
+	                        _: Option<&StreamError>, | {
 		conn.handler_add(stanza_handler, None, None, None);
 	};
 	let ctx = Context::new_with_null_logger();
@@ -473,7 +473,7 @@ mod with_credentials {
 
 			// can't connect_client twice until disconnect
 //			let res = conn.connect_client(None, None, |_, _, _, _| {});
-//			assert_matches!(res.map_err(|e| e.downcast().unwrap()), Err(error::Error::InvalidOperation));
+//			assert_matches!(res.map_err(|e| e.downcast().unwrap()), Err(Error::InvalidOperation));
 
 			ctx.run();
 
@@ -617,7 +617,7 @@ mod with_credentials {
 		// if you exchange the next 2 lines then it works, probably not related to code lifetimes, but to Rust
 		let make_conn = || { Connection::new(ctx.clone()) };
 
-		let default_con_handler = |conn: &mut Connection, evt: ConnectionEvent, _: i32, _: Option<&error::StreamError>| {};
+		let default_con_handler = |conn: &mut Connection, evt: ConnectionEvent, _: i32, _: Option<&StreamError>| {};
 
 		let mut conn = make_conn();
 		conn.connect_client(None, None, &default_con_handler).unwrap();
@@ -770,7 +770,7 @@ mod with_credentials {
 	fn handler() {
 		let i = Arc::new(RwLock::new(0));
 
-		let default_con_handler = |ctx: &Context, conn: &mut Connection, evt: ConnectionEvent, _: i32, _: Option<&error::StreamError>| {
+		let default_con_handler = |ctx: &Context, conn: &mut Connection, evt: ConnectionEvent, _: i32, _: Option<&StreamError>| {
 			match evt {
 				ConnectionEvent::XMPP_CONN_CONNECT => {
 					conn.disconnect();
@@ -866,7 +866,7 @@ mod fail {
 	fn conn_handler_too_short() {
 		{
 			let conn = Connection::new(Context::new_with_null_logger());
-			let not_long_enough1 = |_: &Context, _: &mut Connection, _: ConnectionEvent, _: i32, _: Option<&error::StreamError>| {};
+			let not_long_enough1 = |_: &Context, _: &mut Connection, _: ConnectionEvent, _: i32, _: Option<&StreamError>| {};
 			conn.connect_client(None, None, &not_long_enough1).unwrap()
 		};
 	}
@@ -921,7 +921,7 @@ mod fail {
 
 	#[test]
 	fn add_short_lived_handler() {
-		let handler = |_: &Context, conn: &mut Connection, _, _, _: Option<&error::StreamError>| {
+		let handler = |_: &Context, conn: &mut Connection, _, _, _: Option<&StreamError>| {
 			let not_long_enough7 = |_: &Context, _: &mut Connection, _: &Stanza| { false };
 			conn.handler_add(&not_long_enough7, None, None, None);
 		};

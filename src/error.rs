@@ -53,9 +53,6 @@ impl From<Error> for fmt::Error {
 /// `Result` with failure `Error`
 pub type Result<T, E = Error> = StdResult<T, E>;
 
-/// `Result` for methods that don't return any value on success
-pub type EmptyResult = Result<()>;
-
 #[derive(Copy, Eq, PartialEq, Clone, Debug)]
 pub enum ToTextError {
 	StropheError(Error),
@@ -207,13 +204,13 @@ impl Clone for OwnedStreamError {
 
 impl StdError for OwnedStreamError {}
 
-/// Converts library-specific error code into an `EmptyResult`, for internal use
+/// Converts library-specific error code into an `Result<()>`, for internal use
 pub(crate) trait IntoResult {
-	fn into_result(self) -> EmptyResult;
+	fn into_result(self) -> Result<()>;
 }
 
 impl IntoResult for c_int {
-	fn into_result(self) -> EmptyResult {
+	fn into_result(self) -> Result<()> {
 		match self {
 			sys::XMPP_EOK => Ok(()),
 			_ => Err(Error::from(self)),

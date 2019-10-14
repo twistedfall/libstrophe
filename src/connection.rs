@@ -15,18 +15,21 @@ use std::{
 
 use crate::{
 	as_void_ptr,
+	ConnectError,
 	ConnectionEvent,
 	ConnectionFlags,
 	Context,
-	error,
+	Error,
 	error::IntoResult,
 	FFI,
 	ffi_types::Nullable,
+	Result,
 	Stanza,
+	StreamError,
 	void_ptr_as,
 };
 
-type ConnectionCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&error::StreamError>) + Send + 'cb;
+type ConnectionCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&StreamError>) + Send + 'cb;
 type ConnectionFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, ConnectionCallback<'cb, 'cx>, ()>;
 
 type Handlers<H> = Vec<Box<H>>;
@@ -115,7 +118,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		let connection_handler = unsafe { void_ptr_as::<ConnectionFatHandler>(userdata) };
 		if let Some(fat_handlers) = connection_handler.fat_handlers.upgrade() {
 			let mut conn = unsafe { Self::from_inner_ref_mut(conn, fat_handlers) };
-			let stream_error: Option<error::StreamError> = unsafe { stream_error.as_ref() }.map(|e| e.into());
+			let stream_error: Option<StreamError> = unsafe { stream_error.as_ref() }.map(|e| e.into());
 			(connection_handler.handler)(conn.context_detached(), &mut conn, event, error, stream_error.as_ref());
 		}
 	}
@@ -205,7 +208,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	}
 
 	/// [xmpp_conn_set_flags](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga92761a101e721df9b923e9c35f6ad949)
-	pub fn set_flags(&mut self, flags: ConnectionFlags) -> error::EmptyResult {
+	pub fn set_flags(&mut self, flags: ConnectionFlags) -> Result<()> {
 		unsafe {
 			sys::xmpp_conn_set_flags(self.inner.as_mut(), flags.bits())
 		}.into_result()
@@ -286,17 +289,17 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	///
 	/// [`SSL_get_error()`]: https://www.openssl.org/docs/manmaster/man3/SSL_get_error.html#RETURN-VALUES
 	/// [`WSAGetLastError()`]: https://docs.microsoft.com/en-us/windows/desktop/api/winsock/nf-winsock-wsagetlasterror#return-value
-	pub fn connect_client<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, error::ConnectError<'cb, 'cx>>
+	pub fn connect_client<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectError<'cb, 'cx>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&error::StreamError>) + Send + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&StreamError>) + Send + 'cb,
 	{
 		let mut me = self; // hack to not expose mutability via function interface
 		let alt_host = FFI(alt_host).send();
 		let alt_port: Nullable<_> = alt_port.into().into();
 		if me.jid().is_none() {
-			return Err(error::ConnectError {
+			return Err(ConnectError {
 				conn: me,
-				error: error::Error::InvalidOperation,
+				error: Error::InvalidOperation,
 			});
 		}
 		let callback = Self::connection_handler_cb::<CB>;
@@ -319,7 +322,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			},
 			Err(e) => {
 				me.fat_handlers.borrow_mut().connection = old_handler;
-				Err(error::ConnectError {
+				Err(ConnectError {
 					conn: me,
 					error: e,
 				})
@@ -330,9 +333,9 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_connect_component](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga80c8cd7906a48fc27664fcce8f15ed7d)
 	///
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
-	pub fn connect_component<CB>(self, host: impl AsRef<str>, port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, error::ConnectError<'cb, 'cx>>
+	pub fn connect_component<CB>(self, host: impl AsRef<str>, port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectError<'cb, 'cx>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&error::StreamError>) + Send + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&StreamError>) + Send + 'cb,
 	{
 		let mut me = self; // hack to not expose mutability via function interface
 		let host = FFI(host.as_ref()).send();
@@ -357,7 +360,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			},
 			Err(e) => {
 				me.fat_handlers.borrow_mut().connection = old_handler;
-				Err(error::ConnectError {
+				Err(ConnectError {
 					conn: me,
 					error: e,
 				})
@@ -368,17 +371,17 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_connect_raw](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gae64b7a2ec8e138a1501bb7bf12089776)
 	///
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
-	pub fn connect_raw<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, error::ConnectError<'cb, 'cx>>
+	pub fn connect_raw<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectError<'cb, 'cx>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&error::StreamError>) + Send + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&StreamError>) + Send + 'cb,
 	{
 		let mut me = self; // hack to not expose mutability via function interface
 		let alt_host = FFI(alt_host).send();
 		let alt_port: Nullable<_> = alt_port.into().into();
 		if me.jid().is_none() {
-			return Err(error::ConnectError {
+			return Err(ConnectError {
 				conn: me,
-				error: error::Error::InvalidOperation,
+				error: Error::InvalidOperation,
 			});
 		}
 		let callback = Self::connection_handler_cb::<CB>;
@@ -401,7 +404,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			},
 			Err(e) => {
 				me.fat_handlers.borrow_mut().connection = old_handler;
-				Err(error::ConnectError {
+				Err(ConnectError {
 					conn: me,
 					error: e,
 				})
@@ -412,7 +415,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_conn_open_stream_default](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gaac72cb61c7a69499fd1387c1d499c08e)
 	///
 	/// Related to [`connect_raw()`](#method.connect_raw).
-	pub fn open_stream_default(&self) -> error::EmptyResult {
+	pub fn open_stream_default(&self) -> Result<()> {
 		unsafe {
 			sys::xmpp_conn_open_stream_default(self.inner.as_ptr())
 		}.into_result()
@@ -421,7 +424,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_conn_open_stream](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga85ccb1c2d95caf29dff0c9b70424c53e)
 	///
 	/// Related to [`connect_raw()`](#method.connect_raw).
-	pub fn open_stream(&self, attributes: &collections::HashMap<&str, &str>) -> error::EmptyResult {
+	pub fn open_stream(&self, attributes: &collections::HashMap<&str, &str>) -> Result<()> {
 		let mut storage = Vec::with_capacity(attributes.len() * 2);
 		let mut attrs = Vec::with_capacity(attributes.len() * 2);
 		for attr in attributes {
@@ -442,7 +445,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_conn_tls_start](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga759b1ae6fd1e40335afd8acc26d3858f)
 	///
 	/// Related to [`connect_raw()`](#method.connect_raw).
-	pub fn tls_start(&self) -> error::EmptyResult {
+	pub fn tls_start(&self) -> Result<()> {
 		unsafe {
 			sys::xmpp_conn_tls_start(self.inner.as_ptr())
 		}.into_result()
