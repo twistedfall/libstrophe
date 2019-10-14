@@ -67,7 +67,7 @@
 //!                           _conn: &mut libstrophe::Connection,
 //!                           _evt: libstrophe::ConnectionEvent,
 //!                           _error: i32,
-//!                           _stream_error: Option<&libstrophe::StreamError>| {
+//!                           _stream_error: Option<libstrophe::StreamError>| {
 //!    ctx.stop();
 //! };
 //!

@@ -1,0 +1,11 @@
+error: borrowed data cannot be stored outside of its closure
+ --> $DIR/move_out_stream_error.rs:8:36
+  |
+5 |     let mut stream_error = Mutex::new(Option::<StreamError>::None);
+  |                                       --------------------------- cannot infer an appropriate lifetime...
+6 |     let mut handler = {
+  |         ----------- ...so that variable is valid at time of its declaration
+7 |         move |_: &Context, _: &mut Connection, _: i32, _: i32, err: Option<StreamError>| {
+  |         -------------------------------------------------------------------------------- borrowed data cannot outlive this closure
+8 |             *stream_error.lock().unwrap() = err;
+  |                                             ^^^ cannot be stored outside of its closure

@@ -87,7 +87,7 @@ pub fn main() {
 	                         conn: &mut libstrophe::Connection,
 	                         evt: libstrophe::ConnectionEvent,
 	                         _error: i32,
-	                         _stream_error: Option<&libstrophe::StreamError>| {
+	                         _stream_error: Option<libstrophe::StreamError>| {
 		if evt == libstrophe::ConnectionEvent::XMPP_CONN_CONNECT {
 			eprintln!("Connected");
 			conn.handler_add(&version_handler, Some("jabber:iq:version"), Some("iq"), None);

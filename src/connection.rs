@@ -29,7 +29,7 @@ use crate::{
 	void_ptr_as,
 };
 
-type ConnectionCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&StreamError>) + Send + 'cb;
+type ConnectionCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<StreamError>) + Send + 'cb;
 type ConnectionFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, ConnectionCallback<'cb, 'cx>, ()>;
 
 type Handlers<H> = Vec<Box<H>>;
@@ -119,7 +119,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		if let Some(fat_handlers) = connection_handler.fat_handlers.upgrade() {
 			let mut conn = unsafe { Self::from_inner_ref_mut(conn, fat_handlers) };
 			let stream_error: Option<StreamError> = unsafe { stream_error.as_ref() }.map(|e| e.into());
-			(connection_handler.handler)(conn.context_detached(), &mut conn, event, error, stream_error.as_ref());
+			(connection_handler.handler)(conn.context_detached(), &mut conn, event, error, stream_error);
 		}
 	}
 
@@ -291,7 +291,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [`WSAGetLastError()`]: https://docs.microsoft.com/en-us/windows/desktop/api/winsock/nf-winsock-wsagetlasterror#return-value
 	pub fn connect_client<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectError<'cb, 'cx>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&StreamError>) + Send + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<StreamError>) + Send + 'cb,
 	{
 		let mut me = self; // hack to not expose mutability via function interface
 		let alt_host = FFI(alt_host).send();
@@ -335,7 +335,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
 	pub fn connect_component<CB>(self, host: impl AsRef<str>, port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectError<'cb, 'cx>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&StreamError>) + Send + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<StreamError>) + Send + 'cb,
 	{
 		let mut me = self; // hack to not expose mutability via function interface
 		let host = FFI(host.as_ref()).send();
@@ -373,7 +373,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
 	pub fn connect_raw<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectError<'cb, 'cx>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<&StreamError>) + Send + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<StreamError>) + Send + 'cb,
 	{
 		let mut me = self; // hack to not expose mutability via function interface
 		let alt_host = FFI(alt_host).send();

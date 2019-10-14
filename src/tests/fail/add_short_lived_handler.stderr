@@ -1,7 +1,7 @@
 error[E0597]: `handler` does not live long enough
  --> $DIR/add_short_lived_handler.rs:6:20
   |
-4 |     let handler = |_: &Context, conn: &mut Connection, _, _, _: Option<&StreamError>| {
+4 |     let handler = |_: &Context, conn: &mut Connection, _, _, _: Option<StreamError>| {
   |                                 ---- has type `&mut libstrophe::connection::Connection<'1, '_>`
 5 |         let handler = |_: &Context, _: &mut Connection, _: &Stanza| { false };
 6 |         conn.handler_add(&handler, None, None, None);

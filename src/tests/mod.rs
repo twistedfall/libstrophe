@@ -61,7 +61,7 @@ fn conn_client() {
 	                    _: &mut Connection,
 	                    event: ConnectionEvent,
 	                    _: i32,
-	                    _: Option<&StreamError>, | {
+	                    _: Option<StreamError>, | {
 		assert_eq!(event, ConnectionEvent::XMPP_CONN_DISCONNECT);
 		ctx.stop();
 	};
@@ -89,7 +89,7 @@ fn conn_raw() {
 	                    _: &mut Connection,
 	                    event: ConnectionEvent,
 	                    _: i32,
-	                    _: Option<&StreamError>, | {
+	                    _: Option<StreamError>, | {
 		assert_eq!(event, ConnectionEvent::XMPP_CONN_DISCONNECT);
 		ctx.stop();
 	};
@@ -150,7 +150,7 @@ fn stanza_handler_in_con() {
 	                        conn: &mut Connection,
 	                        _: ConnectionEvent,
 	                        _: i32,
-	                        _: Option<&StreamError>, | {
+	                        _: Option<StreamError>, | {
 		conn.handler_add(stanza_handler, None, None, None);
 	};
 	let ctx = Context::new_with_null_logger();
@@ -770,7 +770,7 @@ mod with_credentials {
 	fn handler() {
 		let i = Arc::new(RwLock::new(0));
 
-		let default_con_handler = |ctx: &Context, conn: &mut Connection, evt: ConnectionEvent, _: i32, _: Option<&StreamError>| {
+		let default_con_handler = |ctx: &Context, conn: &mut Connection, evt: ConnectionEvent, _: i32, _: Option<StreamError>| {
 			match evt {
 				ConnectionEvent::XMPP_CONN_CONNECT => {
 					conn.disconnect();
