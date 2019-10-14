@@ -1,6 +1,7 @@
 use std::{
 	error::Error as StdError,
 	fmt,
+	os::raw::c_int,
 	result::Result as StdResult,
 	str::Utf8Error,
 	sync::Mutex,
@@ -32,8 +33,8 @@ impl fmt::Display for Error {
 
 impl StdError for Error {}
 
-impl From<i32> for Error {
-	fn from(code: i32) -> Self {
+impl From<c_int> for Error {
+	fn from(code: c_int) -> Self {
 		match code {
 			sys::XMPP_EMEM => Error::MemoryError,
 			sys::XMPP_EINVOP => Error::InvalidOperation,
@@ -95,14 +96,6 @@ impl From<Error> for ToTextError {
 pub struct ConnectError<'cb, 'cx> {
 	pub conn: Connection<'cb, 'cx>,
 	pub error: Error,
-}
-
-/// Converts library-specific error code into an `EmptyResult`, for internal use
-pub(crate) fn code_to_result(code: i32) -> EmptyResult {
-	match code {
-		sys::XMPP_EOK => Ok(()),
-		_ => Err(Error::from(code)),
-	}
 }
 
 fn error_type_to_str(typ: sys::xmpp_error_type_t) -> &'static str {
@@ -213,3 +206,17 @@ impl Clone for OwnedStreamError {
 }
 
 impl StdError for OwnedStreamError {}
+
+/// Converts library-specific error code into an `EmptyResult`, for internal use
+pub(crate) trait IntoResult {
+	fn into_result(self) -> EmptyResult;
+}
+
+impl IntoResult for c_int {
+	fn into_result(self) -> EmptyResult {
+		match self {
+			sys::XMPP_EOK => Ok(()),
+			_ => Err(Error::from(self)),
+		}
+	}
+}

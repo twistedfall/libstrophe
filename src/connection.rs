@@ -19,6 +19,7 @@ use crate::{
 	ConnectionFlags,
 	Context,
 	error,
+	error::IntoResult,
 	FFI,
 	ffi_types::Nullable,
 	Stanza,
@@ -205,9 +206,9 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 
 	/// [xmpp_conn_set_flags](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga92761a101e721df9b923e9c35f6ad949)
 	pub fn set_flags(&mut self, flags: ConnectionFlags) -> error::EmptyResult {
-		error::code_to_result(unsafe {
+		unsafe {
 			sys::xmpp_conn_set_flags(self.inner.as_mut(), flags.bits())
-		})
+		}.into_result()
 	}
 
 	/// [xmpp_conn_get_jid](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga52b5fee898fc6ef06ba1ea7f9a507a39)
@@ -301,7 +302,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		let callback = Self::connection_handler_cb::<CB>;
 		let new_handler = Some(me.make_fat_handler(Box::new(handler) as _, callback as _, ()));
 		let old_handler = mem::replace(&mut me.fat_handlers.borrow_mut().connection, new_handler);
-		let out = error::code_to_result(unsafe {
+		let out = unsafe {
 			sys::xmpp_connect_client(
 				me.inner.as_mut(),
 				alt_host.as_ptr(),
@@ -309,7 +310,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 				Some(callback),
 				as_void_ptr(me.fat_handlers.borrow().connection.as_ref().unwrap()),
 			)
-		});
+		}.into_result();
 		match out {
 			Ok(_) => {
 				let mut out = me.ctx.take().expect("Internal context is empty, it must never happen");
@@ -339,7 +340,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		let callback = Self::connection_handler_cb::<CB>;
 		let new_handler = Some(me.make_fat_handler(Box::new(handler) as _, callback as _, ()));
 		let old_handler = mem::replace(&mut me.fat_handlers.borrow_mut().connection, new_handler);
-		let out = error::code_to_result(unsafe {
+		let out = unsafe {
 			sys::xmpp_connect_component(
 				me.inner.as_mut(),
 				host.as_ptr(),
@@ -347,7 +348,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 				Some(callback),
 				as_void_ptr(&me.fat_handlers.borrow().connection),
 			)
-		});
+		}.into_result();
 		match out {
 			Ok(_) => {
 				let mut out = me.ctx.take().expect("Internal context is empty, it must never happen");
@@ -383,7 +384,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		let callback = Self::connection_handler_cb::<CB>;
 		let new_handler = Some(me.make_fat_handler(Box::new(handler) as _, callback as _, ()));
 		let old_handler = mem::replace(&mut me.fat_handlers.borrow_mut().connection, new_handler);
-		let out = error::code_to_result(unsafe {
+		let out = unsafe {
 			sys::xmpp_connect_raw(
 				me.inner.as_mut(),
 				alt_host.as_ptr(),
@@ -391,7 +392,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 				Some(callback),
 				as_void_ptr(me.fat_handlers.borrow().connection.as_ref().unwrap()),
 			)
-		});
+		}.into_result();
 		match out {
 			Ok(_) => {
 				let mut out = me.ctx.take().expect("Internal context is empty, it must never happen");
@@ -412,9 +413,9 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	///
 	/// Related to [`connect_raw()`](#method.connect_raw).
 	pub fn open_stream_default(&self) -> error::EmptyResult {
-		error::code_to_result(unsafe {
+		unsafe {
 			sys::xmpp_conn_open_stream_default(self.inner.as_ptr())
-		})
+		}.into_result()
 	}
 
 	/// [xmpp_conn_open_stream](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga85ccb1c2d95caf29dff0c9b70424c53e)
@@ -429,22 +430,22 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			attrs.push(storage[storage.len() - 2].as_ptr() as _);
 			attrs.push(storage[storage.len() - 1].as_ptr() as _);
 		}
-		error::code_to_result(unsafe {
+		unsafe {
 			sys::xmpp_conn_open_stream(
 				self.inner.as_ptr(),
 				attrs.as_mut_ptr(),
 				attrs.len(),
 			)
-		})
+		}.into_result()
 	}
 
 	/// [xmpp_conn_tls_start](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga759b1ae6fd1e40335afd8acc26d3858f)
 	///
 	/// Related to [`connect_raw()`](#method.connect_raw).
 	pub fn tls_start(&self) -> error::EmptyResult {
-		error::code_to_result(unsafe {
+		unsafe {
 			sys::xmpp_conn_tls_start(self.inner.as_ptr())
-		})
+		}.into_result()
 	}
 
 	/// [xmpp_disconnect](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga809ee4c8bb95e86ec2119db1052849ce)
