@@ -116,7 +116,7 @@ fn timed_handler() {
 	let timed_handler = |_: &Context, _: &mut Connection| { false };
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
-	let handle = conn.timed_handler_add(&timed_handler, Duration::from_secs(1)).unwrap();
+	let handle = conn.timed_handler_add(&timed_handler, Duration::from_secs(1)).expect("Can't add timed handler");
 	assert_matches!(conn.timed_handler_add(&timed_handler, Duration::from_secs(1)), None);
 	conn.timed_handler_delete(handle);
 }
@@ -126,10 +126,10 @@ fn stanza_handler() {
 	let stanza_handler = |_: &Context, _: &mut Connection, _: &Stanza| { false };
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
-	let handle = conn.handler_add(&stanza_handler, Some("ns"), None, None).unwrap();
+	let handle = conn.handler_add(&stanza_handler, Some("ns"), None, None).expect("Can't add handler");
 	assert_matches!(conn.handler_add(&stanza_handler, Some("ns"), None, None), None);
 	conn.handler_delete(handle);
-	let handle = conn.handler_add(stanza_handler, None, Some(&"name".to_owned()), None).unwrap();
+	let handle = conn.handler_add(stanza_handler, None, Some(&"name".to_owned()), None).expect("Can't add handler");
 	conn.handler_delete(handle);
 }
 
@@ -138,7 +138,7 @@ fn id_handler() {
 	let id_handler = |_: &Context, _: &mut Connection, _: &Stanza| { false };
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
-	let h = conn.id_handler_add(&id_handler, "test").unwrap();
+	let h = conn.id_handler_add(&id_handler, "test").expect("Can't add id handler");
 	assert_matches!(conn.id_handler_add(&id_handler, "test"), None);
 	conn.id_handler_delete(h);
 }
@@ -151,7 +151,7 @@ fn stanza_handler_in_con() {
 	                        _: ConnectionEvent,
 	                        _: i32,
 	                        _: Option<StreamError>, | {
-		conn.handler_add(stanza_handler, None, None, None);
+		conn.handler_add(stanza_handler, None, None, None).expect("Can't add handler");
 	};
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
@@ -342,6 +342,7 @@ mod with_credentials {
 					false
 				}
 			};
+			assert_ne!(mem::size_of_val(&i_incrementer), 0);
 
 			// zero sized handlers are called
 			{
@@ -358,12 +359,12 @@ mod with_credentials {
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
-								conn.handler_add(zero_sized, None, None, None);
-								conn.handler_add(i_incrementer.clone(), None, Some("presence"), None);
+								conn.handler_add(zero_sized, None, None, None).expect("Can't add handler");
+								conn.handler_add(i_incrementer.clone(), None, Some("presence"), None).expect("Can't add handler");
 								conn.timed_handler_add(|_, conn| {
 									conn.disconnect();
 									false
-								}, Duration::from_secs(1));
+								}, Duration::from_secs(1)).expect("Can't add timed handler");
 							}
 							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
 							_ => ()
@@ -385,13 +386,13 @@ mod with_credentials {
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
-								conn.handler_add(i_incrementer.clone(), None, Some("presence"), None);
+								conn.handler_add(i_incrementer.clone(), None, Some("presence"), None).expect("Can't add handler");
 								let pres = Stanza::new_presence();
 								conn.send(&pres);
 								conn.timed_handler_add(|_, conn| {
 									conn.disconnect();
 									false
-								}, Duration::from_secs(1));
+								}, Duration::from_secs(1)).expect("Can't add timed handler");
 							}
 							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
 							_ => ()
@@ -418,16 +419,20 @@ mod with_credentials {
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
-								conn.handler_add(zero_sized, None, None, None);
-								conn.handler_add(zero_sized, None, None, None);
-								conn.handler_add(i_incrementer.clone(), None, None, None);
-								conn.handler_add(i_incrementer.clone(), None, None, None);
+								conn.handler_add(zero_sized, None, None, None).expect("Can't add handler");
+								if conn.handler_add(zero_sized, None, None, None).is_some() {
+									panic!("Must not be able to add handler");
+								}
+								conn.handler_add(i_incrementer.clone(), None, None, None).expect("Can't add handler");
+								if conn.handler_add(i_incrementer.clone(), None, None, None).is_some() {
+									panic!("Must not be able to add handler");
+								}
 								conn.handlers_clear();
-								conn.handler_add(i_incrementer.clone(), None, Some("presence"), None);
+								conn.handler_add(i_incrementer.clone(), None, Some("presence"), None).expect("Can't add handler");
 								conn.timed_handler_add(|_, conn| {
 									conn.disconnect();
 									false
-								}, Duration::from_secs(1));
+								}, Duration::from_secs(1)).expect("Can't add timed handler");
 							}
 							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
 							_ => ()
@@ -481,7 +486,7 @@ mod with_credentials {
 			conn.timed_handler_add(|_, conn| {
 				conn.disconnect();
 				false
-			}, Duration::from_secs(1));
+			}, Duration::from_secs(1)).expect("Can't add timed handler");
 		};
 
 		{
@@ -501,7 +506,7 @@ mod with_credentials {
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
-								conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1));
+								conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1)).expect("Can't add timed handler");
 								do_common_stuff(conn);
 							}
 							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
@@ -518,7 +523,7 @@ mod with_credentials {
 			*i.write().unwrap() = 0;
 			{
 				let mut conn = make_conn();
-				conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1));
+				conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1)).expect("Can't add timed handler");
 				let ctx = conn.connect_client(None, None, {
 					move |ctx, conn, evt, _, _| {
 						match evt {
@@ -546,7 +551,7 @@ mod with_credentials {
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
-								let handler = conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1)).unwrap();
+								let handler = conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1)).expect("Can't add timed handler");
 								conn.timed_handler_delete(handler);
 								do_common_stuff(conn);
 							},
@@ -570,7 +575,7 @@ mod with_credentials {
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
-								conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1));
+								conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1)).expect("Can't add timed handler");
 								conn.timed_handlers_clear();
 								do_common_stuff(conn);
 							},
@@ -617,7 +622,7 @@ mod with_credentials {
 			conn.timed_handler_add(|_, conn| {
 				conn.disconnect();
 				false
-			}, Duration::from_secs(1));
+			}, Duration::from_secs(1)).expect("Can't add id handler");
 		};
 
 		{
@@ -637,7 +642,7 @@ mod with_credentials {
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
-								conn.id_handler_add(i_incrementer.clone(), "get_roster");
+								conn.id_handler_add(i_incrementer.clone(), "get_roster").expect("Can't add id handler");
 
 								let mut iq = Stanza::new_iq(Some("get"), Some("get_roster1"));
 								let mut query = Stanza::new();
@@ -663,7 +668,7 @@ mod with_credentials {
 			*i.write().unwrap() = 0;
 			{
 				let mut conn = make_conn();
-				conn.id_handler_add(i_incrementer.clone(), "get_roster");
+				conn.id_handler_add(i_incrementer.clone(), "get_roster").expect("Can't add id handler");
 				let ctx = conn.connect_client(None, None, {
 					move |ctx, conn, evt, _, _| {
 						match evt {
@@ -697,7 +702,7 @@ mod with_credentials {
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
-								let handler = conn.id_handler_add(i_incrementer.clone(), "get_roster").unwrap();
+								let handler = conn.id_handler_add(i_incrementer.clone(), "get_roster").expect("Can't id timed handler");
 								conn.id_handler_delete(handler);
 
 								do_common_stuff(ctx, conn);
@@ -722,7 +727,7 @@ mod with_credentials {
 					move |ctx, conn, evt, _, _| {
 						match evt {
 							ConnectionEvent::XMPP_CONN_CONNECT => {
-								conn.id_handler_add(i_incrementer.clone(), "get_roster").unwrap();
+								conn.id_handler_add(i_incrementer.clone(), "get_roster").expect("Can't add id handler");
 								conn.id_handlers_clear();
 								do_common_stuff(ctx, conn);
 							},
@@ -767,7 +772,7 @@ mod with_credentials {
 		// handler call stanza name filter
 		{
 			let mut conn = make_conn();
-			conn.handler_add(i_incrementer.clone(), None, Some("iq"), None);
+			conn.handler_add(i_incrementer.clone(), None, Some("iq"), None).expect("Can't add handler");
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
 			assert_eq!(*i.read().unwrap(), 1);
@@ -777,7 +782,7 @@ mod with_credentials {
 		*i.write().unwrap() = 0;
 		{
 			let mut conn = make_conn();
-			conn.handler_add(i_incrementer.clone(), None, Some("non-existent"), None);
+			conn.handler_add(i_incrementer.clone(), None, Some("non-existent"), None).expect("Can't add handler");
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
 			assert_eq!(*i.read().unwrap(), 0);
@@ -787,7 +792,7 @@ mod with_credentials {
 		*i.write().unwrap() = 0;
 		{
 			let mut conn = make_conn();
-			let handler = conn.handler_add(i_incrementer.clone(), None, None, None).unwrap();
+			let handler = conn.handler_add(i_incrementer.clone(), None, None, None).expect("Can't add handler");
 			conn.handler_delete(handler);
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
@@ -798,7 +803,7 @@ mod with_credentials {
 		*i.write().unwrap() = 0;
 		{
 			let mut conn = make_conn();
-			conn.handler_add(i_incrementer.clone(), None, None, None);
+			conn.handler_add(i_incrementer.clone(), None, None, None).expect("Can't add handler");
 			conn.handlers_clear();
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();

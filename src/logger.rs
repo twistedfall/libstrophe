@@ -81,6 +81,7 @@ impl<'cb> Logger<'cb> {
 		where
 			CB: FnMut(LogLevel, &str, &str) + Send + 'cb,
 	{
+		ensure_unique!(CB);
 		let area = unsafe { FFI(area).receive() }.unwrap();
 		let msg = unsafe { FFI(msg).receive() }.unwrap();
 		unsafe {
@@ -157,3 +158,22 @@ impl Drop for Logger<'_> {
 }
 
 unsafe impl Send for Logger<'_> {}
+
+#[test]
+fn callbacks() {
+	fn logger_eq<L, R>(_left: L, _right: R) -> bool
+		where
+			L: FnMut(LogLevel, &str, &str) + Send,
+			R: FnMut(LogLevel, &str, &str) + Send,
+	{
+		let ptr_left = Logger::log_handler_cb::<L> as *const ();
+		let ptr_right = Logger::log_handler_cb::<R> as *const ();
+		ptr_left == ptr_right
+	}
+
+	let a = |_: LogLevel, _: &str, _: &str| {};
+	let b = |_: LogLevel, _: &str, _: &str| {};
+
+	assert!(logger_eq(a, a));
+	assert!(!logger_eq(a, b));
+}

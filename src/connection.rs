@@ -115,6 +115,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 
 	extern "C" fn connection_handler_cb<CB>(conn: *mut sys::xmpp_conn_t, event: sys::xmpp_conn_event_t, error: raw::c_int,
 	                                        stream_error: *mut sys::xmpp_stream_error_t, userdata: *mut raw::c_void) {
+		ensure_unique!(CB);
 		let connection_handler = unsafe { void_ptr_as::<ConnectionFatHandler>(userdata) };
 		if let Some(fat_handlers) = connection_handler.fat_handlers.upgrade() {
 			let mut conn = unsafe { Self::from_inner_ref_mut(conn, fat_handlers) };
@@ -124,6 +125,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	}
 
 	extern "C" fn timed_handler_cb<CB>(conn: *mut sys::xmpp_conn_t, userdata: *mut raw::c_void) -> i32 {
+		ensure_unique!(CB);
 		let timed_handler = unsafe { void_ptr_as::<TimedFatHandler>(userdata) };
 		if let Some(fat_handlers) = timed_handler.fat_handlers.upgrade() {
 			let mut conn = unsafe { Self::from_inner_ref_mut(conn, fat_handlers) };
@@ -138,6 +140,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	}
 
 	extern "C" fn handler_cb<CB>(conn: *mut sys::xmpp_conn_t, stanza: *mut sys::xmpp_stanza_t, userdata: *mut raw::c_void) -> i32 {
+		ensure_unique!(CB);
 		let stanza_handler = unsafe { void_ptr_as::<StanzaFatHandler>(userdata) };
 		if let Some(fat_handlers) = stanza_handler.fat_handlers.upgrade() {
 			let mut conn = unsafe { Self::from_inner_ref_mut(conn, fat_handlers) };
@@ -683,4 +686,49 @@ pub struct FatHandler<'cb, 'cx, CB: ?Sized, T> {
 	handler: Box<CB>,
 	cb_addr: *const (),
 	extra: T,
+}
+
+#[test]
+fn callbacks() {
+	{
+		fn timed_eq<L, R>(_left: L, _right: R) -> bool {
+			let ptr_left = Connection::timed_handler_cb::<L> as *const ();
+			let ptr_right = Connection::timed_handler_cb::<R> as *const ();
+			ptr_left == ptr_right
+		}
+
+		let a = |_: &Context, _: &mut Connection| { true };
+		let b = |_: &Context, _: &mut Connection| { true };
+
+		assert!(timed_eq(a, a));
+		assert!(!timed_eq(a, b));
+	}
+
+	{
+		fn handler_eq<L, R>(_left: L, _right: R) -> bool {
+			let ptr_left = Connection::handler_cb::<L> as *const ();
+			let ptr_right = Connection::handler_cb::<R> as *const ();
+			ptr_left == ptr_right
+		}
+
+		let a = |_: &Context, _: &mut Connection| { true };
+		let b = |_: &Context, _: &mut Connection| { true };
+
+		assert!(handler_eq(a, a));
+		assert!(!handler_eq(a, b));
+	}
+
+	{
+		fn connection_eq<L, R>(_left: L, _right: R) -> bool {
+			let ptr_left = Connection::connection_handler_cb::<L> as *const ();
+			let ptr_right = Connection::connection_handler_cb::<R> as *const ();
+			ptr_left == ptr_right
+		}
+
+		let a = |_: &Context, _: &mut Connection, _: ConnectionEvent, _: i32, _: Option<StreamError>, | {};
+		let b = |_: &Context, _: &mut Connection, _: ConnectionEvent, _: i32, _: Option<StreamError>, | {};
+
+		assert!(connection_eq(a, a));
+		assert!(!connection_eq(a, b));
+	}
 }
