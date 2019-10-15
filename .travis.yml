@@ -9,7 +9,7 @@ rust:
 
 env:
   matrix:
-    - PKG_VERSION=0.9.3 RUST_LOG=trace
+    - PKG_VERSION=0.9.3
 
 addons:
   apt:
@@ -35,8 +35,8 @@ before_script:
   - sudo ejabberdctl register libstrophe localhost NbgNU3fTFu
 
 script:
-  - cargo test -v --features=creds-test
-  - cargo test -v --release --features=creds-test
+  - cargo test -v --features=creds-test -- --test-threads=1
+  - cargo test -v --release --features=creds-test -- --test-threads=1
 
 matrix:
   allow_failures:
