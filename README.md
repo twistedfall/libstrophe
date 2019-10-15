@@ -9,7 +9,7 @@ See [full documentation](https://docs.rs/libstrophe)
 Add this to your Cargo.toml:
 ```
 [dependencies]
-libstrophe = "0.12.2"
+libstrophe = "0.13.0"
 ```
 
 [![Build Status](https://travis-ci.org/twistedfall/libstrophe.svg?branch=master)](https://travis-ci.org/twistedfall/libstrophe)
@@ -104,7 +104,6 @@ For more complete examples see this crate `src/examples` directory and [libstrop
 The following features are provided:
 
   * `rust-log` - enabled by default, makes the create integrate into Rust logging facilities
-  * `libstrophe-0_9_2` - enabled by default, enables functionality specific to libstrophe-0.9.2
   * `libstrophe-0_9_3` - enabled by default, enables functionality specific to libstrophe-0.9.3
 
 [libstrophe]: http://strophe.im/libstrophe/

@@ -1,6 +1,6 @@
 [package]
 name = "libstrophe"
-version = "0.12.2"
+version = "0.13.0"
 edition = "2018"
 description = "Rust ergonomic wrapper for libstrophe"
 keywords = ["jabber", "xmpp", "libstrophe", "messaging", "im"]
@@ -28,8 +28,7 @@ matches = "0.1"
 trybuild = "1.0"
 
 [features]
-default = ["rust-log", "libstrophe-0_9_2", "libstrophe-0_9_3"]
-libstrophe-0_9_2 = []
+default = ["rust-log", "libstrophe-0_9_3"]
 libstrophe-0_9_3 = []
 rust-log = ["log"]
 creds-test = []
