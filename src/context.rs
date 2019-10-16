@@ -137,9 +137,9 @@ impl Eq for Context<'_, '_> {}
 impl Drop for Context<'_, '_> {
 	/// [xmpp_ctx_free](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#ga3ae5f04bc23ab2e7b55760759e21d623)
 	fn drop(&mut self) {
-		unsafe {
-			if self.owned {
-				self.connections.clear();
+		if self.owned {
+			self.connections.clear();
+			unsafe {
 				sys::xmpp_ctx_free(self.inner.as_mut());
 			}
 		}

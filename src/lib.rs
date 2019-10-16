@@ -100,7 +100,7 @@
 
 use std::{
 	os::raw,
-	sync,
+	sync::Once,
 };
 
 pub use sys::{
@@ -159,8 +159,8 @@ bitflags! {
 	}
 }
 
-static INIT: sync::Once = sync::Once::new();
-static DEINIT: sync::Once = sync::Once::new();
+static INIT: Once = Once::new();
+static DEINIT: Once = Once::new();
 
 lazy_static! {
 	static ref ALLOC_CONTEXT: AllocContext = { AllocContext::default() };
