@@ -103,6 +103,7 @@ use std::{
 	sync::Once,
 };
 
+use once_cell::sync::Lazy;
 pub use sys::{
 	xmpp_conn_event_t as ConnectionEvent,
 	xmpp_log_level_t as LogLevel,
@@ -114,7 +115,6 @@ pub use connection::{Connection, HandlerId, IdHandlerId, TimedHandlerId};
 pub use context::Context;
 pub use error::{ConnectError, Error, OwnedStreamError, Result, StreamError, ToTextError};
 use ffi_types::FFI;
-use lazy_static::lazy_static;
 pub use logger::Logger;
 pub use stanza::{Stanza, StanzaMutRef, StanzaRef};
 
@@ -162,9 +162,7 @@ bitflags! {
 static INIT: Once = Once::new();
 static DEINIT: Once = Once::new();
 
-lazy_static! {
-	static ref ALLOC_CONTEXT: AllocContext = { AllocContext::default() };
-}
+static ALLOC_CONTEXT: Lazy<AllocContext> = Lazy::new(|| AllocContext::default());
 
 /// Convert type to *void for passing as `userdata`
 fn as_void_ptr<T>(cb: &T) -> *mut raw::c_void {

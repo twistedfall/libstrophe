@@ -88,6 +88,7 @@ impl Default for AllocContext {
 }
 
 unsafe impl Sync for AllocContext {}
+unsafe impl Send for AllocContext {}
 
 #[cfg(test)]
 mod alloc_test {
