@@ -278,6 +278,17 @@ fn stanza() {
 }
 
 #[test]
+fn stanza_clone() {
+	let stanza = {
+		let mut stanza = Stanza::new();
+		stanza.set_name("message").unwrap();
+		stanza.set_id("stanza_id").unwrap();
+		stanza.clone()
+	};
+	assert_eq!("<message id=\"stanza_id\"/>", stanza.to_text().unwrap());
+}
+
+#[test]
 fn stanza_attributes() {
 	let mut stanza = Stanza::new();
 
@@ -313,7 +324,7 @@ fn stanza_attributes() {
 mod with_credentials {
 	use std::{
 		mem,
-		sync::{Arc, RwLock},
+		sync::{Arc, Mutex, RwLock},
 	};
 
 	use super::*;
@@ -831,6 +842,35 @@ mod with_credentials {
 			ctx.run();
 			assert_eq!(*i.read().unwrap(), 1);
 		}
+	}
+
+	#[test]
+	fn stanza_global_context() {
+		let stz = Arc::new(Mutex::new(None));
+		{
+			let mut conn = make_conn();
+			conn.handler_add(
+				{
+					let stz = stz.clone();
+					move |_, _, stanza| {
+						*stz.lock().unwrap() = Some(stanza.clone());
+						false
+					}
+				},
+				None, Some("iq"), None,
+			).expect("Can't add handler");
+			let ctx = conn.connect_client(None, None, |ctx, conn, evt, _, _| {
+				match evt {
+					ConnectionEvent::XMPP_CONN_CONNECT => conn.disconnect(),
+					ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
+					_ => (),
+				}
+			}).unwrap();
+			ctx.run();
+		}
+		let stanza = Arc::try_unwrap(stz).unwrap().into_inner().unwrap().unwrap();
+		// without forcing ALLOC_CONTEXT it will segfault
+		assert_eq!(stanza.to_text().unwrap(), stanza.to_string());
 	}
 }
 

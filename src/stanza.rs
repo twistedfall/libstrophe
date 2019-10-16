@@ -109,7 +109,11 @@ impl Stanza {
 
 	#[inline]
 	unsafe fn with_inner(inner: *mut sys::xmpp_stanza_t, owned: bool) -> Self {
-		Stanza { inner: NonNull::new(inner).expect("Cannot allocate memory for Stanza"), owned }
+		let mut out = Stanza { inner: NonNull::new(inner).expect("Cannot allocate memory for Stanza"), owned };
+		if owned {
+			out.set_alloc_context();
+		}
+		out
 	}
 
 	/// Create an owning stanza from the raw pointer, for internal use
@@ -129,6 +133,47 @@ impl Stanza {
 
 	/// Return internal raw pointer to stanza, for internal use
 	pub fn as_inner(&self) -> *mut sys::xmpp_stanza_t { self.inner.as_ptr() }
+
+	/// Reset Stanza context to the 'static global ALLOC_CONTEXT to make it independent of whatever context it was created with
+	///
+	/// Generally libstrophe's `xmpp_stanza_t` needs `xmpp_ctx_t` only for allocation so it's possible to make `Stanza` 'static
+	/// and not dependent on a particular context by using global `ALLOC_CONTEXT`. That's what is done when a new `Stanza` is
+	/// created through methods of this struct, but when `Stanza` is copied (through `clone()` or `reply()`) we don't control
+	/// the initial context and it is set by the libstrophe itself (e.g. in callback of `xmpp_handler_add`). In this case it
+	/// receives the context that is tied to the one running the connection and it is not 'static. This function fixes that
+	/// situation by overwriting the `ctx` reference for current stanza (including one in attributes hash table) and all of
+	/// its children.
+	fn set_alloc_context(&mut self) {
+		#[allow(non_camel_case_types)]
+		#[repr(C)]
+		// this is dependent on internal representation in version 0.9.3 (libstrophe-0_9_3), update if needed
+		struct xmpp_stanza_t {
+			rf: raw::c_int,
+			ctx: *mut sys::xmpp_ctx_t,
+			typ: raw::c_int,
+			prev: *mut sys::xmpp_stanza_t,
+			next: *mut sys::xmpp_stanza_t,
+			children: *mut sys::xmpp_stanza_t,
+			parent: *mut sys::xmpp_stanza_t,
+			data: *mut raw::c_char,
+			attributes: *mut hash_t,
+		}
+
+		#[allow(non_camel_case_types)]
+		#[repr(C)]
+		struct hash_t {
+			rf: raw::c_uint,
+			ctx: *mut sys::xmpp_ctx_t,
+		}
+
+		let mut inner = unsafe { (self.inner.as_ptr() as *mut xmpp_stanza_t).as_mut() }.expect("Null pointer for Stanza context");
+		let alloc_ctx = ALLOC_CONTEXT.as_inner();
+		inner.ctx = alloc_ctx;
+		unsafe { inner.attributes.as_mut() }.map(|attrs| attrs.ctx = alloc_ctx);
+		for mut child in self.children_mut() {
+			child.set_alloc_context();
+		}
+	}
 
 	/// [xmpp_stanza_is_text](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gafe82902f19a387da45ce08a23b1cded6)
 	pub fn is_text(&self) -> bool {
