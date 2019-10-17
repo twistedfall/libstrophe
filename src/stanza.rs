@@ -169,7 +169,9 @@ impl Stanza {
 		let mut inner = unsafe { (self.inner.as_ptr() as *mut xmpp_stanza_t).as_mut() }.expect("Null pointer for Stanza context");
 		let alloc_ctx = ALLOC_CONTEXT.as_inner();
 		inner.ctx = alloc_ctx;
-		unsafe { inner.attributes.as_mut() }.map(|attrs| attrs.ctx = alloc_ctx);
+		if let Some(attrs) = unsafe { inner.attributes.as_mut() } {
+			attrs.ctx = alloc_ctx;
+		}
 		for mut child in self.children_mut() {
 			child.set_alloc_context();
 		}

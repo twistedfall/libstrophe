@@ -162,7 +162,7 @@ bitflags! {
 static INIT: Once = Once::new();
 static DEINIT: Once = Once::new();
 
-static ALLOC_CONTEXT: Lazy<AllocContext> = Lazy::new(|| AllocContext::default());
+static ALLOC_CONTEXT: Lazy<AllocContext> = Lazy::new(AllocContext::default);
 
 /// Convert type to *void for passing as `userdata`
 fn as_void_ptr<T>(cb: &T) -> *mut raw::c_void {

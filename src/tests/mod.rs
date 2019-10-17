@@ -335,8 +335,8 @@ mod with_credentials {
 
 	fn make_conn<'cn>() -> Connection<'cn, 'static> {
 		let mut conn = Connection::new(Context::new_with_default_logger());
-		conn.set_jid(JID);
-		conn.set_pass(PASS);
+		conn.set_jid(JID.trim());
+		conn.set_pass(PASS.trim());
 		conn.set_flags(ConnectionFlags::TRUST_TLS).expect("Cannot set connection flags");
 		conn
 	}

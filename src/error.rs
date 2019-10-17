@@ -60,7 +60,7 @@ pub enum ToTextError {
 }
 
 impl fmt::Display for ToTextError {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			ToTextError::StropheError(e) => write!(f, "Strophe error: {}", e),
 			ToTextError::Utf8Error(e) => write!(f, "UTF-8 error: {}", e),
@@ -160,6 +160,8 @@ impl StreamError<'_, '_> {
 		self.into()
 	}
 }
+
+impl StdError for StreamError<'_, '_> {}
 
 /// Owned version of [`StreamError`]. `stanza` is guarded by Mutex to make the error type `Sync`.
 ///
