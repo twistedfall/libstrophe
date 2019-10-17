@@ -17,7 +17,7 @@ use std::{
 
 use crate::{
 	as_void_ptr,
-	ConnectError,
+	ConnectClientError,
 	ConnectionEvent,
 	ConnectionFlags,
 	Context,
@@ -295,7 +295,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	///
 	/// [`SSL_get_error()`]: https://www.openssl.org/docs/manmaster/man3/SSL_get_error.html#RETURN-VALUES
 	/// [`WSAGetLastError()`]: https://docs.microsoft.com/en-us/windows/desktop/api/winsock/nf-winsock-wsagetlasterror#return-value
-	pub fn connect_client<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectError<'cb, 'cx>>
+	pub fn connect_client<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectClientError<'cb, 'cx>>
 		where
 			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<StreamError>) + Send + 'cb,
 	{
@@ -303,7 +303,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		let alt_host = FFI(alt_host).send();
 		let alt_port: Nullable<_> = alt_port.into().into();
 		if me.jid().is_none() {
-			return Err(ConnectError {
+			return Err(ConnectClientError {
 				conn: me,
 				error: Error::InvalidOperation,
 			});
@@ -328,7 +328,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			},
 			Err(e) => {
 				me.fat_handlers.borrow_mut().connection = old_handler;
-				Err(ConnectError {
+				Err(ConnectClientError {
 					conn: me,
 					error: e,
 				})
@@ -339,7 +339,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_connect_component](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga80c8cd7906a48fc27664fcce8f15ed7d)
 	///
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
-	pub fn connect_component<CB>(self, host: impl AsRef<str>, port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectError<'cb, 'cx>>
+	pub fn connect_component<CB>(self, host: impl AsRef<str>, port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectClientError<'cb, 'cx>>
 		where
 			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<StreamError>) + Send + 'cb,
 	{
@@ -366,7 +366,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			},
 			Err(e) => {
 				me.fat_handlers.borrow_mut().connection = old_handler;
-				Err(ConnectError {
+				Err(ConnectClientError {
 					conn: me,
 					error: e,
 				})
@@ -377,7 +377,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_connect_raw](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gae64b7a2ec8e138a1501bb7bf12089776)
 	///
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
-	pub fn connect_raw<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectError<'cb, 'cx>>
+	pub fn connect_raw<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectClientError<'cb, 'cx>>
 		where
 			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<StreamError>) + Send + 'cb,
 	{
@@ -385,7 +385,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		let alt_host = FFI(alt_host).send();
 		let alt_port: Nullable<_> = alt_port.into().into();
 		if me.jid().is_none() {
-			return Err(ConnectError {
+			return Err(ConnectClientError {
 				conn: me,
 				error: Error::InvalidOperation,
 			});
@@ -410,7 +410,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			},
 			Err(e) => {
 				me.fat_handlers.borrow_mut().connection = old_handler;
-				Err(ConnectError {
+				Err(ConnectClientError {
 					conn: me,
 					error: e,
 				})

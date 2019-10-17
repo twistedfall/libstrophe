@@ -90,7 +90,7 @@ impl From<Error> for ToTextError {
 }
 
 #[derive(Debug)]
-pub struct ConnectError<'cb, 'cx> {
+pub struct ConnectClientError<'cb, 'cx> {
 	pub conn: Connection<'cb, 'cx>,
 	pub error: Error,
 }

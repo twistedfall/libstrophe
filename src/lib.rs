@@ -113,7 +113,7 @@ pub use alloc_context::AllocContext;
 use bitflags::bitflags;
 pub use connection::{Connection, HandlerId, IdHandlerId, TimedHandlerId};
 pub use context::Context;
-pub use error::{ConnectError, Error, OwnedStreamError, Result, StreamError, ToTextError};
+pub use error::{ConnectClientError, Error, OwnedStreamError, Result, StreamError, ToTextError};
 use ffi_types::FFI;
 pub use logger::Logger;
 pub use stanza::{Stanza, StanzaMutRef, StanzaRef};
