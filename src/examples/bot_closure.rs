@@ -11,9 +11,7 @@ pub fn main() {
 	let jid = "test@example.com";
 	let pass = "<password>";
 
-	let version_handler = |_ctx: &libstrophe::Context,
-	                       conn: &mut libstrophe::Connection,
-	                       stanza: &libstrophe::Stanza| {
+	let version_handler = |_ctx: &libstrophe::Context, conn: &mut libstrophe::Connection, stanza: &libstrophe::Stanza| {
 		eprintln!("Received version request from {}", stanza.from().expect("Empty from"));
 
 		let mut reply = stanza.reply();
@@ -49,9 +47,7 @@ pub fn main() {
 		true
 	};
 
-	let message_handler = |_ctx: &libstrophe::Context,
-	                       conn: &mut libstrophe::Connection,
-	                       stanza: &libstrophe::Stanza| {
+	let message_handler = |_ctx: &libstrophe::Context, conn: &mut libstrophe::Connection, stanza: &libstrophe::Stanza| {
 		let body = match stanza.get_child_by_name("body") {
 			Some(body) => body,
 			None => return true,
@@ -89,12 +85,8 @@ pub fn main() {
 		true
 	};
 
-	let conn_handler = move |ctx: &libstrophe::Context,
-	                         conn: &mut libstrophe::Connection,
-	                         evt: libstrophe::ConnectionEvent,
-	                         _error: i32,
-	                         _stream_error: Option<libstrophe::StreamError>| {
-		if evt == libstrophe::ConnectionEvent::XMPP_CONN_CONNECT {
+	let conn_handler = move |ctx: &libstrophe::Context, conn: &mut libstrophe::Connection, evt: libstrophe::ConnectionEvent| {
+		if let libstrophe::ConnectionEvent::Connect = evt {
 			eprintln!("Connected");
 			conn.handler_add(version_handler, Some("jabber:iq:version"), Some("iq"), None);
 			conn.handler_add(message_handler, None, Some("message"), None);

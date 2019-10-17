@@ -157,7 +157,11 @@ impl fmt::Display for StreamError<'_, '_> {
 
 impl StreamError<'_, '_> {
 	pub fn to_owned(&self) -> OwnedStreamError {
-		self.into()
+		OwnedStreamError {
+			typ: self.typ,
+			text: self.text.map(|x| x.to_owned()),
+			stanza: Mutex::new(self.stanza.clone()),
+		}
 	}
 }
 
@@ -174,12 +178,14 @@ pub struct OwnedStreamError {
 }
 
 impl From<&StreamError<'_, '_>> for OwnedStreamError {
-	fn from(s: &StreamError<'_, '_>) -> Self {
-		OwnedStreamError {
-			typ: s.typ,
-			text: s.text.map(|x| x.to_owned()),
-			stanza: Mutex::new(s.stanza.clone()),
-		}
+	fn from(s: &StreamError) -> Self {
+		s.to_owned()
+	}
+}
+
+impl From<StreamError<'_, '_>> for OwnedStreamError {
+	fn from(s: StreamError) -> Self {
+		s.to_owned()
 	}
 }
 
@@ -216,6 +222,85 @@ impl IntoResult for c_int {
 		match self {
 			sys::XMPP_EOK => Ok(()),
 			_ => Err(Error::from(self)),
+		}
+	}
+}
+
+#[derive(Debug)]
+pub enum ConnectionError<'t, 's> {
+	Aborted,
+	TimedOut,
+	ConnectionReset,
+	TLS(i32),
+	Stream(StreamError<'t, 's>),
+}
+
+impl<'t, 's> ConnectionError<'t, 's> {
+	pub(crate) fn from((code, stream_error): (i32, Option<StreamError<'t, 's>>)) -> Option<Self> {
+		match code {
+			0 => stream_error.map(ConnectionError::Stream),
+			103 /* ECONNABORTED */ => Some(ConnectionError::Aborted),
+			104 /* ECONNRESET */ => Some(ConnectionError::ConnectionReset),
+			110 /* ETIMEDOUT*/ => Some(ConnectionError::TimedOut),
+			code => Some(ConnectionError::TLS(code)),
+		}
+	}
+}
+
+impl fmt::Display for ConnectionError<'_, '_> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			ConnectionError::Aborted => write!(f, "Connection aborted"),
+			ConnectionError::TimedOut => write!(f, "Connection timed out"),
+			ConnectionError::ConnectionReset => write!(f, "Connection reset"),
+			ConnectionError::TLS(e) => write!(f, "TLS error: {}", e),
+			ConnectionError::Stream(e) => write!(f, "Stream error: {}", e),
+		}
+	}
+}
+
+impl StdError for ConnectionError<'_, '_> {}
+
+#[derive(Clone, Debug)]
+pub enum OwnedConnectionError {
+	Aborted,
+	TimedOut,
+	ConnectionReset,
+	TLS(i32),
+	Stream(OwnedStreamError),
+}
+
+impl From<ConnectionError<'_, '_>> for OwnedConnectionError {
+	fn from(s: ConnectionError<'_, '_>) -> Self {
+		match s {
+			ConnectionError::Aborted => OwnedConnectionError::Aborted,
+			ConnectionError::TimedOut => OwnedConnectionError::TimedOut,
+			ConnectionError::ConnectionReset => OwnedConnectionError::ConnectionReset,
+			ConnectionError::TLS(e) => OwnedConnectionError::TLS(e),
+			ConnectionError::Stream(e) => OwnedConnectionError::Stream(e.into()),
+		}
+	}
+}
+
+impl fmt::Display for OwnedConnectionError {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			OwnedConnectionError::Aborted => write!(f, "Connection aborted"),
+			OwnedConnectionError::TimedOut => write!(f, "Connection timed out"),
+			OwnedConnectionError::ConnectionReset => write!(f, "Connection reset"),
+			OwnedConnectionError::TLS(e) => write!(f, "TLS error: {}", e),
+			OwnedConnectionError::Stream(e) => write!(f, "Stream error: {}", e),
+		}
+	}
+}
+
+
+impl StdError for OwnedConnectionError {
+	fn source(&self) -> Option<&(dyn StdError + 'static)> {
+		if let OwnedConnectionError::Stream(e) = self {
+			Some(e)
+		} else {
+			None
 		}
 	}
 }

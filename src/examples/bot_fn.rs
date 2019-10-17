@@ -83,12 +83,8 @@ pub fn main() {
 	let jid = "test@example.com";
 	let pass = "<password>";
 
-	let conn_handler = move |ctx: &libstrophe::Context,
-	                         conn: &mut libstrophe::Connection,
-	                         evt: libstrophe::ConnectionEvent,
-	                         _error: i32,
-	                         _stream_error: Option<libstrophe::StreamError>| {
-		if evt == libstrophe::ConnectionEvent::XMPP_CONN_CONNECT {
+	let conn_handler = move |ctx: &libstrophe::Context, conn: &mut libstrophe::Connection, evt: libstrophe::ConnectionEvent| {
+		if let libstrophe::ConnectionEvent::Connect = evt {
 			eprintln!("Connected");
 			conn.handler_add(&version_handler, Some("jabber:iq:version"), Some("iq"), None);
 			conn.handler_add(&message_handler, None, Some("message"), None);

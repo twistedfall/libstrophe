@@ -18,7 +18,7 @@ use std::{
 use crate::{
 	as_void_ptr,
 	ConnectClientError,
-	ConnectionEvent,
+	ConnectionError,
 	ConnectionFlags,
 	Context,
 	Error,
@@ -32,7 +32,7 @@ use crate::{
 	void_ptr_as,
 };
 
-type ConnectionCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<StreamError>) + Send + 'cb;
+type ConnectionCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb;
 type ConnectionFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, ConnectionCallback<'cb, 'cx>, ()>;
 
 type Handlers<H> = Vec<Box<H>>;
@@ -122,8 +122,16 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		let connection_handler = unsafe { void_ptr_as::<ConnectionFatHandler>(userdata) };
 		if let Some(fat_handlers) = connection_handler.fat_handlers.upgrade() {
 			let mut conn = unsafe { Self::from_inner_ref_mut(conn, fat_handlers) };
-			let stream_error: Option<StreamError> = unsafe { stream_error.as_ref() }.map(|e| e.into());
-			(connection_handler.handler)(conn.context_detached(), &mut conn, event, error, stream_error);
+			let event = match event {
+				sys::xmpp_conn_event_t::XMPP_CONN_RAW_CONNECT => ConnectionEvent::RawConnect,
+				sys::xmpp_conn_event_t::XMPP_CONN_CONNECT => ConnectionEvent::Connect,
+				sys::xmpp_conn_event_t::XMPP_CONN_DISCONNECT => {
+					let stream_error: Option<StreamError> = unsafe { stream_error.as_ref() }.map(|e| e.into());
+					ConnectionEvent::Disconnect(ConnectionError::from((error, stream_error)))
+				},
+				sys::xmpp_conn_event_t::XMPP_CONN_FAIL => unreachable!("XMPP_CONN_FAIL is never used in the underlying library"),
+			};
+			(connection_handler.handler)(conn.context_detached(), &mut conn, event);
 		}
 	}
 
@@ -297,7 +305,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [`WSAGetLastError()`]: https://docs.microsoft.com/en-us/windows/desktop/api/winsock/nf-winsock-wsagetlasterror#return-value
 	pub fn connect_client<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectClientError<'cb, 'cx>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<StreamError>) + Send + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
 	{
 		let mut me = self; // hack to not expose mutability via function interface
 		let alt_host = FFI(alt_host).send();
@@ -341,7 +349,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
 	pub fn connect_component<CB>(self, host: impl AsRef<str>, port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectClientError<'cb, 'cx>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<StreamError>) + Send + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
 	{
 		let mut me = self; // hack to not expose mutability via function interface
 		let host = FFI(host.as_ref()).send();
@@ -379,7 +387,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
 	pub fn connect_raw<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectClientError<'cb, 'cx>>
 		where
-			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent, i32, Option<StreamError>) + Send + 'cb,
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
 	{
 		let mut me = self; // hack to not expose mutability via function interface
 		let alt_host = FFI(alt_host).send();
@@ -700,6 +708,25 @@ pub struct FatHandler<'cb, 'cx, CB: ?Sized, T> {
 	extra: T,
 }
 
+#[derive(Debug)]
+pub enum ConnectionEvent<'t, 's> {
+	RawConnect,
+	Connect,
+	Disconnect(Option<ConnectionError<'t, 's>>),
+//	Fail(ConnectionError<'t, 's>), // never actually used in the underlying library
+}
+
+impl fmt::Display for ConnectionEvent<'_, '_> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			ConnectionEvent::RawConnect => write!(f, "Raw connect"),
+			ConnectionEvent::Connect => write!(f, "Connect"),
+			ConnectionEvent::Disconnect(None) => write!(f, "Disconnect"),
+			ConnectionEvent::Disconnect(Some(e)) => write!(f, "Disconnect, error: {}", e),
+		}
+	}
+}
+
 #[test]
 fn callbacks() {
 	{
@@ -737,8 +764,8 @@ fn callbacks() {
 			ptr_left == ptr_right
 		}
 
-		let a = |_: &Context, _: &mut Connection, _: ConnectionEvent, _: i32, _: Option<StreamError>, | {};
-		let b = |_: &Context, _: &mut Connection, _: ConnectionEvent, _: i32, _: Option<StreamError>, | {};
+		let a = |_: &Context, _: &mut Connection, _: ConnectionEvent| {};
+		let b = |_: &Context, _: &mut Connection, _: ConnectionEvent| {};
 
 		assert!(connection_eq(a, a));
 		assert!(!connection_eq(a, b));

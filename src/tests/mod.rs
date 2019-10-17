@@ -42,7 +42,7 @@ fn custom_logger() {
 		}));
 		let mut conn = Connection::new(ctx);
 		conn.set_jid("test-JID@127.50.60.70");
-		let ctx = conn.connect_client(None, Some(1234), |_, _, _, _, _| {}).unwrap();
+		let ctx = conn.connect_client(None, Some(1234), |_, _, _| {}).unwrap();
 		ctx.run_once(Duration::from_secs(1));
 	}
 	assert_eq!(i, 5);
@@ -52,17 +52,15 @@ fn custom_logger() {
 fn conn_client_wo_jid() {
 	let conn = Connection::new(Context::new_with_null_logger());
 	// no JID supplied
-	assert_matches!(conn.connect_client(None, None, |_, _, _, _, _| {}), Err(ConnectError { error: Error::InvalidOperation, .. }));
+	assert_matches!(conn.connect_client(None, None, |_, _, _| {}), Err(ConnectClientError { error: Error::InvalidOperation, .. }));
 }
 
 #[test]
 fn conn_client() {
 	let conn_handler = |ctx: &Context,
 	                    _: &mut Connection,
-	                    event: ConnectionEvent,
-	                    _: i32,
-	                    _: Option<StreamError>, | {
-		assert_eq!(event, ConnectionEvent::XMPP_CONN_DISCONNECT);
+	                    event: ConnectionEvent| {
+		assert_matches!(event, ConnectionEvent::Disconnect(..));
 		ctx.stop();
 	};
 
@@ -87,10 +85,8 @@ fn conn_client() {
 fn conn_raw() {
 	let conn_handler = |ctx: &Context,
 	                    _: &mut Connection,
-	                    event: ConnectionEvent,
-	                    _: i32,
-	                    _: Option<StreamError>, | {
-		assert_eq!(event, ConnectionEvent::XMPP_CONN_DISCONNECT);
+	                    event: ConnectionEvent| {
+		assert_matches!(event, ConnectionEvent::Disconnect(..));
 		ctx.stop();
 	};
 
@@ -148,9 +144,7 @@ fn stanza_handler_in_con() {
 	let stanza_handler = |_: &Context, _: &mut Connection, _: &Stanza| { false };
 	let con_handler = move |_: &Context,
 	                        conn: &mut Connection,
-	                        _: ConnectionEvent,
-	                        _: i32,
-	                        _: Option<StreamError>, | {
+	                        _: ConnectionEvent| {
 		conn.handler_add(stanza_handler, None, None, None).expect("Can't add handler");
 	};
 	let ctx = Context::new_with_null_logger();
@@ -367,9 +361,9 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					move |ctx, conn, evt, _, _| {
+					move |ctx, conn, evt| {
 						match evt {
-							ConnectionEvent::XMPP_CONN_CONNECT => {
+							ConnectionEvent::Connect => {
 								conn.handler_add(zero_sized, None, None, None).expect("Can't add handler");
 								conn.handler_add(i_incrementer.clone(), None, Some("presence"), None).expect("Can't add handler");
 								conn.timed_handler_add(|_, conn| {
@@ -377,7 +371,7 @@ mod with_credentials {
 									false
 								}, Duration::from_secs(1)).expect("Can't add timed handler");
 							}
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
+							ConnectionEvent::Disconnect(..) => ctx.stop(),
 							_ => ()
 						}
 					}
@@ -394,9 +388,9 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					move |ctx, conn, evt, _, _| {
+					move |ctx, conn, evt| {
 						match evt {
-							ConnectionEvent::XMPP_CONN_CONNECT => {
+							ConnectionEvent::Connect => {
 								conn.handler_add(i_incrementer.clone(), None, Some("presence"), None).expect("Can't add handler");
 								let pres = Stanza::new_presence();
 								conn.send(&pres);
@@ -405,7 +399,7 @@ mod with_credentials {
 									false
 								}, Duration::from_secs(1)).expect("Can't add timed handler");
 							}
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
+							ConnectionEvent::Disconnect(..) => ctx.stop(),
 							_ => ()
 						}
 					}
@@ -427,9 +421,9 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					move |ctx, conn, evt, _, _| {
+					move |ctx, conn, evt| {
 						match evt {
-							ConnectionEvent::XMPP_CONN_CONNECT => {
+							ConnectionEvent::Connect => {
 								conn.handler_add(zero_sized, None, None, None).expect("Can't add handler");
 								if conn.handler_add(zero_sized, None, None, None).is_some() {
 									panic!("Must not be able to add handler");
@@ -445,7 +439,7 @@ mod with_credentials {
 									false
 								}, Duration::from_secs(1)).expect("Can't add timed handler");
 							}
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
+							ConnectionEvent::Disconnect(..) => ctx.stop(),
 							_ => ()
 						}
 					}
@@ -460,33 +454,30 @@ mod with_credentials {
 
 	#[test]
 	fn connection_handler() {
-		let flags = Arc::new(RwLock::new((0, 0, 0, 0)));
+		let flags = Arc::new(RwLock::new((0, 0, 0)));
 		{
 			let conn = make_conn();
 			let ctx = conn.connect_client(None, None, {
 				let flags = flags.clone();
-				move |ctx, conn, evt, _, _| {
+				move |ctx, conn, evt| {
 					match evt {
-						ConnectionEvent::XMPP_CONN_CONNECT => {
+						ConnectionEvent::Connect => {
 							flags.write().unwrap().0 += 1;
 							conn.disconnect();
 						}
-						ConnectionEvent::XMPP_CONN_RAW_CONNECT => {
+						ConnectionEvent::RawConnect => {
 							flags.write().unwrap().1 += 1;
 						}
-						ConnectionEvent::XMPP_CONN_DISCONNECT => {
+						ConnectionEvent::Disconnect(..) => {
 							flags.write().unwrap().2 += 1;
 							ctx.stop();
-						}
-						ConnectionEvent::XMPP_CONN_FAIL => {
-							flags.write().unwrap().3 += 1;
 						}
 					}
 				}
 			}).unwrap();
 			ctx.run();
 		}
-		assert_eq!(Arc::try_unwrap(flags).expect("There are hanging references to Rc value").into_inner().unwrap(), (1, 0, 1, 0));
+		assert_eq!(Arc::try_unwrap(flags).expect("There are hanging references to Rc value").into_inner().unwrap(), (1, 0, 1));
 	}
 
 	#[test]
@@ -514,13 +505,13 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					move |ctx, conn, evt, _, _| {
+					move |ctx, conn, evt| {
 						match evt {
-							ConnectionEvent::XMPP_CONN_CONNECT => {
+							ConnectionEvent::Connect => {
 								conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1)).expect("Can't add timed handler");
 								do_common_stuff(conn);
 							}
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
+							ConnectionEvent::Disconnect(..) => ctx.stop(),
 							_ => {},
 						}
 					}
@@ -536,12 +527,12 @@ mod with_credentials {
 				let mut conn = make_conn();
 				conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1)).expect("Can't add timed handler");
 				let ctx = conn.connect_client(None, None, {
-					move |ctx, conn, evt, _, _| {
+					move |ctx, conn, evt| {
 						match evt {
-							ConnectionEvent::XMPP_CONN_CONNECT => {
+							ConnectionEvent::Connect => {
 								do_common_stuff(conn);
 							},
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
+							ConnectionEvent::Disconnect(..) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -559,14 +550,14 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					move |ctx, conn, evt, _, _| {
+					move |ctx, conn, evt| {
 						match evt {
-							ConnectionEvent::XMPP_CONN_CONNECT => {
+							ConnectionEvent::Connect => {
 								let handler = conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1)).expect("Can't add timed handler");
 								conn.timed_handler_delete(handler);
 								do_common_stuff(conn);
 							},
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
+							ConnectionEvent::Disconnect(..) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -583,14 +574,14 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					move |ctx, conn, evt, _, _| {
+					move |ctx, conn, evt| {
 						match evt {
-							ConnectionEvent::XMPP_CONN_CONNECT => {
+							ConnectionEvent::Connect => {
 								conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1)).expect("Can't add timed handler");
 								conn.timed_handlers_clear();
 								do_common_stuff(conn);
 							},
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
+							ConnectionEvent::Disconnect(..) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -650,9 +641,9 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					move |ctx, conn, evt, _, _| {
+					move |ctx, conn, evt| {
 						match evt {
-							ConnectionEvent::XMPP_CONN_CONNECT => {
+							ConnectionEvent::Connect => {
 								conn.id_handler_add(i_incrementer.clone(), "get_roster").expect("Can't add id handler");
 
 								let mut iq = Stanza::new_iq(Some("get"), Some("get_roster1"));
@@ -664,7 +655,7 @@ mod with_credentials {
 
 								do_common_stuff(ctx, conn);
 							},
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
+							ConnectionEvent::Disconnect(..) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -681,9 +672,9 @@ mod with_credentials {
 				let mut conn = make_conn();
 				conn.id_handler_add(i_incrementer.clone(), "get_roster").expect("Can't add id handler");
 				let ctx = conn.connect_client(None, None, {
-					move |ctx, conn, evt, _, _| {
+					move |ctx, conn, evt| {
 						match evt {
-							ConnectionEvent::XMPP_CONN_CONNECT => {
+							ConnectionEvent::Connect => {
 								let mut iq = Stanza::new_iq(Some("get"), Some("get_roster1"));
 								let mut query = Stanza::new();
 								query.set_name("query").unwrap();
@@ -693,7 +684,7 @@ mod with_credentials {
 
 								do_common_stuff(ctx, conn);
 							},
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
+							ConnectionEvent::Disconnect(..) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -710,15 +701,15 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					move |ctx, conn, evt, _, _| {
+					move |ctx, conn, evt| {
 						match evt {
-							ConnectionEvent::XMPP_CONN_CONNECT => {
+							ConnectionEvent::Connect => {
 								let handler = conn.id_handler_add(i_incrementer.clone(), "get_roster").expect("Can't id timed handler");
 								conn.id_handler_delete(handler);
 
 								do_common_stuff(ctx, conn);
 							},
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
+							ConnectionEvent::Disconnect(..) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -735,14 +726,14 @@ mod with_credentials {
 				let conn = make_conn();
 				let ctx = conn.connect_client(None, None, {
 					let i_incrementer = i_incrementer.clone();
-					move |ctx, conn, evt, _, _| {
+					move |ctx, conn, evt| {
 						match evt {
-							ConnectionEvent::XMPP_CONN_CONNECT => {
+							ConnectionEvent::Connect => {
 								conn.id_handler_add(i_incrementer.clone(), "get_roster").expect("Can't add id handler");
 								conn.id_handlers_clear();
 								do_common_stuff(ctx, conn);
 							},
-							ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
+							ConnectionEvent::Disconnect(..) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -760,12 +751,12 @@ mod with_credentials {
 	fn handler() {
 		let i = Arc::new(RwLock::new(0));
 
-		let default_con_handler = |ctx: &Context, conn: &mut Connection, evt: ConnectionEvent, _: i32, _: Option<StreamError>| {
+		let default_con_handler = |ctx: &Context, conn: &mut Connection, evt: ConnectionEvent| {
 			match evt {
-				ConnectionEvent::XMPP_CONN_CONNECT => {
+				ConnectionEvent::Connect => {
 					conn.disconnect();
 				},
-				ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => {
+				ConnectionEvent::Disconnect(..) => {
 					ctx.stop();
 				},
 				_ => {},
@@ -859,10 +850,10 @@ mod with_credentials {
 				},
 				None, Some("iq"), None,
 			).expect("Can't add handler");
-			let ctx = conn.connect_client(None, None, |ctx, conn, evt, _, _| {
+			let ctx = conn.connect_client(None, None, |ctx, conn, evt| {
 				match evt {
-					ConnectionEvent::XMPP_CONN_CONNECT => conn.disconnect(),
-					ConnectionEvent::XMPP_CONN_DISCONNECT | ConnectionEvent::XMPP_CONN_FAIL => ctx.stop(),
+					ConnectionEvent::Connect => conn.disconnect(),
+					ConnectionEvent::Disconnect(..) => ctx.stop(),
 					_ => (),
 				}
 			}).unwrap();

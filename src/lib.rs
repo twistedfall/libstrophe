@@ -65,9 +65,7 @@
 //! ```
 //! let connection_handler = |ctx: &libstrophe::Context,
 //!                           _conn: &mut libstrophe::Connection,
-//!                           _evt: libstrophe::ConnectionEvent,
-//!                           _error: i32,
-//!                           _stream_error: Option<libstrophe::StreamError>| {
+//!                           _evt: libstrophe::ConnectionEvent| {
 //!    ctx.stop();
 //! };
 //!
@@ -104,16 +102,13 @@ use std::{
 };
 
 use once_cell::sync::Lazy;
-pub use sys::{
-	xmpp_conn_event_t as ConnectionEvent,
-	xmpp_log_level_t as LogLevel,
-};
+pub use sys::xmpp_log_level_t as LogLevel;
 
 pub use alloc_context::AllocContext;
 use bitflags::bitflags;
-pub use connection::{Connection, HandlerId, IdHandlerId, TimedHandlerId};
+pub use connection::{Connection, ConnectionEvent, HandlerId, IdHandlerId, TimedHandlerId};
 pub use context::Context;
-pub use error::{ConnectClientError, Error, OwnedStreamError, Result, StreamError, ToTextError};
+pub use error::{ConnectClientError, ConnectionError, Error, OwnedConnectionError, OwnedStreamError, Result, StreamError, ToTextError};
 use ffi_types::FFI;
 pub use logger::Logger;
 pub use stanza::{Stanza, StanzaMutRef, StanzaRef};

@@ -1,3 +1,11 @@
+warning: unused import: `StreamError`
+ --> $DIR/conn_handler_too_short.rs:1:56
+  |
+1 | use libstrophe::{Connection, ConnectionEvent, Context, StreamError};
+  |                                                        ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
 error[E0597]: `handler` does not live long enough
  --> $DIR/conn_handler_too_short.rs:7:35
   |
