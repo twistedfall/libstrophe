@@ -45,7 +45,7 @@ use crate::{
 ///   * `Send`
 ///
 /// [docs]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html
-/// [sources]: https://github.com/strophe/libstrophe/blob/0.9.2/src/stanza.c
+/// [sources]: https://github.com/strophe/libstrophe/blob/0.9.3/src/stanza.c
 /// [xmpp_stanza_to_text]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga49d188283a22e228ebf188aa06cf55b6
 /// [xmpp_stanza_release]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga71a1b5d6974e435aa1dca60a547fd11a
 /// [xmpp_stanza_copy]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaef536615ea184b55e461980a1a8dba02

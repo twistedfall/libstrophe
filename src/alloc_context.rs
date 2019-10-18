@@ -71,7 +71,7 @@ impl AllocContext {
 
 	pub fn as_inner(&self) -> *mut sys::xmpp_ctx_t { self.inner.as_ptr() }
 
-	/// [xmpp_free](https://github.com/strophe/libstrophe/blob/0.9.2/src/ctx.c#L214)
+	/// [xmpp_free](https://github.com/strophe/libstrophe/blob/0.9.3/src/ctx.c#L214)
 	pub unsafe fn free<T>(&self, p: *mut T) {
 		sys::xmpp_free(self.inner.as_ptr(), p as _)
 	}

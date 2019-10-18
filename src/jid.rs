@@ -3,7 +3,7 @@ use crate::{
 	FFI,
 };
 
-/// [xmpp_jid_new](https://github.com/strophe/libstrophe/blob/0.9.2/src/jid.c#L21)
+/// [xmpp_jid_new](https://github.com/strophe/libstrophe/blob/0.9.3/src/jid.c#L21)
 pub fn jid_new(node: Option<&str>, domain: impl AsRef<str>, resource: Option<&str>) -> Option<String> {
 	let node = FFI(node).send();
 	let domain = FFI(domain.as_ref()).send();
@@ -13,7 +13,7 @@ pub fn jid_new(node: Option<&str>, domain: impl AsRef<str>, resource: Option<&st
 	}
 }
 
-/// [xmpp_jid_bare](https://github.com/strophe/libstrophe/blob/0.9.2/src/jid.c#L65)
+/// [xmpp_jid_bare](https://github.com/strophe/libstrophe/blob/0.9.3/src/jid.c#L65)
 pub fn jid_bare(jid: impl AsRef<str>) -> Option<String> {
 	let jid = FFI(jid.as_ref()).send();
 	unsafe {
@@ -21,7 +21,7 @@ pub fn jid_bare(jid: impl AsRef<str>) -> Option<String> {
 	}
 }
 
-/// [xmpp_jid_node](https://github.com/strophe/libstrophe/blob/0.9.2/src/jid.c#L87)
+/// [xmpp_jid_node](https://github.com/strophe/libstrophe/blob/0.9.3/src/jid.c#L87)
 pub fn jid_node(jid: impl AsRef<str>) -> Option<String> {
 	let jid = FFI(jid.as_ref()).send();
 	unsafe {
@@ -29,7 +29,7 @@ pub fn jid_node(jid: impl AsRef<str>) -> Option<String> {
 	}
 }
 
-/// [xmpp_jid_domain](https://github.com/strophe/libstrophe/blob/0.9.2/src/jid.c#L112)
+/// [xmpp_jid_domain](https://github.com/strophe/libstrophe/blob/0.9.3/src/jid.c#L112)
 pub fn jid_domain(jid: impl AsRef<str>) -> Option<String> {
 	let jid = FFI(jid.as_ref()).send();
 	unsafe {
@@ -37,7 +37,7 @@ pub fn jid_domain(jid: impl AsRef<str>) -> Option<String> {
 	}
 }
 
-/// [xmpp_jid_resource](https://github.com/strophe/libstrophe/blob/0.9.2/src/jid.c#L143)
+/// [xmpp_jid_resource](https://github.com/strophe/libstrophe/blob/0.9.3/src/jid.c#L143)
 pub fn jid_resource(jid: impl AsRef<str>) -> Option<String> {
 	let jid = FFI(jid.as_ref()).send();
 	unsafe {

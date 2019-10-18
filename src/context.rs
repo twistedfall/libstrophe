@@ -26,8 +26,8 @@ use crate::{
 ///
 /// [context]: http://strophe.im/libstrophe/doc/0.9.2/group___context.html
 /// [event loop]: http://strophe.im/libstrophe/doc/0.9.2/group___event_loop.html
-/// [ctx.c]: https://github.com/strophe/libstrophe/blob/0.9.2/src/ctx.c
-/// [event.c]: https://github.com/strophe/libstrophe/blob/0.9.2/src/event.c
+/// [ctx.c]: https://github.com/strophe/libstrophe/blob/0.9.3/src/ctx.c
+/// [event.c]: https://github.com/strophe/libstrophe/blob/0.9.3/src/event.c
 /// [xmpp_ctx_free]: http://strophe.im/libstrophe/doc/0.9.2/group___context.html#ga3ae5f04bc23ab2e7b55760759e21d623
 #[derive(Debug)]
 pub struct Context<'lg, 'cn> {

@@ -71,8 +71,8 @@ impl fmt::Debug for FatHandlers<'_, '_> {
 ///
 /// [connection]: http://strophe.im/libstrophe/doc/0.9.2/group___connections.html
 /// [handlers]: http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html
-/// [conn.c]: https://github.com/strophe/libstrophe/blob/0.9.2/src/conn.c
-/// [handler.c]: https://github.com/strophe/libstrophe/blob/0.9.2/src/handler.c
+/// [conn.c]: https://github.com/strophe/libstrophe/blob/0.9.3/src/conn.c
+/// [handler.c]: https://github.com/strophe/libstrophe/blob/0.9.3/src/handler.c
 /// [xmpp_conn_release]: http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga16967e3375efa5032ed2e08b407d8ae9
 #[derive(Debug)]
 pub struct Connection<'cb, 'cx> {
