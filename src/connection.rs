@@ -2,6 +2,7 @@ use std::{
 	cell::RefCell,
 	collections,
 	fmt,
+	fmt::Write,
 	mem,
 	os::raw,
 	ptr::NonNull,
@@ -10,6 +11,7 @@ use std::{
 		Weak,
 	},
 	result,
+	str,
 	time::Duration,
 };
 
@@ -23,6 +25,7 @@ use crate::{
 	error::IntoResult,
 	FFI,
 	ffi_types::Nullable,
+	LogLevel,
 	Result,
 	Stanza,
 	StreamError,
@@ -473,11 +476,20 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	}
 
 	/// [xmpp_send_raw](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gadd1c8707fa269e6d6845d6b856584add)
-	///
-	/// Be aware that this method doesn't print debug log line with the message being sent (unlike
-	/// [`send_raw_string()`](#method.send_raw_string)).
 	pub fn send_raw(&mut self, data: impl AsRef<[u8]>) {
 		let data = data.as_ref();
+		if log::log_enabled!(log::Level::Debug) {
+			let ctx = unsafe { sys::xmpp_conn_get_context(self.inner.as_ptr()) };
+			let mut data_str = "SENT: ".to_owned();
+			if let Ok(data) = str::from_utf8(data) {
+				write!(&mut data_str, "{}", data).expect("Can't write to string");
+			} else {
+				write!(&mut data_str, "{:?}", data).expect("Can't write to string");
+			}
+			unsafe {
+				crate::context::ctx_log(ctx, LogLevel::XMPP_LEVEL_DEBUG, "conn", &data_str);
+			}
+		}
 		unsafe {
 			sys::xmpp_send_raw(self.inner.as_mut(), data.as_ptr() as _, data.len());
 		}
