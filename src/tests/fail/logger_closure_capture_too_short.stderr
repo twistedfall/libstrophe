@@ -1,17 +1,17 @@
 error[E0597]: `val` does not live long enough
- --> $DIR/logger_closure_capture_too_short.rs:7:4
-  |
-6 |           Context::new(Logger::new(|_, _, _| {
-  |           -                        --------- value captured here
-  |  _________|
-  | |
-7 | |             val = 1;
-  | |             ^^^ borrowed value does not live long enough
-8 | |         }))
-  | |___________- a temporary with access to the borrow is created here ...
-9 |       };
-  |       -- ... and the borrow might be used here, when that temporary is dropped and runs the `Drop` code for type `libstrophe::context::Context`
-  |       |
-  |       `val` dropped here while still borrowed
-  |
-  = note: The temporary is part of an expression at the end of a block. Consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped.
+  --> $DIR/logger_closure_capture_too_short.rs:8:4
+   |
+7  |           Context::new(Logger::new(|_, _, _| {
+   |           -                        --------- value captured here
+   |  _________|
+   | |
+8  | |             val.fetch_add(1, Ordering::Relaxed);
+   | |             ^^^ borrowed value does not live long enough
+9  | |         }))
+   | |___________- a temporary with access to the borrow is created here ...
+10 |       };
+   |       -- ... and the borrow might be used here, when that temporary is dropped and runs the `Drop` code for type `libstrophe::context::Context`
+   |       |
+   |       `val` dropped here while still borrowed
+   |
+   = note: The temporary is part of an expression at the end of a block. Consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped.

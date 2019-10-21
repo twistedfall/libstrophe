@@ -18,7 +18,7 @@ use crate::{
 	void_ptr_as
 };
 
-type LogHandler<'cb> = dyn FnMut(LogLevel, &str, &str) + Send + 'cb;
+type LogHandler<'cb> = dyn Fn(LogLevel, &str, &str) + Send + 'cb;
 
 /// Wrapper around the underlying `xmpp_log_t` struct.
 ///
@@ -37,7 +37,7 @@ type LogHandler<'cb> = dyn FnMut(LogLevel, &str, &str) + Send + 'cb;
 pub struct Logger<'cb> {
 	inner: NonNull<sys::xmpp_log_t>,
 	owned: bool,
-	_handler: Box<LogHandler<'cb>>,
+	handler: Box<LogHandler<'cb>>,
 }
 
 impl<'cb> Logger<'cb> {
@@ -46,7 +46,7 @@ impl<'cb> Logger<'cb> {
 	/// The callback argument will be called every time a log message needs to be printed.
 	pub fn new<CB>(handler: CB) -> Self
 		where
-			CB: FnMut(LogLevel, &str, &str) + Send + 'cb,
+			CB: Fn(LogLevel, &str, &str) + Send + 'cb,
 	{
 		let handler = Box::new(handler);
 		Logger::with_inner(Box::into_raw(Box::new(sys::xmpp_log_t {
@@ -57,7 +57,7 @@ impl<'cb> Logger<'cb> {
 
 	#[inline]
 	fn with_inner(inner: *mut sys::xmpp_log_t, handler: Box<LogHandler<'cb>>, owned: bool) -> Self {
-		Logger { inner: NonNull::new(inner).expect("Cannot allocate memory for Logger"), owned, _handler: handler }
+		Logger { inner: NonNull::new(inner).expect("Cannot allocate memory for Logger"), owned, handler }
 	}
 
 	/// [xmpp_get_default_logger](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#ga33abde406c7a057006b109cf1b23c8f8)
@@ -91,6 +91,10 @@ impl<'cb> Logger<'cb> {
 
 	pub fn as_inner(&self) -> *const sys::xmpp_log_t {
 		self.inner.as_ptr()
+	}
+
+	pub fn log(&self, level: LogLevel, area: &str, msg: &str) {
+		(self.handler)(level, area, msg);
 	}
 }
 

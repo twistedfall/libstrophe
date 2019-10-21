@@ -1,5 +1,6 @@
 use std::{
 	collections::HashMap,
+	sync::atomic::{AtomicU16, Ordering},
 	time::Duration,
 };
 
@@ -35,17 +36,17 @@ fn null_logger() {
 
 #[test]
 fn custom_logger() {
-	let mut i = 0;
+	let i: AtomicU16 = AtomicU16::new(0);
 	{
 		let ctx = Context::new(Logger::new(|_, _, _| {
-			i += 1;
+			i.fetch_add(1, Ordering::Relaxed);
 		}));
 		let mut conn = Connection::new(ctx);
 		conn.set_jid("test-JID@127.50.60.70");
 		let ctx = conn.connect_client(None, Some(1234), |_, _, _| {}).unwrap();
 		ctx.run_once(Duration::from_secs(1));
 	}
-	assert_eq!(i, 5);
+	assert_eq!(i.load(Ordering::Relaxed), 5);
 }
 
 #[test]

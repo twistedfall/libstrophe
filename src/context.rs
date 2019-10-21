@@ -8,7 +8,9 @@ use std::{
 use crate::{
 	AllocContext,
 	Connection,
+	FFI,
 	Logger,
+	LogLevel,
 };
 
 /// Proxy to the underlying `xmpp_ctx_t` struct.
@@ -124,6 +126,10 @@ impl<'lg, 'cn> Context<'lg, 'cn> {
 			sys::xmpp_stop(self.inner.as_ptr())
 		}
 	}
+
+	pub fn log(&self, level: LogLevel, area: &str, msg: &str) {
+		unsafe { ctx_log(self.inner.as_ptr(), level, area, msg) }
+	}
 }
 
 impl PartialEq for Context<'_, '_> {
@@ -147,3 +153,21 @@ impl Drop for Context<'_, '_> {
 }
 
 unsafe impl Send for Context<'_, '_> {}
+
+pub(crate) unsafe fn ctx_log(ctx: *const sys::xmpp_ctx_t, level: sys::xmpp_log_level_t, area: &str, msg: &str) {
+	#[allow(non_camel_case_types)]
+	#[repr(C)]
+	struct _xmpp_ctx_t {
+		mem: *const sys::xmpp_mem_t,
+		log: *const sys::xmpp_log_t,
+		// ...
+	}
+	let inner = (ctx as *mut _xmpp_ctx_t).as_ref().expect("Null pointer for Context");
+	if let Some(log) = inner.log.as_ref() {
+		if let Some(log_handler) = log.handler {
+			let area = FFI(area).send();
+			let msg = FFI(msg).send();
+			log_handler(log.userdata, level, area.as_ptr(), msg.as_ptr());
+		}
+	}
+}
