@@ -1,4 +1,4 @@
-sudo: true
+os: linux
 dist: bionic
 
 language: rust
@@ -8,7 +8,7 @@ rust:
   - nightly
 
 env:
-  matrix:
+  jobs:
     - PKG_VERSION=0.9.3
 
 addons:
@@ -38,6 +38,6 @@ script:
   - cargo test -v --features=creds-test -- --test-threads=1
   - cargo test -v --release --features=creds-test -- --test-threads=1
 
-matrix:
+jobs:
   allow_failures:
     - rust: nightly
