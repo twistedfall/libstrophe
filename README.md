@@ -9,7 +9,7 @@ See [full documentation](https://docs.rs/libstrophe)
 Add this to your Cargo.toml:
 ```
 [dependencies]
-libstrophe = "0.13.1"
+libstrophe = "0.14.0"
 ```
 
 [![Build Status](https://travis-ci.org/twistedfall/libstrophe.svg?branch=master)](https://travis-ci.org/twistedfall/libstrophe)
@@ -81,9 +81,7 @@ must also be `Send`.
 ```rust
 let connection_handler = |ctx: &libstrophe::Context,
                           _conn: &mut libstrophe::Connection,
-                          _evt: libstrophe::ConnectionEvent,
-                          _error: i32,
-                          _stream_error: Option<libstrophe::StreamError>| {
+                          _evt: libstrophe::ConnectionEvent| {
    ctx.stop();
 };
 
