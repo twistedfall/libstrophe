@@ -4,8 +4,8 @@ dist: bionic
 language: rust
 rust:
   - stable
-  - beta
-  - nightly
+#  - beta
+#  - nightly
 
 env:
   jobs:
