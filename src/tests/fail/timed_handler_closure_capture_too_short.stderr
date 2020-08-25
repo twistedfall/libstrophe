@@ -13,4 +13,7 @@ error[E0597]: `val` does not live long enough
    |     |
    |     `val` dropped here while still borrowed
    |
-   = note: The temporary is part of an expression at the end of a block. Consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped.
+help: consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped
+   |
+12 |         conn;
+   |             ^

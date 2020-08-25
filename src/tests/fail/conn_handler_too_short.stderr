@@ -19,4 +19,7 @@ error[E0597]: `handler` does not live long enough
   |     |
   |     `handler` dropped here while still borrowed
   |
-  = note: The temporary is part of an expression at the end of a block. Consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped.
+help: consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped
+  |
+7 |         conn.connect_client(None, None, &handler).unwrap();
+  |                                                           ^
