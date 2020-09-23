@@ -7,16 +7,12 @@ use std::{
 		Formatter,
 		Result as FmtResult,
 	},
-	hash::{
-		Hash,
-		Hasher,
-	},
+	hash::{Hash, Hasher},
 	marker::PhantomData,
 	mem::MaybeUninit,
 	ops,
 	os::raw,
-	ptr,
-	ptr::NonNull,
+	ptr::{self, NonNull},
 	slice,
 };
 
@@ -385,17 +381,11 @@ impl Stanza {
 	}
 
 	pub fn children(&self) -> impl Iterator<Item=StanzaRef> {
-		ChildIterator {
-			cur: self.get_first_child().map(|x| x.as_inner()),
-			_ref: PhantomData,
-		}
+		ChildIterator { cur: self.get_first_child().map(StanzaChildRef) }
 	}
 
 	pub fn children_mut(&mut self) -> impl Iterator<Item=StanzaMutRef> {
-		ChildIteratorMut {
-			cur: self.get_first_child_mut().map(|x| x.as_inner()),
-			_ref: PhantomData,
-		}
+		ChildIteratorMut { cur: self.get_first_child_mut().map(StanzaChildMutRef) }
 	}
 
 	/// [xmpp_stanza_get_next](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaa9a115b89f245605279120c05d698853)
@@ -527,13 +517,24 @@ impl Display for StanzaRef<'_> {
 	}
 }
 
+#[derive(Debug)]
+struct StanzaChildRef<'parent>(StanzaRef<'parent>);
+
+impl<'parent> StanzaChildRef<'parent> {
+	pub fn get_next(&self) -> Option<StanzaChildRef<'parent>> {
+		unsafe {
+			sys::xmpp_stanza_get_next(self.0.inner.as_ptr()).as_ref()
+		}.map(|x| StanzaChildRef(unsafe { Stanza::from_inner_ref(x) }))
+	}
+}
+
 /// Wrapper for mutable reference to [`Stanza`], implements `Deref` and `DerefMut` to [`Stanza`]
 ///
 /// You can obtain such objects by calling [`Stanza`] child search methods.
 ///
 /// [`Stanza`]: struct.Stanza.html
 #[derive(Debug)]
-pub struct StanzaMutRef<'st>(Stanza, PhantomData<&'st Stanza>);
+pub struct StanzaMutRef<'st>(Stanza, PhantomData<&'st mut Stanza>);
 
 impl ops::Deref for StanzaMutRef<'_> {
 	type Target = Stanza;
@@ -555,41 +556,46 @@ impl Display for StanzaMutRef<'_> {
 	}
 }
 
+#[derive(Debug)]
+pub struct StanzaChildMutRef<'parent>(StanzaMutRef<'parent>);
+
+impl<'parent> StanzaChildMutRef<'parent> {
+	pub fn get_next_mut(&mut self) -> Option<StanzaChildMutRef<'parent>> {
+		unsafe {
+			sys::xmpp_stanza_get_next(self.0.inner.as_ptr()).as_mut()
+		}.map(|x| StanzaChildMutRef(unsafe { Stanza::from_inner_ref_mut(x) }))
+	}
+}
+
 struct ChildIterator<'st> {
-	cur: Option<*mut sys::xmpp_stanza_t>,
-	_ref: PhantomData<&'st Stanza>,
+	cur: Option<StanzaChildRef<'st>>,
 }
 
 impl<'st> Iterator for ChildIterator<'st> {
 	type Item = StanzaRef<'st>;
 
 	fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-		if let Some(cur) = self.cur {
-			let cur = unsafe { Stanza::from_inner_ref(cur) };
-			self.cur = cur.get_next().map(|x| x.as_inner());
-			Some(cur)
-		} else {
-			None
-		}
+		self.cur.take()
+			.map(|cur| {
+				self.cur = cur.get_next();
+				cur.0
+			})
 	}
 }
 
 struct ChildIteratorMut<'st> {
-	cur: Option<*mut sys::xmpp_stanza_t>,
-	_ref: PhantomData<&'st Stanza>,
+	cur: Option<StanzaChildMutRef<'st>>,
 }
 
 impl<'st> Iterator for ChildIteratorMut<'st> {
 	type Item = StanzaMutRef<'st>;
 
 	fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-		if let Some(cur) = self.cur {
-			let cur = unsafe { Stanza::from_inner_ref_mut(cur) };
-			self.cur = cur.get_next().map(|x| x.as_inner());
-			Some(cur)
-		} else {
-			None
-		}
+		self.cur.take()
+			.map(|mut cur| {
+				self.cur = cur.get_next_mut();
+				cur.0
+			})
 	}
 }
 
