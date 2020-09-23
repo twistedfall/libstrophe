@@ -278,6 +278,7 @@ fn stanza_clone() {
 		let mut stanza = Stanza::new();
 		stanza.set_name("message").unwrap();
 		stanza.set_id("stanza_id").unwrap();
+		#[allow(clippy::redundant_clone)]
 		stanza.clone()
 	};
 	assert_eq!("<message id=\"stanza_id\"/>", stanza.to_text().unwrap());
@@ -313,6 +314,16 @@ fn stanza_attributes() {
 	assert_matches!(stanza.get_attribute("type"), None);
 	compare.remove("type");
 	assert_eq!(stanza.attributes(), compare);
+}
+
+#[test]
+#[cfg(feature = "libstrophe-0_10_0")]
+fn stanza_from_str() {
+	let s = Stanza::from_str("<test><child1/><child2/></test>");
+	let mut children = s.children();
+	assert_eq!(Some("<child1/>".to_string()), children.next().map(|c| c.to_string()));
+	assert_eq!(Some("<child2/>".to_string()), children.next().map(|c| c.to_string()));
+	assert_eq!(None, children.next().as_deref());
 }
 
 #[cfg(feature = "creds-test")]

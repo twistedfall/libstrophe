@@ -121,10 +121,16 @@ pub use stanza::{Stanza, StanzaMutRef, StanzaRef};
 /// imitates the use of the typed argument so that the code is actually different and those
 /// functions are not melded together.
 macro_rules! ensure_unique {
-	($typ: ty) => {
+	(unsafe $typ: ty) => {
 		let arg = Option::<$typ>::None;
 		if let Some(arg) = arg {
 			unsafe { std::ptr::read_volatile(&arg as _) };
+		}
+	};
+	($typ: ty) => {
+		let arg = Option::<$typ>::None;
+		if let Some(arg) = arg {
+			std::ptr::read_volatile(&arg as _);
 		}
 	};
 }

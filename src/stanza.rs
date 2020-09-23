@@ -14,6 +14,7 @@ use std::{
 	os::raw,
 	ptr::{self, NonNull},
 	slice,
+	str::FromStr,
 };
 
 use crate::{
@@ -41,7 +42,7 @@ use crate::{
 ///   * `Send`
 ///
 /// [docs]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html
-/// [sources]: https://github.com/strophe/libstrophe/blob/0.9.3/src/stanza.c
+/// [sources]: https://github.com/strophe/libstrophe/blob/0.10.0/src/stanza.c
 /// [xmpp_stanza_to_text]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga49d188283a22e228ebf188aa06cf55b6
 /// [xmpp_stanza_release]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga71a1b5d6974e435aa1dca60a547fd11a
 /// [xmpp_stanza_copy]: http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#gaef536615ea184b55e461980a1a8dba02
@@ -103,6 +104,18 @@ impl Stanza {
 		}
 	}
 
+	#[cfg(feature = "libstrophe-0_10_0")]
+	/// [xmpp_stanza_new_from_string](https://github.com/strophe/libstrophe/blob/0.10.0/src/stanza.c#L1563-L1575)
+	pub fn from_str(s: impl AsRef<str>) -> Self {
+		#![allow(clippy::should_implement_trait)]
+		let s = FFI(s.as_ref()).send();
+		unsafe {
+			Stanza::from_inner(
+				sys::xmpp_stanza_new_from_string(ALLOC_CONTEXT.as_inner(), s.as_ptr())
+			)
+		}
+	}
+
 	#[inline]
 	unsafe fn with_inner(inner: *mut sys::xmpp_stanza_t, owned: bool) -> Self {
 		let mut out = Stanza { inner: NonNull::new(inner).expect("Cannot allocate memory for Stanza"), owned };
@@ -113,16 +126,25 @@ impl Stanza {
 	}
 
 	/// Create an owning stanza from the raw pointer, for internal use
+	/// # Safety
+	/// inner must be a valid pointer to a previously allocated xmpp_stanza_t and you must make sure
+	/// that there are no other usages of that pointer after calling this function.
 	pub unsafe fn from_inner(inner: *mut sys::xmpp_stanza_t) -> Self {
 		Stanza::with_inner(inner, true)
 	}
 
 	/// Create a borrowing stanza from the constant raw pointer, for internal use
+	/// # Safety
+	/// inner must be a valid pointer to a previously allocated xmpp_stanza_t and you must make sure
+	/// that Self doesn't outlive the stanza behind that pointer
 	pub unsafe fn from_inner_ref<'st>(inner: *const sys::xmpp_stanza_t) -> StanzaRef<'st> {
 		Stanza::with_inner(inner as _, false).into()
 	}
 
 	/// Create a borrowing stanza from the mutable raw pointer, for internal use
+	/// # Safety
+	/// inner must be a valid pointer to a previously allocated mutable xmpp_stanza_t and you must
+	/// make sure that Self doesn't outlive the stanza behind that pointer
 	pub unsafe fn from_inner_ref_mut<'st>(inner: *mut sys::xmpp_stanza_t) -> StanzaMutRef<'st> {
 		Stanza::with_inner(inner, false).into()
 	}
@@ -142,7 +164,7 @@ impl Stanza {
 	fn set_alloc_context(&mut self) {
 		#[allow(non_camel_case_types)]
 		#[repr(C)]
-		// this is dependent on internal representation in version 0.9.3 (libstrophe-0_9_3), update if needed
+		// this is dependent on internal representation in version 0.9.3 and 0.10.0 (libstrophe-0_10_0), update if needed
 		struct xmpp_stanza_t {
 			rf: raw::c_int,
 			ctx: *mut sys::xmpp_ctx_t,
@@ -380,6 +402,27 @@ impl Stanza {
 		}.map(|x| unsafe { Self::from_inner_ref_mut(x) })
 	}
 
+
+	#[cfg(feature = "libstrophe-0_10_0")]
+	/// [xmpp_stanza_get_child_by_name_and_ns](https://github.com/strophe/libstrophe/blob/0.10.0/src/stanza.c#L906-L918)
+	pub fn get_child_by_name_and_ns(&self, name: impl AsRef<str>, ns: impl AsRef<str>) -> Option<StanzaRef> {
+		let name = FFI(name.as_ref()).send();
+		let ns = FFI(ns.as_ref()).send();
+		unsafe {
+			sys::xmpp_stanza_get_child_by_name_and_ns(self.inner.as_ptr(), name.as_ptr(), ns.as_ptr()).as_ref()
+		}.map(|x| unsafe { Self::from_inner_ref(x) })
+	}
+
+	#[cfg(feature = "libstrophe-0_10_0")]
+	/// [xmpp_stanza_get_child_by_name_and_ns](https://github.com/strophe/libstrophe/blob/0.10.0/src/stanza.c#L906-L918)
+	pub fn get_child_by_name_and_ns_mut(&mut self, name: impl AsRef<str>, ns: impl AsRef<str>) -> Option<StanzaMutRef> {
+		let name = FFI(name.as_ref()).send();
+		let ns = FFI(ns.as_ref()).send();
+		unsafe {
+			sys::xmpp_stanza_get_child_by_name_and_ns(self.inner.as_mut(), name.as_ptr(), ns.as_ptr()).as_mut()
+		}.map(|x| unsafe { Self::from_inner_ref_mut(x) })
+	}
+
 	pub fn children(&self) -> impl Iterator<Item=StanzaRef> {
 		ChildIterator { cur: self.get_first_child().map(StanzaChildRef) }
 	}
@@ -417,6 +460,22 @@ impl Stanza {
 		}
 	}
 
+	#[cfg(feature = "libstrophe-0_10_0")]
+	/// [xmpp_stanza_reply_error](https://github.com/strophe/libstrophe/blob/0.10.0/src/stanza.c#L1202-L1214)
+	pub fn reply_error(&self, error_type: impl AsRef<str>, condition: impl AsRef<str>, text: impl AsRef<str>) -> Self {
+		let error_type = FFI(error_type.as_ref()).send();
+		let condition = FFI(condition.as_ref()).send();
+		let text = FFI(text.as_ref()).send();
+		unsafe {
+			Self::from_inner(sys::xmpp_stanza_reply_error(
+				self.inner.as_ptr(),
+				error_type.as_ptr(),
+				condition.as_ptr(),
+				text.as_ptr(),
+			))
+		}
+	}
+
 	/// [xmpp_message_set_body](http://strophe.im/libstrophe/doc/0.9.2/group___stanza.html#ga2fdc6b475a1906a4b22f6e7568b36f98)
 	pub fn set_body(&mut self, body: impl AsRef<str>) -> Result<()> {
 		let body = FFI(body.as_ref()).send();
@@ -432,6 +491,15 @@ impl Stanza {
 				ALLOC_CONTEXT.free(x)
 			})
 		}
+	}
+}
+
+#[cfg(feature = "libstrophe-0_10_0")]
+impl FromStr for Stanza {
+	type Err = ();
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		Ok(Self::from_str(s))
 	}
 }
 

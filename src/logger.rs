@@ -81,7 +81,7 @@ impl<'cb> Logger<'cb> {
 		where
 			CB: FnMut(LogLevel, &str, &str) + Send + 'cb,
 	{
-		ensure_unique!(CB);
+		ensure_unique!(unsafe CB);
 		let area = unsafe { FFI(area).receive() }.unwrap();
 		let msg = unsafe { FFI(msg).receive() }.unwrap();
 		unsafe {

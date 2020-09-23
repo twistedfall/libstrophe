@@ -9,7 +9,7 @@ impl FFI<&str> {
 	}
 }
 
-impl<T: num::Zero + PartialEq> FFI<T> {
+impl<T: num_traits::Zero + PartialEq> FFI<T> {
 	#[inline]
 	pub fn receive_bool(self) -> bool {
 		self.0 != T::zero()
@@ -63,7 +63,7 @@ impl Nullable<ffi::CString> {
 	}
 }
 
-impl<T: num::Zero> Nullable<T> {
+impl<T: num_traits::Zero> Nullable<T> {
 	#[inline]
 	pub fn val(self) -> T {
 		match self {

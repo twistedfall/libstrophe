@@ -74,8 +74,8 @@ impl fmt::Debug for FatHandlers<'_, '_> {
 ///
 /// [connection]: http://strophe.im/libstrophe/doc/0.9.2/group___connections.html
 /// [handlers]: http://strophe.im/libstrophe/doc/0.9.2/group___handlers.html
-/// [conn.c]: https://github.com/strophe/libstrophe/blob/0.9.3/src/conn.c
-/// [handler.c]: https://github.com/strophe/libstrophe/blob/0.9.3/src/handler.c
+/// [conn.c]: https://github.com/strophe/libstrophe/blob/0.10.0/src/conn.c
+/// [handler.c]: https://github.com/strophe/libstrophe/blob/0.10.0/src/handler.c
 /// [xmpp_conn_release]: http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#ga16967e3375efa5032ed2e08b407d8ae9
 #[derive(Debug)]
 pub struct Connection<'cb, 'cx> {
@@ -116,17 +116,17 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		Self::with_inner(inner, ctx, false, handlers)
 	}
 
-	extern "C" fn connection_handler_cb<CB>(conn: *mut sys::xmpp_conn_t, event: sys::xmpp_conn_event_t, error: raw::c_int,
+	unsafe extern "C" fn connection_handler_cb<CB>(conn: *mut sys::xmpp_conn_t, event: sys::xmpp_conn_event_t, error: raw::c_int,
 	                                        stream_error: *mut sys::xmpp_stream_error_t, userdata: *mut raw::c_void) {
 		ensure_unique!(CB);
-		let connection_handler = unsafe { void_ptr_as::<ConnectionFatHandler>(userdata) };
+		let connection_handler = void_ptr_as::<ConnectionFatHandler>(userdata);
 		if let Some(fat_handlers) = connection_handler.fat_handlers.upgrade() {
-			let mut conn = unsafe { Self::from_inner_ref_mut(conn, fat_handlers) };
+			let mut conn = Self::from_inner_ref_mut(conn, fat_handlers);
 			let event = match event {
 				sys::xmpp_conn_event_t::XMPP_CONN_RAW_CONNECT => ConnectionEvent::RawConnect,
 				sys::xmpp_conn_event_t::XMPP_CONN_CONNECT => ConnectionEvent::Connect,
 				sys::xmpp_conn_event_t::XMPP_CONN_DISCONNECT => {
-					let stream_error: Option<StreamError> = unsafe { stream_error.as_ref() }.map(|e| e.into());
+					let stream_error: Option<StreamError> = stream_error.as_ref().map(|e| e.into());
 					ConnectionEvent::Disconnect(ConnectionError::from((error, stream_error)))
 				},
 				sys::xmpp_conn_event_t::XMPP_CONN_FAIL => unreachable!("XMPP_CONN_FAIL is never used in the underlying library"),
@@ -135,11 +135,11 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}
 	}
 
-	extern "C" fn timed_handler_cb<CB>(conn: *mut sys::xmpp_conn_t, userdata: *mut raw::c_void) -> i32 {
+	unsafe extern "C" fn timed_handler_cb<CB>(conn: *mut sys::xmpp_conn_t, userdata: *mut raw::c_void) -> i32 {
 		ensure_unique!(CB);
-		let timed_handler = unsafe { void_ptr_as::<TimedFatHandler>(userdata) };
+		let timed_handler = void_ptr_as::<TimedFatHandler>(userdata);
 		if let Some(fat_handlers) = timed_handler.fat_handlers.upgrade() {
-			let mut conn = unsafe { Self::from_inner_ref_mut(conn, fat_handlers) };
+			let mut conn = Self::from_inner_ref_mut(conn, fat_handlers);
 			let res = (timed_handler.handler)(conn.context_detached(), &mut conn);
 			if !res {
 				Self::drop_fat_handler(&mut conn.fat_handlers.borrow_mut().timed, timed_handler);
@@ -150,12 +150,12 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}
 	}
 
-	extern "C" fn handler_cb<CB>(conn: *mut sys::xmpp_conn_t, stanza: *mut sys::xmpp_stanza_t, userdata: *mut raw::c_void) -> i32 {
+	unsafe extern "C" fn handler_cb<CB>(conn: *mut sys::xmpp_conn_t, stanza: *mut sys::xmpp_stanza_t, userdata: *mut raw::c_void) -> i32 {
 		ensure_unique!(CB);
-		let stanza_handler = unsafe { void_ptr_as::<StanzaFatHandler>(userdata) };
+		let stanza_handler = void_ptr_as::<StanzaFatHandler>(userdata);
 		if let Some(fat_handlers) = stanza_handler.fat_handlers.upgrade() {
-			let mut conn = unsafe { Self::from_inner_ref_mut(conn, fat_handlers) };
-			let stanza = unsafe { Stanza::from_inner_ref(stanza) };
+			let mut conn = Self::from_inner_ref_mut(conn, fat_handlers);
+			let stanza = Stanza::from_inner_ref(stanza);
 			let res = (stanza_handler.handler)(conn.context_detached(), &mut conn, &stanza);
 			if !res {
 				Self::drop_fat_handler(&mut conn.fat_handlers.borrow_mut().stanza, stanza_handler);
@@ -212,8 +212,8 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}
 	}
 
-	fn context_detached<'a>(&self) -> &'a Context<'cx, 'cb> {
-		unsafe { (self.ctx.as_ref().unwrap() as *const Context).as_ref() }.unwrap()
+	unsafe fn context_detached<'a>(&self) -> &'a Context<'cx, 'cb> {
+		(self.ctx.as_ref().unwrap() as *const Context).as_ref().unwrap()
 	}
 
 	/// [xmpp_conn_get_flags](http://strophe.im/libstrophe/doc/0.9.2/group___connections.html#gaa9724ae412b01562dc81c31fd178d2f3)
@@ -283,6 +283,30 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	pub fn set_keepalive(&mut self, timeout: Duration, interval: Duration) {
 		unsafe {
 			sys::xmpp_conn_set_keepalive(self.inner.as_mut(), timeout.as_secs() as _, interval.as_secs() as _)
+		}
+	}
+
+	#[cfg(feature = "libstrophe-0_10_0")]
+	/// [xmpp_conn_is_connecting](https://github.com/strophe/libstrophe/blob/0.10.0/src/conn.c#L1035-L1039)
+	pub fn is_connecting(&self) -> bool {
+		unsafe {
+			FFI(sys::xmpp_conn_is_connecting(self.inner.as_ptr())).receive_bool()
+		}
+	}
+
+	#[cfg(feature = "libstrophe-0_10_0")]
+	/// [xmpp_conn_is_connected](https://github.com/strophe/libstrophe/blob/0.10.0/src/conn.c#L1045-L1049)
+	pub fn is_connected(&self) -> bool {
+		unsafe {
+			FFI(sys::xmpp_conn_is_connected(self.inner.as_ptr())).receive_bool()
+		}
+	}
+
+	#[cfg(feature = "libstrophe-0_10_0")]
+	/// [xmpp_conn_is_disconnected](https://github.com/strophe/libstrophe/blob/0.10.0/src/conn.c#L1055-L1059)
+	pub fn is_disconnected(&self) -> bool {
+		unsafe {
+			FFI(sys::xmpp_conn_is_disconnected(self.inner.as_ptr())).receive_bool()
 		}
 	}
 

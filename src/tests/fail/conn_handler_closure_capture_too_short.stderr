@@ -10,7 +10,7 @@ error[E0597]: `val` does not live long enough
 9  | |         }).unwrap()
    | |___________________- a temporary with access to the borrow is created here ...
 10 |       };
-   |       -- ... and the borrow might be used here, when that temporary is dropped and runs the `Drop` code for type `libstrophe::context::Context`
+   |       -- ... and the borrow might be used here, when that temporary is dropped and runs the `Drop` code for type `libstrophe::Context`
    |       |
    |       `val` dropped here while still borrowed
    |

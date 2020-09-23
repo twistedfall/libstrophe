@@ -75,7 +75,7 @@ fn message_handler(_ctx: &libstrophe::Context, conn: &mut libstrophe::Connection
 	true
 }
 
-/// Port of the [bot.c](https://github.com/strophe/libstrophe/blob/0.9.3/examples/bot.c) code
+/// Port of the [bot.c](https://github.com/strophe/libstrophe/blob/0.10.0/examples/bot.c) code
 #[allow(dead_code)]
 pub fn main() {
 	env_logger::init();
