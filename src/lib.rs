@@ -87,6 +87,7 @@
 //!
 //!   * `rust-log` - enabled by default, makes the create integrate into Rust logging facilities
 //!   * `libstrophe-0_9_3` - enabled by default, enables functionality specific to libstrophe-0.9.3
+//!   * `libstrophe-0_10_0` - enabled by default, enables functionality specific to libstrophe-0.10.0
 //!
 //! [libstrophe]: http://strophe.im/libstrophe/
 //! [`log`]: https://crates.io/crates/log
