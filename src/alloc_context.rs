@@ -65,13 +65,13 @@ impl AllocContext {
 		}
 	}
 
-	pub fn get_xmpp_mem_t() -> Box<sys::xmpp_mem_t> {
-		Box::new(sys::xmpp_mem_t {
+	pub fn get_xmpp_mem_t() -> sys::xmpp_mem_t {
+		sys::xmpp_mem_t {
 			alloc: Some(Self::custom_alloc),
 			free: Some(Self::custom_free),
 			realloc: Some(Self::custom_realloc),
 			userdata: ptr::null_mut(),
-		})
+		}
 	}
 
 	pub fn as_inner(&self) -> *mut sys::xmpp_ctx_t { self.inner.as_ptr() }
@@ -87,7 +87,7 @@ impl AllocContext {
 
 impl Default for AllocContext {
 	fn default() -> Self {
-		let memory = Self::get_xmpp_mem_t();
+		let memory = Box::new(Self::get_xmpp_mem_t());
 		Self {
 			inner: NonNull::new(unsafe { sys::xmpp_ctx_new(memory.as_ref(), ptr::null()) }).expect("Cannot allocate memory for Context"),
 			_memory: memory,

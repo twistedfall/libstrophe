@@ -44,7 +44,7 @@ impl<'lg, 'cn> Context<'lg, 'cn> {
 	/// [xmpp_ctx_new](http://strophe.im/libstrophe/doc/0.9.2/group___context.html#gaeb32490f33760a7ffc0f86a0565b43b2)
 	pub fn new(logger: Logger<'lg>) -> Self {
 		crate::init();
-		let memory = AllocContext::get_xmpp_mem_t();
+		let memory = Box::new(AllocContext::get_xmpp_mem_t());
 		unsafe {
 			Self::with_inner(
 				sys::xmpp_ctx_new(memory.as_ref(), logger.as_inner()),

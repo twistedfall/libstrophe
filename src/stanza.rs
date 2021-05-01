@@ -9,7 +9,6 @@ use std::{
 	},
 	hash::{Hash, Hasher},
 	marker::PhantomData,
-	mem::MaybeUninit,
 	ops,
 	os::raw,
 	ptr::{self, NonNull},
@@ -671,19 +670,15 @@ fn stanza_to_text<T, E>(stanza: *mut sys::xmpp_stanza_t, cb: impl FnOnce(&ffi::C
 	where
 		E: From<Error>
 {
-	let mut buf: MaybeUninit<*mut raw::c_char> = MaybeUninit::uninit();
+	let mut buf: *mut raw::c_char = ptr::null_mut();
 	let mut buflen: usize = 0;
-	unsafe { sys::xmpp_stanza_to_text(stanza, buf.as_mut_ptr(), &mut buflen) }.into_result()
+	unsafe { sys::xmpp_stanza_to_text(stanza, &mut buf, &mut buflen) }.into_result()
 		.map_err(E::from)
 		.and_then(|_| {
-			let buf = unsafe { buf.assume_init() };
-			let _free_buf = scopeguard::guard((), |_| {
-				unsafe {
-					ALLOC_CONTEXT.free(buf);
-				}
-			});
-			cb(unsafe {
-				ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as _, buflen + 1))
-			})
+			let _free_buf = scopeguard::guard((), |_| unsafe { ALLOC_CONTEXT.free(buf); });
+			let text = unsafe {
+				ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as *const _, buflen + 1))
+			};
+			cb(text)
 		})
 }
