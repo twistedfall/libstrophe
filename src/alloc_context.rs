@@ -1,7 +1,7 @@
 use std::{
 	alloc,
-	mem,
-	os::raw,
+	mem::{align_of, size_of},
+	os::raw::c_void,
 	ptr::{self, NonNull},
 };
 
@@ -12,50 +12,55 @@ pub struct AllocContext {
 	_memory: Box<sys::xmpp_mem_t>,
 }
 
+type AllocUnit = usize;
+
 impl AllocContext {
 	#[inline(always)]
 	fn calculate_layout(size: usize) -> alloc::Layout {
-		// we leave additional sizeof(usize) bytes in front for the actual allocation size, it's needed later for deallocation
-		alloc::Layout::from_size_align(size + mem::size_of_val(&size), mem::align_of_val(&size)).expect("Cannot create layout")
+		// we leave additional sizeof(AllocUnit=usize) bytes in front for the actual allocation size, it's needed later for deallocation
+		alloc::Layout::from_size_align(size + size_of::<AllocUnit>(), align_of::<AllocUnit>()).expect("Cannot create layout")
 	}
 
 	#[inline(always)]
-	unsafe fn write_real_alloc(p: *mut u8, size: usize) -> *mut raw::c_void {
+	unsafe fn write_real_alloc(p: *mut u8, size: usize) -> *mut c_void {
 		#![allow(clippy::cast_ptr_alignment)]
-		// it's ok to cast it as *mut usize because we align to usize during allocation and p points to the beginning of that buffer
-		let out = p as *mut usize;
+		// it's ok to cast it as *mut AllocUnit=usize because we align to it during allocation and p points to the beginning of that buffer
+		let out = p as *mut AllocUnit;
 		out.write(size);
 		out.add(1) as _
 	}
 
 	#[inline(always)]
-	unsafe fn read_real_alloc(p: *mut raw::c_void) -> (*mut u8, alloc::Layout) {
+	unsafe fn read_real_alloc(p: *mut c_void) -> (*mut u8, alloc::Layout) {
 		if p.is_null() {
-			(p as _, alloc::Layout::from_size_align(0, mem::align_of::<usize>()).expect("Cannot create layout"))
+			(p as _, alloc::Layout::from_size_align(0, align_of::<AllocUnit>()).expect("Cannot create layout"))
 		} else {
-			let memory: *mut usize = (p as *mut usize).sub(1);
+			let memory = (p as *mut AllocUnit).sub(1);
 			let size = memory.read();
-			(memory as _, alloc::Layout::from_size_align(size, mem::align_of_val(&size)).expect("Cannot create layout"))
+			(memory as _, alloc::Layout::from_size_align(size, align_of::<AllocUnit>()).expect("Cannot create layout"))
 		}
 	}
 
-	unsafe extern "C" fn custom_alloc(size: usize, _userdata: *mut raw::c_void) -> *mut raw::c_void {
+	unsafe extern "C" fn custom_alloc(size: usize, _userdata: *mut c_void) -> *mut c_void {
 		let layout = Self::calculate_layout(size);
 		Self::write_real_alloc(alloc::alloc(layout), layout.size())
 	}
 
-	unsafe extern "C" fn custom_free(p: *mut raw::c_void, _userdata: *mut raw::c_void) {
+	unsafe extern "C" fn custom_free(p: *mut c_void, _userdata: *mut c_void) {
 		let (p, layout) = Self::read_real_alloc(p);
 		alloc::dealloc(p, layout);
 	}
 
-	unsafe extern "C" fn custom_realloc(p: *mut raw::c_void, size: usize, _userdata: *mut raw::c_void) -> *mut raw::c_void {
+	unsafe extern "C" fn custom_realloc(p: *mut c_void, size: usize, _userdata: *mut c_void) -> *mut c_void {
 		let (p, layout) = Self::read_real_alloc(p);
-		let new_layout = Self::calculate_layout(size);
-		let realloc_p = alloc::realloc(p, layout, new_layout.size());
 		if size > 0 {
+			let new_layout = Self::calculate_layout(size);
+			let realloc_p = alloc::realloc(p, layout, new_layout.size());
 			Self::write_real_alloc(realloc_p, new_layout.size())
 		} else {
+			if !p.is_null() {
+				alloc::dealloc(p, layout);
+			}
 			ptr::null_mut()
 		}
 	}
@@ -95,35 +100,40 @@ unsafe impl Send for AllocContext {}
 
 #[cfg(test)]
 mod alloc_test {
-	use std::ptr;
+	use std::ptr::null_mut;
 
 	use crate::AllocContext;
 
 	#[test]
 	fn test_alloc() {
 		{
-			let alloc_mem = unsafe { AllocContext::custom_alloc(10, ptr::null_mut()) };
+			let alloc_mem = unsafe { AllocContext::custom_alloc(10, null_mut()) };
 			assert!(!alloc_mem.is_null());
-			let realloc_mem = unsafe { AllocContext::custom_realloc(alloc_mem, 20, ptr::null_mut()) };
+			let realloc_mem = unsafe { AllocContext::custom_realloc(alloc_mem, 20, null_mut()) };
 			assert!(!realloc_mem.is_null());
-			let realloc_mem2 = unsafe { AllocContext::custom_realloc(realloc_mem, 20, ptr::null_mut()) };
+			let realloc_mem2 = unsafe { AllocContext::custom_realloc(realloc_mem, 20, null_mut()) };
 			assert_eq!(realloc_mem2, realloc_mem);
-			let realloc_mem3 = unsafe { AllocContext::custom_realloc(realloc_mem2, 10, ptr::null_mut()) };
+			let realloc_mem3 = unsafe { AllocContext::custom_realloc(realloc_mem2, 10, null_mut()) };
 			assert_eq!(realloc_mem3, realloc_mem2);
-			unsafe { AllocContext::custom_free(realloc_mem3, ptr::null_mut()); }
+			unsafe { AllocContext::custom_free(realloc_mem3, null_mut()); }
 		}
 
 		{
-			let alloc_mem = unsafe { AllocContext::custom_realloc(ptr::null_mut(), 10, ptr::null_mut()) }; // equal to alloc
+			let alloc_mem = unsafe { AllocContext::custom_realloc(null_mut(), 10, null_mut()) }; // equal to alloc
 			assert!(!alloc_mem.is_null());
-			unsafe { AllocContext::custom_free(alloc_mem, ptr::null_mut()); }
+			unsafe { AllocContext::custom_free(alloc_mem, null_mut()); }
 		}
 
 		{
-			let alloc_mem = unsafe { AllocContext::custom_alloc(10, ptr::null_mut()) };
+			let alloc_mem = unsafe { AllocContext::custom_alloc(10, null_mut()) };
 			assert!(!alloc_mem.is_null());
-			let dealloc_mem = unsafe { AllocContext::custom_realloc(alloc_mem, 0, ptr::null_mut()) }; // equal to free
+			let dealloc_mem = unsafe { AllocContext::custom_realloc(alloc_mem, 0, null_mut()) }; // equal to free
 			assert!(dealloc_mem.is_null());
+		}
+
+		{
+			let alloc_mem = unsafe { AllocContext::custom_realloc(null_mut(), 0, null_mut()) };
+			assert!(alloc_mem.is_null());
 		}
 	}
 }
