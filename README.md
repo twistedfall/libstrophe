@@ -107,8 +107,8 @@ The following features are provided:
 
 [libstrophe]: http://strophe.im/libstrophe/
 [`log`]: https://crates.io/crates/log
-[docs]: http://strophe.im/libstrophe/doc/0.9.2/
-[libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.9.2/examples
+[docs]: http://strophe.im/libstrophe/doc/0.10.0/
+[libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.10.1/examples
 [`Context`]: https://docs.rs/libstrophe/*/libstrophe/struct.Context.html
 [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
 [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
