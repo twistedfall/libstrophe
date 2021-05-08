@@ -1,0 +1,37 @@
+name: libstrophe
+on:
+  push:
+    branches:
+      - "*"
+    tags_ignore:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        rust:
+          - stable
+          - beta
+    runs-on: ubuntu-20.04
+    env:
+      PKG_VERSION: 0.10.1
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: ci/install.sh
+        shell: bash
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          default: true
+
+      - name: Test project
+        run: ci/script.sh
+        shell: bash
