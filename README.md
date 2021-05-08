@@ -9,10 +9,10 @@ See [full documentation](https://docs.rs/libstrophe)
 Add this to your Cargo.toml:
 ```
 [dependencies]
-libstrophe = "0.15.0"
+libstrophe = "0.16.0"
 ```
 
-[![Build Status](https://travis-ci.org/twistedfall/libstrophe.svg?branch=master)](https://travis-ci.org/twistedfall/libstrophe)
+[![Build Status](https://github.com/twistedfall/libstrophe/actions/workflows/libstrophe.yml/badge.svg)](https://github.com/twistedfall/libstrophe/actions/workflows/libstrophe.yml)
 
 ## libstrophe - ergonomic wrapper for Rust
 
@@ -63,11 +63,19 @@ lifetime so you won't be able to use the library properly after you called [`shu
 ## Callbacks
 
 The crate has the ability to store callbacks taking ownership of them so you can pass closures
-and not care about storing them externally. There are some things to note about it though. Please
-note though that it's not always possible to know whether the underlying library accepted the
-callback or not. The crate will keep the closure internally in either case, though it may not ever
-be called by the library. You can still remove the callback with the corresponding `*handler_delete()`
-or `*handler_clear()` method.
+and not care about storing them externally. There are some things to note about it though. It's
+not always possible to know whether the underlying library accepted the callback. The crate will
+keep the closure internally in either case, though it may not ever be called by the library. You
+can still remove the callback with the corresponding `*handler_delete()` or `*handler_clear()`
+method.
+
+Due to the way the the C libstrophe library is implemented and how Rust optimizes monomorphization,
+your callbacks must actually be compiled to different function with separate addresses when you
+pass them to the same handler setup method. So if you want to pass 2 callbacks `hander_add`
+ensure that their code is unique and rust didn't merge them into a single function behind the
+scenes. You can test whether 2 callbacks are same or not with the `Connection::*handlers_same()`
+family of functions. If it returns true than you will only be able to pass one of them to the
+corresponding handler function, the other will be silently ignored.
 
 Due to the fact that the crate uses `userdata` to pass the actual user callback, it's not possible
 to use `userdata` inside the callbacks for your own data. So if you need to have a state between
