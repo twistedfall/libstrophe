@@ -116,12 +116,14 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		Self::with_inner(inner, ctx, false, handlers)
 	}
 
-	unsafe extern "C" fn connection_handler_cb<CB>(conn: *mut sys::xmpp_conn_t, event: sys::xmpp_conn_event_t, error: raw::c_int,
-	                                        stream_error: *mut sys::xmpp_stream_error_t, userdata: *mut raw::c_void) {
-		ensure_unique!(CB);
+	unsafe extern "C" fn connection_handler_cb<CB>(conn_ptr: *mut sys::xmpp_conn_t, event: sys::xmpp_conn_event_t, error: raw::c_int,
+	                                               stream_error: *mut sys::xmpp_stream_error_t, userdata: *mut raw::c_void)
+		where
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
+	{
 		let connection_handler = void_ptr_as::<ConnectionFatHandler>(userdata);
 		if let Some(fat_handlers) = connection_handler.fat_handlers.upgrade() {
-			let mut conn = Self::from_inner_ref_mut(conn, fat_handlers);
+			let mut conn = Self::from_inner_ref_mut(conn_ptr, fat_handlers);
 			let event = match event {
 				sys::xmpp_conn_event_t::XMPP_CONN_RAW_CONNECT => ConnectionEvent::RawConnect,
 				sys::xmpp_conn_event_t::XMPP_CONN_CONNECT => ConnectionEvent::Connect,
@@ -131,15 +133,19 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 				},
 				sys::xmpp_conn_event_t::XMPP_CONN_FAIL => unreachable!("XMPP_CONN_FAIL is never used in the underlying library"),
 			};
+			ensure_unique!(CB, conn_ptr, userdata, conn.context_detached(), &mut conn, ConnectionEvent::Connect);
 			(connection_handler.handler)(conn.context_detached(), &mut conn, event);
 		}
 	}
 
-	unsafe extern "C" fn timed_handler_cb<CB>(conn: *mut sys::xmpp_conn_t, userdata: *mut raw::c_void) -> i32 {
-		ensure_unique!(CB);
+	unsafe extern "C" fn timed_handler_cb<CB>(conn_ptr: *mut sys::xmpp_conn_t, userdata: *mut raw::c_void) -> i32
+		where
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + Send + 'cb,
+	{
 		let timed_handler = void_ptr_as::<TimedFatHandler>(userdata);
 		if let Some(fat_handlers) = timed_handler.fat_handlers.upgrade() {
-			let mut conn = Self::from_inner_ref_mut(conn, fat_handlers);
+			let mut conn = Self::from_inner_ref_mut(conn_ptr, fat_handlers);
+			ensure_unique!(CB, conn_ptr, userdata, conn.context_detached(), &mut conn);
 			let res = (timed_handler.handler)(conn.context_detached(), &mut conn);
 			if !res {
 				Self::drop_fat_handler(&mut conn.fat_handlers.borrow_mut().timed, timed_handler);
@@ -150,12 +156,15 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}
 	}
 
-	unsafe extern "C" fn handler_cb<CB>(conn: *mut sys::xmpp_conn_t, stanza: *mut sys::xmpp_stanza_t, userdata: *mut raw::c_void) -> i32 {
-		ensure_unique!(CB);
+	unsafe extern "C" fn handler_cb<CB>(conn_ptr: *mut sys::xmpp_conn_t, stanza: *mut sys::xmpp_stanza_t, userdata: *mut raw::c_void) -> i32
+		where
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb,
+	{
 		let stanza_handler = void_ptr_as::<StanzaFatHandler>(userdata);
 		if let Some(fat_handlers) = stanza_handler.fat_handlers.upgrade() {
-			let mut conn = Self::from_inner_ref_mut(conn, fat_handlers);
+			let mut conn = Self::from_inner_ref_mut(conn_ptr, fat_handlers);
 			let stanza = Stanza::from_inner_ref(stanza);
+			ensure_unique!(CB, conn_ptr, userdata, conn.context_detached(), &mut conn, &stanza);
 			let res = (stanza_handler.handler)(conn.context_detached(), &mut conn, &stanza);
 			if !res {
 				Self::drop_fat_handler(&mut conn.fat_handlers.borrow_mut().stanza, stanza_handler);
@@ -555,7 +564,10 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_timed_handler_delete](http://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#gae70f02f84a0f232c6a8c2866ecb47b82)
 	///
 	/// See `handler_delete()` for additional information.
-	pub fn timed_handler_delete<CB>(&mut self, handler_id: TimedHandlerId<CB>) {
+	pub fn timed_handler_delete<CB>(&mut self, handler_id: TimedHandlerId<CB>)
+		where
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + Send + 'cb,
+	{
 		#![allow(clippy::needless_pass_by_value)]
 		unsafe {
 			sys::xmpp_timed_handler_delete(self.inner.as_mut(), Some(Self::timed_handler_cb::<CB>))
@@ -602,7 +614,10 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_id_handler_delete](http://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#ga6bd02f7254b2a53214824d3d5e4f59ce)
 	///
 	/// See `handler_delete()` for additional information.
-	pub fn id_handler_delete<CB>(&mut self, handler_id: IdHandlerId<CB>) {
+	pub fn id_handler_delete<CB>(&mut self, handler_id: IdHandlerId<CB>)
+		where
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb,
+	{
 		#![allow(clippy::needless_pass_by_value)]
 		if let Some(fat_handler) = Self::validate_fat_handler(&self.fat_handlers.borrow().stanza, handler_id.0 as _) {
 			let id = FFI(fat_handler.extra.as_ref().unwrap().as_str()).send();
@@ -657,7 +672,10 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	///
 	/// This version of this function accepts `HandlerId` returned from `add_handler()` function instead of function reference as the underlying
 	/// library does. If you can't keep track of those handles, but still want ability to remove handlers, check `handlers_clear()` function.
-	pub fn handler_delete<CB>(&mut self, handler_id: HandlerId<CB>) {
+	pub fn handler_delete<CB>(&mut self, handler_id: HandlerId<CB>)
+		where
+			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb,
+	{
 		#![allow(clippy::needless_pass_by_value)]
 		unsafe {
 			sys::xmpp_handler_delete(self.inner.as_mut(), Some(Self::handler_cb::<CB>))
@@ -677,6 +695,30 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			}
 		});
 		self.fat_handlers.borrow_mut().stanza.shrink_to_fit();
+	}
+
+	pub fn timed_handlers_same<L, R>(_left: L, _right: R) -> bool
+		where
+			L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + Send + 'cb,
+			R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + Send + 'cb,
+	{
+		Self::timed_handler_cb::<L> as *const () == Self::timed_handler_cb::<R> as *const ()
+	}
+
+	pub fn stanza_handlers_same<L, R>(_left: L, _right: R) -> bool
+		where
+			L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb,
+			R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb,
+	{
+		Self::handler_cb::<L> as *const () == Self::handler_cb::<R> as *const ()
+	}
+
+	pub fn connection_handlers_same<L, R>(_left: L, _right: R) -> bool
+		where
+			L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
+			R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
+	{
+		Self::connection_handler_cb::<L> as *const () == Self::connection_handler_cb::<R> as *const ()
 	}
 }
 
@@ -754,44 +796,38 @@ impl fmt::Display for ConnectionEvent<'_, '_> {
 #[test]
 fn callbacks() {
 	{
-		fn timed_eq<L, R>(_left: L, _right: R) -> bool {
-			let ptr_left = Connection::timed_handler_cb::<L> as *const ();
-			let ptr_right = Connection::timed_handler_cb::<R> as *const ();
-			ptr_left == ptr_right
-		}
+		let a = |_: &Context, _: &mut Connection| {
+			print!("1");
+			true
+		};
+		let b = |_: &Context, _: &mut Connection| {
+			print!("2");
+			false
+		};
 
-		let a = |_: &Context, _: &mut Connection| { true };
-		let b = |_: &Context, _: &mut Connection| { true };
-
-		assert!(timed_eq(a, a));
-		assert!(!timed_eq(a, b));
+		assert!(Connection::timed_handlers_same(a, a));
+		assert!(!Connection::timed_handlers_same(a, b));
 	}
 
 	{
-		fn handler_eq<L, R>(_left: L, _right: R) -> bool {
-			let ptr_left = Connection::handler_cb::<L> as *const ();
-			let ptr_right = Connection::handler_cb::<R> as *const ();
-			ptr_left == ptr_right
-		}
+		let a = |_: &Context, _: &mut Connection, _: &Stanza| {
+			print!("1");
+			true
+		};
+		let b = |_: &Context, _: &mut Connection, _: &Stanza| {
+			print!("2");
+			true
+		};
 
-		let a = |_: &Context, _: &mut Connection| { true };
-		let b = |_: &Context, _: &mut Connection| { true };
-
-		assert!(handler_eq(a, a));
-		assert!(!handler_eq(a, b));
+		assert!(Connection::stanza_handlers_same(a, a));
+		assert!(!Connection::stanza_handlers_same(a, b));
 	}
 
 	{
-		fn connection_eq<L, R>(_left: L, _right: R) -> bool {
-			let ptr_left = Connection::connection_handler_cb::<L> as *const ();
-			let ptr_right = Connection::connection_handler_cb::<R> as *const ();
-			ptr_left == ptr_right
-		}
+		let a = |_: &Context, _: &mut Connection, _: ConnectionEvent| { print!("1") };
+		let b = |_: &Context, _: &mut Connection, _: ConnectionEvent| { print!("2") };
 
-		let a = |_: &Context, _: &mut Connection, _: ConnectionEvent| {};
-		let b = |_: &Context, _: &mut Connection, _: ConnectionEvent| {};
-
-		assert!(connection_eq(a, a));
-		assert!(!connection_eq(a, b));
+		assert!(Connection::connection_handlers_same(a, a));
+		assert!(!Connection::connection_handlers_same(a, b));
 	}
 }

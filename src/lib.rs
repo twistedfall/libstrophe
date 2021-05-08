@@ -47,11 +47,19 @@
 //! # Callbacks
 //!
 //! The crate has the ability to store callbacks taking ownership of them so you can pass closures
-//! and not care about storing them externally. There are some things to note about it though. Please
-//! note though that it's not always possible to know whether the underlying library accepted the
-//! callback or not. The crate will keep the closure internally in either case, though it may not ever
-//! be called by the library. You can still remove the callback with the corresponding `*handler_delete()`
-//! or `*handler_clear()` method.
+//! and not care about storing them externally. There are some things to note about it though. It's
+//! not always possible to know whether the underlying library accepted the callback. The crate will
+//! keep the closure internally in either case, though it may not ever be called by the library. You
+//! can still remove the callback with the corresponding `*handler_delete()` or `*handler_clear()`
+//! method.
+//!
+//! Due to the way the the C libstrophe library is implemented and how Rust optimizes monomorphization,
+//! your callbacks must actually be compiled to different function with separate addresses when you
+//! pass them to the same handler setup method. So if you want to pass 2 callbacks `hander_add`
+//! ensure that their code is unique and rust didn't merge them into a single function behind the
+//! scenes. You can test whether 2 callbacks are same or not with the `Connection::*handlers_same()`
+//! family of functions. If it returns true than you will only be able to pass one of them to the
+//! corresponding handler function, the other will be silently ignored.
 //!
 //! Due to the fact that the crate uses `userdata` to pass the actual user callback, it's not possible
 //! to use `userdata` inside the callbacks for your own data. So if you need to have a state between
@@ -102,11 +110,11 @@ use std::{
 	sync::Once,
 };
 
+use bitflags::bitflags;
 use once_cell::sync::Lazy;
 pub use sys::xmpp_log_level_t as LogLevel;
 
 pub use alloc_context::AllocContext;
-use bitflags::bitflags;
 pub use connection::{Connection, ConnectionEvent, HandlerId, IdHandlerId, TimedHandlerId};
 pub use context::Context;
 pub use error::{ConnectClientError, ConnectionError, Error, OwnedConnectionError, OwnedStreamError, Result, StreamError, ToTextError};
@@ -114,24 +122,17 @@ use ffi_types::FFI;
 pub use logger::Logger;
 pub use stanza::{Stanza, StanzaMutRef, StanzaRef};
 
-/// In release mode Rust/LLVM tries to meld functions that have identical bodies together,
-/// but crate code requires that monomorphized callback functions passed to C remain unique.
+/// In the release mode Rust/LLVM tries to meld functions that have identical bodies together,
+/// but the crate code requires that monomorphized callback functions passed to C remain unique.
 /// Those are `connection_handler_cb`, `timed_handler_cb`, `handler_cb`. They are not making
-/// any use of type argument in their bodies thus there will be only one function address for
-/// a callback function and libstrophe rejects callback with the same address. This macro
+/// any use of the type argument in their bodies thus there will be only one function address for
+/// each callback function and libstrophe rejects callback with the same address. This macro
 /// imitates the use of the typed argument so that the code is actually different and those
 /// functions are not melded together.
 macro_rules! ensure_unique {
-	(unsafe $typ: ty) => {
-		let arg = Option::<$typ>::None;
-		if let Some(arg) = arg {
-			unsafe { std::ptr::read_volatile(&arg as _) };
-		}
-	};
-	($typ: ty) => {
-		let arg = Option::<$typ>::None;
-		if let Some(arg) = arg {
-			std::ptr::read_volatile(&arg as _);
+	($typ: ty, $conn_ptr: ident, $userdata: ident, $($args: expr),*) => {
+		if $conn_ptr as *mut ::core::ffi::c_void == $userdata {
+			$crate::void_ptr_as::<$typ>($userdata)($($args),*);
 		}
 	};
 }

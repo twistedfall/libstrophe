@@ -77,16 +77,13 @@ impl<'cb> Logger<'cb> {
 		Logger::new(|_, _, _| {})
 	}
 
-	extern "C" fn log_handler_cb<CB>(userdata: *mut raw::c_void, level: sys::xmpp_log_level_t, area: *const raw::c_char, msg: *const raw::c_char)
+	unsafe extern "C" fn log_handler_cb<CB>(userdata: *mut raw::c_void, level: sys::xmpp_log_level_t, area: *const raw::c_char, msg: *const raw::c_char)
 		where
 			CB: FnMut(LogLevel, &str, &str) + Send + 'cb,
 	{
-		ensure_unique!(unsafe CB);
-		let area = unsafe { FFI(area).receive() }.unwrap();
-		let msg = unsafe { FFI(msg).receive() }.unwrap();
-		unsafe {
-			void_ptr_as::<CB>(userdata)(level, &area, &msg);
-		}
+		let area = FFI(area).receive().unwrap();
+		let msg = FFI(msg).receive().unwrap();
+		void_ptr_as::<CB>(userdata)(level, &area, &msg);
 	}
 
 	pub fn as_inner(&self) -> *const sys::xmpp_log_t {
@@ -175,8 +172,8 @@ fn callbacks() {
 		ptr_left == ptr_right
 	}
 
-	let a = |_: LogLevel, _: &str, _: &str| {};
-	let b = |_: LogLevel, _: &str, _: &str| {};
+	let a = |_: LogLevel, _: &str, _: &str| { println!("1"); };
+	let b = |_: LogLevel, _: &str, _: &str| { println!("2"); };
 
 	assert!(logger_eq(a, a));
 	assert!(!logger_eq(a, b));
