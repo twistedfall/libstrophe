@@ -1,6 +1,6 @@
 [package]
 name = "libstrophe"
-version = "0.16.0"
+version = "0.16.1"
 edition = "2018"
 description = "Rust ergonomic wrapper for libstrophe"
 keywords = ["jabber", "xmpp", "libstrophe", "messaging", "im"]
@@ -20,7 +20,7 @@ scopeguard = "1.0"
 sys = { package = "libstrophe-sys-bindgen", version = "4.3" }
 
 [dev-dependencies]
-env_logger = "0.8"
+env_logger = "0.9"
 matches = "0.1"
 trybuild = "1.0"
 
