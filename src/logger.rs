@@ -8,7 +8,7 @@ use std::{
 	ptr::NonNull,
 };
 
-#[cfg(feature = "rust-log")]
+#[cfg(feature = "log")]
 use log::{debug, error, info, warn};
 
 use crate::{
@@ -83,7 +83,7 @@ impl<'cb> Logger<'cb> {
 	{
 		let area = FFI(area).receive().unwrap();
 		let msg = FFI(msg).receive().unwrap();
-		void_ptr_as::<CB>(userdata)(level, &area, &msg);
+		void_ptr_as::<CB>(userdata)(level, area, msg);
 	}
 
 	pub fn as_inner(&self) -> *const sys::xmpp_log_t {
@@ -102,7 +102,7 @@ impl Default for Logger<'static> {
 	/// feature.
 	///
 	/// [`log`]: https://crates.io/crates/log
-	#[cfg(feature = "rust-log")]
+	#[cfg(feature = "log")]
 	fn default() -> Self {
 		Logger::new(|log_level, area, message| {
 			match log_level {
@@ -119,7 +119,7 @@ impl Default for Logger<'static> {
 	/// Used when the crate is compiled without `rust-log` feature.
 	///
 	/// [`new_internal()`]: struct.Logger.html#method.new_internal
-	#[cfg(not(feature = "rust-log"))]
+	#[cfg(not(feature = "log"))]
 	fn default() -> Self {
 		Logger::new_internal(LogLevel::XMPP_LEVEL_DEBUG)
 	}

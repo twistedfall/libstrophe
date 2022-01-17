@@ -2,14 +2,10 @@ use std::{
 	cell::RefCell,
 	collections,
 	fmt,
-	fmt::Write,
 	mem,
 	os::raw,
-	ptr::NonNull,
-	rc::{
-		Rc,
-		Weak,
-	},
+	ptr::{self, NonNull},
+	rc::{Rc, Weak},
 	result,
 	str,
 	time::Duration,
@@ -25,7 +21,6 @@ use crate::{
 	error::IntoResult,
 	FFI,
 	ffi_types::Nullable,
-	LogLevel,
 	Result,
 	Stanza,
 	StreamError,
@@ -521,6 +516,9 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		let data = data.as_ref();
 		#[cfg(feature = "log")]
 		if log::log_enabled!(log::Level::Debug) {
+			use std::fmt::Write;
+			use crate::LogLevel;
+
 			let ctx = unsafe { sys::xmpp_conn_get_context(self.inner.as_ptr()) };
 			let mut data_str = "SENT: ".to_owned();
 			if let Ok(data) = str::from_utf8(data) {
@@ -703,7 +701,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + Send + 'cb,
 			R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + Send + 'cb,
 	{
-		Self::timed_handler_cb::<L> as *const () == Self::timed_handler_cb::<R> as *const ()
+		ptr::eq(Self::timed_handler_cb::<L> as *const (), Self::timed_handler_cb::<R> as *const ())
 	}
 
 	pub fn stanza_handlers_same<L, R>(_left: L, _right: R) -> bool
@@ -711,7 +709,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb,
 			R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb,
 	{
-		Self::handler_cb::<L> as *const () == Self::handler_cb::<R> as *const ()
+		ptr::eq(Self::handler_cb::<L> as *const (), Self::handler_cb::<R> as *const ())
 	}
 
 	pub fn connection_handlers_same<L, R>(_left: L, _right: R) -> bool
@@ -719,7 +717,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
 			R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
 	{
-		Self::connection_handler_cb::<L> as *const () == Self::connection_handler_cb::<R> as *const ()
+		ptr::eq(Self::connection_handler_cb::<L> as *const (), Self::connection_handler_cb::<R> as *const ())
 	}
 }
 
@@ -742,6 +740,7 @@ impl Drop for Connection<'_, '_> {
 	}
 }
 
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for Connection<'_, '_> {}
 
 pub struct HandlerId<'cb, 'cx, CB>(*const FatHandler<'cb, 'cx, CB, ()>);

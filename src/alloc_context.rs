@@ -96,6 +96,7 @@ impl Default for AllocContext {
 }
 
 unsafe impl Sync for AllocContext {}
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for AllocContext {}
 
 #[cfg(test)]

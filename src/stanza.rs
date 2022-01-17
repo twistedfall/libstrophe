@@ -13,7 +13,6 @@ use std::{
 	os::raw,
 	ptr::{self, NonNull},
 	slice,
-	str::FromStr,
 };
 
 use crate::{
@@ -494,7 +493,7 @@ impl Stanza {
 }
 
 #[cfg(feature = "libstrophe-0_10_0")]
-impl FromStr for Stanza {
+impl std::str::FromStr for Stanza {
 	type Err = ();
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -550,15 +549,15 @@ impl Default for Stanza {
 
 unsafe impl Send for Stanza {}
 
-impl<'st> Into<StanzaRef<'st>> for Stanza {
-	fn into(self) -> StanzaRef<'st> {
-		StanzaRef(self, PhantomData)
+impl<'st> From<Stanza> for StanzaRef<'st> {
+	fn from(s: Stanza) -> Self {
+		StanzaRef(s, PhantomData)
 	}
 }
 
-impl<'st> Into<StanzaMutRef<'st>> for Stanza {
-	fn into(self) -> StanzaMutRef<'st> {
-		StanzaMutRef(self, PhantomData)
+impl<'st> From<Stanza> for StanzaMutRef<'st> {
+	fn from(s: Stanza) -> Self {
+		StanzaMutRef(s, PhantomData)
 	}
 }
 

@@ -36,8 +36,8 @@ pub struct Context<'lg, 'cn> {
 	inner: NonNull<sys::xmpp_ctx_t>,
 	owned: bool,
 	connections: Vec<Connection<'cn, 'lg>>,
-	logger: Option<Logger<'lg>>,
-	memory: Option<Box<sys::xmpp_mem_t>>,
+	_logger: Option<Logger<'lg>>,
+	_memory: Option<Box<sys::xmpp_mem_t>>,
 }
 
 impl<'lg, 'cn> Context<'lg, 'cn> {
@@ -78,8 +78,8 @@ impl<'lg, 'cn> Context<'lg, 'cn> {
 			inner: NonNull::new(inner).expect("Cannot allocate memory for Context"),
 			owned,
 			connections: Vec::with_capacity(0),
-			memory,
-			logger,
+			_memory: memory,
+			_logger: logger,
 		}
 	}
 
@@ -160,6 +160,7 @@ impl Drop for Context<'_, '_> {
 	}
 }
 
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for Context<'_, '_> {}
 
 pub(crate) unsafe fn ctx_log(ctx: *const sys::xmpp_ctx_t, level: sys::xmpp_log_level_t, area: &str, msg: &str) {
