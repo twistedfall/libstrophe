@@ -519,6 +519,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_send_raw](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gadd1c8707fa269e6d6845d6b856584add)
 	pub fn send_raw(&mut self, data: impl AsRef<[u8]>) {
 		let data = data.as_ref();
+		#[cfg(feature = "log")]
 		if log::log_enabled!(log::Level::Debug) {
 			let ctx = unsafe { sys::xmpp_conn_get_context(self.inner.as_ptr()) };
 			let mut data_str = "SENT: ".to_owned();
