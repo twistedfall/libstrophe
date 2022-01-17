@@ -1,5 +1,5 @@
 error[E0521]: borrowed data escapes outside of closure
- --> $DIR/move_out_stream_error.rs:8:4
+ --> src/tests/fail/move_out_stream_error.rs:8:4
   |
 5 |     let stream_error = Mutex::new(Option::<StreamError>::None);
   |         ------------ `stream_error` declared here, outside of the closure body

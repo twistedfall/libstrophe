@@ -1,5 +1,5 @@
 error[E0597]: `handler` does not live long enough
- --> $DIR/logger_too_short.rs:6:28
+ --> src/tests/fail/logger_too_short.rs:6:28
   |
 6 |         let logger = Logger::new(&handler);
   |                                  ^^^^^^^^ borrowed value does not live long enough
@@ -13,4 +13,4 @@ error[E0597]: `handler` does not live long enough
 help: consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped
   |
 7 |         Context::new(logger);
-  |                             ^
+  |                             +

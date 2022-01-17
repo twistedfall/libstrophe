@@ -1,5 +1,5 @@
 error[E0597]: `val` does not live long enough
-  --> $DIR/timed_handler_closure_capture_too_short.rs:9:4
+  --> src/tests/fail/timed_handler_closure_capture_too_short.rs:9:4
    |
 8  |         conn.timed_handler_add(|_, _| {
    |                                ------ value captured here
@@ -16,4 +16,4 @@ error[E0597]: `val` does not live long enough
 help: consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped
    |
 12 |         conn;
-   |             ^
+   |             +

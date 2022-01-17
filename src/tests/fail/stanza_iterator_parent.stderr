@@ -1,42 +1,42 @@
 error[E0597]: `stanza` does not live long enough
-  --> $DIR/stanza_iterator_parent.rs:7:20
+  --> src/tests/fail/stanza_iterator_parent.rs:7:20
    |
 5  |     let _a = {
    |         -- borrow later stored here
 6  |         let stanza = Stanza::new();
 7  |         let child_iter = stanza.children();
-   |                          ^^^^^^ borrowed value does not live long enough
+   |                          ^^^^^^^^^^^^^^^^^ borrowed value does not live long enough
 ...
 10 |     };
    |     - `stanza` dropped here while still borrowed
 
 error[E0505]: cannot move out of `stanza` because it is borrowed
- --> $DIR/stanza_iterator_parent.rs:8:8
+ --> src/tests/fail/stanza_iterator_parent.rs:8:8
   |
 7 |         let child_iter = stanza.children();
-  |                          ------ borrow of `stanza` occurs here
+  |                          ----------------- borrow of `stanza` occurs here
 8 |         drop(stanza);
   |              ^^^^^^ move out of `stanza` occurs here
 9 |         child_iter
   |         ---------- borrow later used here
 
 error[E0597]: `stanza` does not live long enough
-  --> $DIR/stanza_iterator_parent.rs:15:24
+  --> src/tests/fail/stanza_iterator_parent.rs:15:24
    |
 13 |     let _a = {
    |         -- borrow later stored here
 14 |         let stanza = Stanza::new();
 15 |         let mut child_iter = stanza.children();
-   |                              ^^^^^^ borrowed value does not live long enough
+   |                              ^^^^^^^^^^^^^^^^^ borrowed value does not live long enough
 ...
 20 |     };
    |     - `stanza` dropped here while still borrowed
 
 error[E0505]: cannot move out of `stanza` because it is borrowed
-  --> $DIR/stanza_iterator_parent.rs:18:8
+  --> src/tests/fail/stanza_iterator_parent.rs:18:8
    |
 15 |         let mut child_iter = stanza.children();
-   |                              ------ borrow of `stanza` occurs here
+   |                              ----------------- borrow of `stanza` occurs here
 ...
 18 |         drop(stanza);
    |              ^^^^^^ move out of `stanza` occurs here
@@ -44,40 +44,40 @@ error[E0505]: cannot move out of `stanza` because it is borrowed
    |         ----- borrow later used here
 
 error[E0597]: `stanza` does not live long enough
-  --> $DIR/stanza_iterator_parent.rs:25:20
+  --> src/tests/fail/stanza_iterator_parent.rs:25:20
    |
 23 |     let _a = {
    |         -- borrow later stored here
 24 |         let mut stanza = Stanza::new();
 25 |         let child_iter = stanza.children_mut();
-   |                          ^^^^^^ borrowed value does not live long enough
+   |                          ^^^^^^^^^^^^^^^^^^^^^ borrowed value does not live long enough
 ...
 28 |     };
    |     - `stanza` dropped here while still borrowed
 
 error[E0505]: cannot move out of `stanza` because it is borrowed
-  --> $DIR/stanza_iterator_parent.rs:26:8
+  --> src/tests/fail/stanza_iterator_parent.rs:26:8
    |
 25 |         let child_iter = stanza.children_mut();
-   |                          ------ borrow of `stanza` occurs here
+   |                          --------------------- borrow of `stanza` occurs here
 26 |         drop(stanza);
    |              ^^^^^^ move out of `stanza` occurs here
 27 |         child_iter
    |         ---------- borrow later used here
 
 error[E0596]: cannot borrow `stanza` as mutable, as it is not declared as mutable
-  --> $DIR/stanza_iterator_parent.rs:33:24
+  --> src/tests/fail/stanza_iterator_parent.rs:33:24
    |
 32 |         let stanza = Stanza::new();
    |             ------ help: consider changing this to be mutable: `mut stanza`
 33 |         let mut child_iter = stanza.children_mut();
-   |                              ^^^^^^ cannot borrow as mutable
+   |                              ^^^^^^^^^^^^^^^^^^^^^ cannot borrow as mutable
 
 error[E0505]: cannot move out of `stanza` because it is borrowed
-  --> $DIR/stanza_iterator_parent.rs:36:8
+  --> src/tests/fail/stanza_iterator_parent.rs:36:8
    |
 33 |         let mut child_iter = stanza.children_mut();
-   |                              ------ borrow of `stanza` occurs here
+   |                              --------------------- borrow of `stanza` occurs here
 ...
 36 |         drop(stanza);
    |              ^^^^^^ move out of `stanza` occurs here

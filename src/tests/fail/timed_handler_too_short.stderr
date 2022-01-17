@@ -1,5 +1,5 @@
 error[E0597]: `handler` does not live long enough
-  --> $DIR/timed_handler_too_short.rs:8:26
+  --> src/tests/fail/timed_handler_too_short.rs:8:26
    |
 8  |         conn.timed_handler_add(&handler, Duration::from_secs(1));
    |                                ^^^^^^^^ borrowed value does not live long enough
@@ -13,4 +13,4 @@ error[E0597]: `handler` does not live long enough
 help: consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped
    |
 9  |         conn;
-   |             ^
+   |             +

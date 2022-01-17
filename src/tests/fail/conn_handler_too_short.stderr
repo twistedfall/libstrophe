@@ -1,5 +1,5 @@
 warning: unused import: `StreamError`
- --> $DIR/conn_handler_too_short.rs:1:56
+ --> src/tests/fail/conn_handler_too_short.rs:1:56
   |
 1 | use libstrophe::{Connection, ConnectionEvent, Context, StreamError};
   |                                                        ^^^^^^^^^^^
@@ -7,7 +7,7 @@ warning: unused import: `StreamError`
   = note: `#[warn(unused_imports)]` on by default
 
 error[E0597]: `handler` does not live long enough
- --> $DIR/conn_handler_too_short.rs:7:35
+ --> src/tests/fail/conn_handler_too_short.rs:7:35
   |
 7 |         conn.connect_client(None, None, &handler).unwrap()
   |         --------------------------------^^^^^^^^----------
@@ -22,4 +22,4 @@ error[E0597]: `handler` does not live long enough
 help: consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped
   |
 7 |         conn.connect_client(None, None, &handler).unwrap();
-  |                                                           ^
+  |                                                           +

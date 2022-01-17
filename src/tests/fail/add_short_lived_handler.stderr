@@ -1,5 +1,5 @@
 error[E0597]: `handler` does not live long enough
- --> $DIR/add_short_lived_handler.rs:6:20
+ --> src/tests/fail/add_short_lived_handler.rs:6:20
   |
 4 |     let handler = |_: &Context, conn: &mut Connection, _: ConnectionEvent| {
   |                                 ---- has type `&mut Connection<'1, '_>`

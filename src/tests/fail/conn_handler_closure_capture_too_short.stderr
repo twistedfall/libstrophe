@@ -1,5 +1,5 @@
 error[E0597]: `val` does not live long enough
-  --> $DIR/conn_handler_closure_capture_too_short.rs:8:4
+  --> src/tests/fail/conn_handler_closure_capture_too_short.rs:8:4
    |
 7  |           conn.connect_client(None, None, |_, _, _| {
    |           -                               --------- value captured here
@@ -17,4 +17,4 @@ error[E0597]: `val` does not live long enough
 help: consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped
    |
 9  |         }).unwrap();
-   |                    ^
+   |                    +
