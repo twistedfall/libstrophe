@@ -671,10 +671,13 @@ fn stanza_to_text<T, E>(stanza: *mut sys::xmpp_stanza_t, cb: impl FnOnce(&ffi::C
 {
 	let mut buf: *mut raw::c_char = ptr::null_mut();
 	let mut buflen: usize = 0;
-	unsafe { sys::xmpp_stanza_to_text(stanza, &mut buf, &mut buflen) }.into_result()
+	let res = unsafe { sys::xmpp_stanza_to_text(stanza, &mut buf, &mut buflen) };
+	let _free_buf = scopeguard::guard((), |_| if !buf.is_null() {
+		unsafe { ALLOC_CONTEXT.free(buf); }
+	});
+	res.into_result()
 		.map_err(E::from)
 		.and_then(|_| {
-			let _free_buf = scopeguard::guard((), |_| unsafe { ALLOC_CONTEXT.free(buf); });
 			let text = unsafe {
 				ffi::CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(buf as *const _, buflen + 1))
 			};
