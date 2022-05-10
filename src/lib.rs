@@ -96,11 +96,12 @@
 //!   * `rust-log` - enabled by default, makes the create integrate into Rust logging facilities
 //!   * `libstrophe-0_9_3` - enabled by default, enables functionality specific to libstrophe-0.9.3
 //!   * `libstrophe-0_10_0` - enabled by default, enables functionality specific to libstrophe-0.10.0
+//!   * `libstrophe-0_11_0` - enabled by default, enables functionality specific to libstrophe-0.11.0
 //!
 //! [libstrophe]: https://strophe.im/libstrophe/
 //! [`log`]: https://crates.io/crates/log
-//! [docs]: https://strophe.im/libstrophe/doc/0.10.0/
-//! [libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.10.1/examples
+//! [docs]: https://strophe.im/libstrophe/doc/0.11.0/
+//! [libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.11.0/examples
 //! [`Context`]: https://docs.rs/libstrophe/*/libstrophe/struct.Context.html
 //! [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
 //! [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
@@ -112,18 +113,23 @@ use std::{
 
 use bitflags::bitflags;
 use once_cell::sync::Lazy;
-pub use sys::xmpp_log_level_t as LogLevel;
 
 pub use alloc_context::AllocContext;
 pub use connection::{Connection, ConnectionEvent, HandlerId, IdHandlerId, TimedHandlerId};
+#[cfg(feature = "libstrophe-0_11_0")]
+pub use connection::CertFailResult;
 pub use context::Context;
 pub use error::{ConnectClientError, ConnectionError, Error, OwnedConnectionError, OwnedStreamError, Result, StreamError, ToTextError};
 use ffi_types::FFI;
 pub use logger::Logger;
 pub use stanza::{Stanza, StanzaMutRef, StanzaRef};
+pub use sys::{xmpp_cert_element_t as CertElement, xmpp_log_level_t as LogLevel};
+pub use tls_cert::TlsCert;
 
 mod alloc_context;
 mod ffi_types;
+#[cfg(feature = "libstrophe-0_11_0")]
+mod tls_cert;
 mod connection;
 mod context;
 pub mod jid;
@@ -180,14 +186,14 @@ fn deinit() {
 	});
 }
 
-/// [xmpp_version_check](https://strophe.im/libstrophe/doc/0.10.0/group___init.html#ga6cc7afca422acce51e0e7f52424f1db3)
+/// [xmpp_version_check](https://strophe.im/libstrophe/doc/0.11.0/group___init.html#ga6cc7afca422acce51e0e7f52424f1db3)
 pub fn version_check(major: i32, minor: i32) -> bool {
 	unsafe {
 		FFI(sys::xmpp_version_check(major, minor)).receive_bool()
 	}
 }
 
-/// [xmpp_shutdown](https://strophe.im/libstrophe/doc/0.10.0/group___init.html#ga06e07524aee531de1ceb825541307963)
+/// [xmpp_shutdown](https://strophe.im/libstrophe/doc/0.11.0/group___init.html#gaf44ac02b42061ac3c17a894c48ef3787)
 ///
 /// Call this function when your application terminates, but be aware that you can't use the library
 /// after you called `shutdown()` and there is now way to reinitialize it again.

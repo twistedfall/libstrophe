@@ -26,11 +26,11 @@ use crate::{
 ///   * `Eq` by comparing internal pointers
 ///   * `Send`
 ///
-/// [context]: https://strophe.im/libstrophe/doc/0.10.0/group___context.html
-/// [event loop]: https://strophe.im/libstrophe/doc/0.10.0/group___event_loop.html
-/// [ctx.c]: https://github.com/strophe/libstrophe/blob/0.10.0/src/ctx.c
-/// [event.c]: https://github.com/strophe/libstrophe/blob/0.10.0/src/event.c
-/// [xmpp_ctx_free]: https://strophe.im/libstrophe/doc/0.10.0/group___context.html#ga3ae5f04bc23ab2e7b55760759e21d623
+/// [context]: https://strophe.im/libstrophe/doc/0.11.0/group___context.html
+/// [event loop]: https://strophe.im/libstrophe/doc/0.11.0/group___event_loop.html
+/// [ctx.c]: https://github.com/strophe/libstrophe/blob/0.11.0/src/ctx.c
+/// [event.c]: https://github.com/strophe/libstrophe/blob/0.11.0/src/event.c
+/// [xmpp_ctx_free]: https://strophe.im/libstrophe/doc/0.11.0/group___context.html#ga39010d64cdf77f7a4d0f1457c952baca
 #[derive(Debug)]
 pub struct Context<'lg, 'cn> {
 	inner: NonNull<sys::xmpp_ctx_t>,
@@ -41,7 +41,7 @@ pub struct Context<'lg, 'cn> {
 }
 
 impl<'lg, 'cn> Context<'lg, 'cn> {
-	/// [xmpp_ctx_new](https://strophe.im/libstrophe/doc/0.10.0/group___context.html#gaeb32490f33760a7ffc0f86a0565b43b2)
+	/// [xmpp_ctx_new](https://strophe.im/libstrophe/doc/0.11.0/group___context.html#ga6a671ae0afe7eb14f685d512701ed989  )
 	pub fn new(logger: Logger<'lg>) -> Self {
 		crate::init();
 		let memory = Box::new(AllocContext::get_xmpp_mem_t());
@@ -103,7 +103,7 @@ impl<'lg, 'cn> Context<'lg, 'cn> {
 
 	pub(crate) fn as_ptr(&self) -> *mut sys::xmpp_ctx_t { self.inner.as_ptr() }
 
-	/// [xmpp_set_timeout](https://strophe.im/libstrophe/doc/0.10.0/group___context.html#gab03acfbb7c9aa92f60fedb8f6ca43114)
+	/// [xmpp_set_timeout](https://strophe.im/libstrophe/doc/0.11.0/group___context.html#ga7c4c01959561fbf6df5d236078e54a3b)
 	///
 	/// Default timeout is 1000ms
 	pub fn set_timeout(&mut self, timeout: Duration) {
@@ -114,21 +114,21 @@ impl<'lg, 'cn> Context<'lg, 'cn> {
 
 	// todo: add global_timed_handler support
 
-	/// [xmpp_run_once](https://strophe.im/libstrophe/doc/0.10.0/group___event_loop.html#ga02816aa5ce34d97fe5bbde5f9c6956ce)
+	/// [xmpp_run_once](https://strophe.im/libstrophe/doc/0.11.0/group___event_loop.html#ga9e6bcc704aca8209bccdeb42a79bd328)
 	pub fn run_once(&self, timeout: Duration) {
 		unsafe {
 			sys::xmpp_run_once(self.inner.as_ptr(), timeout.as_millis() as raw::c_ulong)
 		}
 	}
 
-	/// [xmpp_run](https://strophe.im/libstrophe/doc/0.10.0/group___event_loop.html#ga14ca97546803cf27c772fa8d2eabfffd)
+	/// [xmpp_run](https://strophe.im/libstrophe/doc/0.11.0/group___event_loop.html#ga14ca97546803cf27c772fa8d2eabfffd)
 	pub fn run(&self) {
 		unsafe {
 			sys::xmpp_run(self.inner.as_ptr())
 		}
 	}
 
-	/// [xmpp_stop](https://strophe.im/libstrophe/doc/0.10.0/group___event_loop.html#ga44689e9b7782cec520ed60196e8c15c2)
+	/// [xmpp_stop](https://strophe.im/libstrophe/doc/0.11.0/group___event_loop.html#ga44689e9b7782cec520ed60196e8c15c2)
 	pub fn stop(&self) {
 		unsafe {
 			sys::xmpp_stop(self.inner.as_ptr())
@@ -149,7 +149,7 @@ impl PartialEq for Context<'_, '_> {
 impl Eq for Context<'_, '_> {}
 
 impl Drop for Context<'_, '_> {
-	/// [xmpp_ctx_free](https://strophe.im/libstrophe/doc/0.10.0/group___context.html#ga3ae5f04bc23ab2e7b55760759e21d623)
+	/// [xmpp_ctx_free](https://strophe.im/libstrophe/doc/0.11.0/group___context.html#ga39010d64cdf77f7a4d0f1457c952baca)
 	fn drop(&mut self) {
 		if self.owned {
 			self.connections.clear();

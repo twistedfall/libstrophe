@@ -9,7 +9,7 @@ See [full documentation](https://docs.rs/libstrophe)
 Add this to your Cargo.toml:
 ```
 [dependencies]
-libstrophe = "0.16.0"
+libstrophe = "0.17.0"
 ```
 
 [![Build Status](https://github.com/twistedfall/libstrophe/actions/workflows/libstrophe.yml/badge.svg)](https://github.com/twistedfall/libstrophe/actions/workflows/libstrophe.yml)
@@ -112,11 +112,12 @@ The following features are provided:
   * `rust-log` - enabled by default, makes the create integrate into Rust logging facilities
   * `libstrophe-0_9_3` - enabled by default, enables functionality specific to libstrophe-0.9.3
   * `libstrophe-0_10_0` - enabled by default, enables functionality specific to libstrophe-0.10.0
+  * `libstrophe-0_11_0` - enabled by default, enables functionality specific to libstrophe-0.11.0
 
 [libstrophe]: https://strophe.im/libstrophe/
 [`log`]: https://crates.io/crates/log
-[docs]: https://strophe.im/libstrophe/doc/0.10.0/
-[libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.10.1/examples
+[docs]: https://strophe.im/libstrophe/doc/0.11.0/
+[libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.11.0/examples
 [`Context`]: https://docs.rs/libstrophe/*/libstrophe/struct.Context.html
 [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
 [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html

@@ -347,6 +347,14 @@ mod with_credentials {
 		conn
 	}
 
+	fn make_tls_conn<'cn>() -> Connection<'cn, 'static> {
+		let mut conn = Connection::new(Context::new_with_default_logger());
+		conn.set_jid(JID.trim());
+		conn.set_pass(PASS.trim());
+		conn.set_flags(ConnectionFlags::MANDATORY_TLS).expect("Cannot set connection flags");
+		conn
+	}
+
 	#[test]
 	fn zero_sized_handlers() {
 		let i = Arc::new(RwLock::new(0));
@@ -874,6 +882,83 @@ mod with_credentials {
 		let stanza = Arc::try_unwrap(stz).unwrap().into_inner().unwrap().unwrap();
 		// without forcing ALLOC_CONTEXT it will segfault
 		assert_eq!(stanza.to_text().unwrap(), stanza.to_string());
+	}
+
+	#[test]
+	#[cfg(feature = "libstrophe-0_11_0")]
+	fn connection_handler_tls() {
+		{
+			// self-signed certificate reject
+			let flags = Arc::new(RwLock::new((0, 0, 0, 0)));
+			{
+				let mut conn = make_tls_conn();
+				conn.set_certfail_handler({
+					let flags = Arc::clone(&flags);
+					move |_cert, _err| {
+						flags.write().unwrap().0 += 1;
+						CertFailResult::Invalid
+					}
+				});
+				let ctx = conn.connect_client(None, None, {
+					let flags = Arc::clone(&flags);
+					move |ctx, conn, evt| {
+						match evt {
+							ConnectionEvent::Connect => {
+								flags.write().unwrap().1 += 1;
+								conn.disconnect();
+							}
+							ConnectionEvent::RawConnect => {
+								flags.write().unwrap().2 += 1;
+							}
+							ConnectionEvent::Disconnect(_) => {
+								flags.write().unwrap().3 += 1;
+								ctx.stop();
+							}
+						}
+					}
+				}).unwrap();
+				ctx.run();
+			}
+			assert_eq!(Arc::try_unwrap(flags).expect("There are hanging references to Rc value").into_inner().unwrap(), (1, 0, 0, 1));
+		}
+
+		{
+			// self-signed certificate accept
+			let flags = Arc::new(RwLock::new((0, 0, 0, 0)));
+			{
+				let mut conn = make_tls_conn();
+				conn.set_certfail_handler({
+					let flags = Arc::clone(&flags);
+					move |_cert, _err| {
+						flags.write().unwrap().0 += 1;
+						CertFailResult::Valid
+					}
+				});
+				let ctx = conn.connect_client(None, None, {
+					let flags = Arc::clone(&flags);
+					move |ctx, conn, evt| {
+						match evt {
+							ConnectionEvent::Connect => {
+								flags.write().unwrap().1 += 1;
+								if conn.peer_cert().is_some() {
+									flags.write().unwrap().1 += 1;
+								}
+								conn.disconnect();
+							}
+							ConnectionEvent::RawConnect => {
+								flags.write().unwrap().2 += 1;
+							}
+							ConnectionEvent::Disconnect(_) => {
+								flags.write().unwrap().3 += 1;
+								ctx.stop();
+							}
+						}
+					}
+				}).unwrap();
+				ctx.run();
+			}
+			assert_eq!(Arc::try_unwrap(flags).expect("There are hanging references to Rc value").into_inner().unwrap(), (2, 2, 0, 1));
+		}
 	}
 }
 

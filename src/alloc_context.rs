@@ -76,7 +76,7 @@ impl AllocContext {
 
 	pub(crate) fn as_ptr(&self) -> *mut sys::xmpp_ctx_t { self.inner.as_ptr() }
 
-	/// [xmpp_free](https://github.com/strophe/libstrophe/blob/0.10.0/src/ctx.c#L220-L225)
+	/// [xmpp_free](https://strophe.im/libstrophe/doc/0.11.0/ctx_8c.html#acc734a5f5f115629c9e7775a4d3796e2)
 	///
 	/// # Safety
 	/// p must be non-null and allocated by the libstrophe library (xmpp_alloc function)

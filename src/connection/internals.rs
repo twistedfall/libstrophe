@@ -4,7 +4,33 @@ use std::{
 	rc::Weak,
 };
 
+#[cfg(feature = "libstrophe-0_11_0")]
+pub use libstrophe_0_11::*;
+
 use crate::{Connection, ConnectionEvent, Context, Stanza};
+
+#[cfg(feature = "libstrophe-0_11_0")]
+mod libstrophe_0_11 {
+	use std::{
+		collections::HashMap,
+		sync::RwLock,
+	};
+	pub use std::any::TypeId;
+
+	use once_cell::sync::Lazy;
+
+	use crate::TlsCert;
+
+	pub static CERT_FAIL_HANDLERS: Lazy<RwLock<HashMap<TypeId, Box<CertFailCallback>>>> = Lazy::new(Default::default);
+
+	pub type CertFailCallback = dyn Fn(&TlsCert, &str) -> CertFailResult + Send + Sync;
+
+	#[repr(i32)]
+	pub enum CertFailResult {
+		Invalid = 0,
+		Valid = 1,
+	}
+}
 
 pub type ConnectionCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb;
 pub type ConnectionFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, ConnectionCallback<'cb, 'cx>, ()>;
@@ -21,6 +47,8 @@ pub struct FatHandlers<'cb, 'cx> {
 	pub connection: Option<ConnectionFatHandler<'cb, 'cx>>,
 	pub timed: Handlers<TimedFatHandler<'cb, 'cx>>,
 	pub stanza: Handlers<StanzaFatHandler<'cb, 'cx>>,
+	#[cfg(feature = "libstrophe-0_11_0")]
+	pub cert_fail_handler_ids: Vec<TypeId>,
 }
 
 impl fmt::Debug for FatHandlers<'_, '_> {
