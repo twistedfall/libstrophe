@@ -60,7 +60,7 @@ impl<'cb> Logger<'cb> {
 		Logger { inner: NonNull::new(inner).expect("Cannot allocate memory for Logger"), owned, handler }
 	}
 
-	/// [xmpp_get_default_logger](http://strophe.im/libstrophe/doc/0.10.0/group___context.html#ga33abde406c7a057006b109cf1b23c8f8)
+	/// [xmpp_get_default_logger](https://strophe.im/libstrophe/doc/0.10.0/group___context.html#ga33abde406c7a057006b109cf1b23c8f8)
 	///
 	/// This method returns default `libstrophe` logger that just outputs log lines to stderr. Use it
 	/// if you compile without `rust-log` feature and want a quick debug log output.
@@ -86,7 +86,7 @@ impl<'cb> Logger<'cb> {
 		void_ptr_as::<CB>(userdata)(level, area, msg);
 	}
 
-	pub fn as_inner(&self) -> *const sys::xmpp_log_t {
+	pub(crate) fn as_ptr(&self) -> *const sys::xmpp_log_t {
 		self.inner.as_ptr()
 	}
 

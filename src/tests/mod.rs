@@ -61,7 +61,7 @@ fn conn_client() {
 	let conn_handler = |ctx: &Context,
 	                    _: &mut Connection,
 	                    event: ConnectionEvent| {
-		assert_matches!(event, ConnectionEvent::Disconnect(..));
+		assert_matches!(event, ConnectionEvent::Disconnect(_));
 		ctx.stop();
 	};
 
@@ -87,7 +87,7 @@ fn conn_raw() {
 	let conn_handler = |ctx: &Context,
 	                    _: &mut Connection,
 	                    event: ConnectionEvent| {
-		assert_matches!(event, ConnectionEvent::Disconnect(..));
+		assert_matches!(event, ConnectionEvent::Disconnect(_));
 		ctx.stop();
 	};
 
@@ -126,7 +126,7 @@ fn stanza_handler() {
 	let handle = conn.handler_add(&stanza_handler, Some("ns"), None, None).expect("Can't add handler");
 	assert_matches!(conn.handler_add(&stanza_handler, Some("ns"), None, None), None);
 	conn.handler_delete(handle);
-	let handle = conn.handler_add(stanza_handler, None, Some(&"name".to_owned()), None).expect("Can't add handler");
+	let handle = conn.handler_add(stanza_handler, None, Some("name"), None).expect("Can't add handler");
 	conn.handler_delete(handle);
 }
 
@@ -383,7 +383,7 @@ mod with_credentials {
 									false
 								}, Duration::from_secs(1)).expect("Can't add timed handler");
 							}
-							ConnectionEvent::Disconnect(..) => ctx.stop(),
+							ConnectionEvent::Disconnect(_) => ctx.stop(),
 							_ => ()
 						}
 					}
@@ -411,7 +411,7 @@ mod with_credentials {
 									false
 								}, Duration::from_secs(1)).expect("Can't add timed handler");
 							}
-							ConnectionEvent::Disconnect(..) => ctx.stop(),
+							ConnectionEvent::Disconnect(_) => ctx.stop(),
 							_ => ()
 						}
 					}
@@ -451,7 +451,7 @@ mod with_credentials {
 									false
 								}, Duration::from_secs(1)).expect("Can't add timed handler");
 							}
-							ConnectionEvent::Disconnect(..) => ctx.stop(),
+							ConnectionEvent::Disconnect(_) => ctx.stop(),
 							_ => ()
 						}
 					}
@@ -470,7 +470,7 @@ mod with_credentials {
 		{
 			let conn = make_conn();
 			let ctx = conn.connect_client(None, None, {
-				let flags = flags.clone();
+				let flags = Arc::clone(&flags);
 				move |ctx, conn, evt| {
 					match evt {
 						ConnectionEvent::Connect => {
@@ -480,7 +480,7 @@ mod with_credentials {
 						ConnectionEvent::RawConnect => {
 							flags.write().unwrap().1 += 1;
 						}
-						ConnectionEvent::Disconnect(..) => {
+						ConnectionEvent::Disconnect(_) => {
 							flags.write().unwrap().2 += 1;
 							ctx.stop();
 						}
@@ -523,7 +523,7 @@ mod with_credentials {
 								conn.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1)).expect("Can't add timed handler");
 								do_common_stuff(conn);
 							}
-							ConnectionEvent::Disconnect(..) => ctx.stop(),
+							ConnectionEvent::Disconnect(_) => ctx.stop(),
 							_ => {},
 						}
 					}
@@ -544,7 +544,7 @@ mod with_credentials {
 							ConnectionEvent::Connect => {
 								do_common_stuff(conn);
 							},
-							ConnectionEvent::Disconnect(..) => {
+							ConnectionEvent::Disconnect(_) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -569,7 +569,7 @@ mod with_credentials {
 								conn.timed_handler_delete(handler);
 								do_common_stuff(conn);
 							},
-							ConnectionEvent::Disconnect(..) => {
+							ConnectionEvent::Disconnect(_) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -593,7 +593,7 @@ mod with_credentials {
 								conn.timed_handlers_clear();
 								do_common_stuff(conn);
 							},
-							ConnectionEvent::Disconnect(..) => {
+							ConnectionEvent::Disconnect(_) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -667,7 +667,7 @@ mod with_credentials {
 
 								do_common_stuff(ctx, conn);
 							},
-							ConnectionEvent::Disconnect(..) => {
+							ConnectionEvent::Disconnect(_) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -696,7 +696,7 @@ mod with_credentials {
 
 								do_common_stuff(ctx, conn);
 							},
-							ConnectionEvent::Disconnect(..) => {
+							ConnectionEvent::Disconnect(_) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -721,7 +721,7 @@ mod with_credentials {
 
 								do_common_stuff(ctx, conn);
 							},
-							ConnectionEvent::Disconnect(..) => {
+							ConnectionEvent::Disconnect(_) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -745,7 +745,7 @@ mod with_credentials {
 								conn.id_handlers_clear();
 								do_common_stuff(ctx, conn);
 							},
-							ConnectionEvent::Disconnect(..) => {
+							ConnectionEvent::Disconnect(_) => {
 								ctx.stop();
 							},
 							_ => {},
@@ -768,7 +768,7 @@ mod with_credentials {
 				ConnectionEvent::Connect => {
 					conn.disconnect();
 				},
-				ConnectionEvent::Disconnect(..) => {
+				ConnectionEvent::Disconnect(_) => {
 					ctx.stop();
 				},
 				_ => {},
@@ -828,8 +828,8 @@ mod with_credentials {
 		*i.write().unwrap() = 0;
 		{
 			let mut conn = make_conn();
-			assert_matches!(conn.handler_add(&i_incrementer, None, Some("iq"), None,), Some(..));
-			assert_matches!(conn.handler_add(&i_incrementer, None, Some("iq"), None), None);
+			assert!(conn.handler_add(&i_incrementer, None, Some("iq"), None,).is_some());
+			assert!(conn.handler_add(&i_incrementer, None, Some("iq"), None).is_none());
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
 			assert_eq!(*i.read().unwrap(), 1);
@@ -839,8 +839,8 @@ mod with_credentials {
 		*i.write().unwrap() = 0;
 		{
 			let mut conn = make_conn();
-			assert_matches!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None,), Some(..));
-			assert_matches!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None), None);
+			assert!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None,).is_some());
+			assert!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None).is_none());
 			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 			ctx.run();
 			assert_eq!(*i.read().unwrap(), 1);
@@ -865,7 +865,7 @@ mod with_credentials {
 			let ctx = conn.connect_client(None, None, |ctx, conn, evt| {
 				match evt {
 					ConnectionEvent::Connect => conn.disconnect(),
-					ConnectionEvent::Disconnect(..) => ctx.stop(),
+					ConnectionEvent::Disconnect(_) => ctx.stop(),
 					_ => (),
 				}
 			}).unwrap();

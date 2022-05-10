@@ -97,9 +97,9 @@
 //!   * `libstrophe-0_9_3` - enabled by default, enables functionality specific to libstrophe-0.9.3
 //!   * `libstrophe-0_10_0` - enabled by default, enables functionality specific to libstrophe-0.10.0
 //!
-//! [libstrophe]: http://strophe.im/libstrophe/
+//! [libstrophe]: https://strophe.im/libstrophe/
 //! [`log`]: https://crates.io/crates/log
-//! [docs]: http://strophe.im/libstrophe/doc/0.10.0/
+//! [docs]: https://strophe.im/libstrophe/doc/0.10.0/
 //! [libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.10.1/examples
 //! [`Context`]: https://docs.rs/libstrophe/*/libstrophe/struct.Context.html
 //! [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
@@ -162,9 +162,6 @@ bitflags! {
 	}
 }
 
-static INIT: Once = Once::new();
-static DEINIT: Once = Once::new();
-
 static ALLOC_CONTEXT: Lazy<AllocContext> = Lazy::new(AllocContext::default);
 
 /// Convert type to *void for passing as `userdata`
@@ -181,6 +178,7 @@ unsafe fn void_ptr_as<'cb, T>(ptr: *const raw::c_void) -> &'cb mut T {
 ///
 /// Must be called from every possible crate usage entry point.
 fn init() {
+	static INIT: Once = Once::new();
 	INIT.call_once(|| {
 		unsafe {
 			sys::xmpp_initialize();
@@ -189,6 +187,7 @@ fn init() {
 }
 
 fn deinit() {
+	static DEINIT: Once = Once::new();
 	DEINIT.call_once(|| {
 		unsafe {
 			sys::xmpp_shutdown()
@@ -196,14 +195,14 @@ fn deinit() {
 	});
 }
 
-/// [xmpp_version_check](http://strophe.im/libstrophe/doc/0.10.0/group___init.html#ga6cc7afca422acce51e0e7f52424f1db3)
+/// [xmpp_version_check](https://strophe.im/libstrophe/doc/0.10.0/group___init.html#ga6cc7afca422acce51e0e7f52424f1db3)
 pub fn version_check(major: i32, minor: i32) -> bool {
 	unsafe {
 		FFI(sys::xmpp_version_check(major, minor)).receive_bool()
 	}
 }
 
-/// [xmpp_shutdown](http://strophe.im/libstrophe/doc/0.10.0/group___init.html#ga06e07524aee531de1ceb825541307963)
+/// [xmpp_shutdown](https://strophe.im/libstrophe/doc/0.10.0/group___init.html#ga06e07524aee531de1ceb825541307963)
 ///
 /// Call this function when your application terminates, but be aware that you can't use the library
 /// after you called `shutdown()` and there is now way to reinitialize it again.

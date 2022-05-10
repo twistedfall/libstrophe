@@ -1,6 +1,6 @@
 use std::{
 	cell::RefCell,
-	collections,
+	collections::HashMap,
 	fmt,
 	mem,
 	os::raw,
@@ -12,6 +12,7 @@ use std::{
 };
 
 use crate::{
+	ALLOC_CONTEXT,
 	as_void_ptr,
 	ConnectClientError,
 	ConnectionError,
@@ -67,11 +68,11 @@ impl fmt::Debug for FatHandlers<'_, '_> {
 ///   * `Eq` by comparing internal pointers
 ///   * `Send`
 ///
-/// [connection]: http://strophe.im/libstrophe/doc/0.10.0/group___connections.html
-/// [handlers]: http://strophe.im/libstrophe/doc/0.10.0/group___handlers.html
+/// [connection]: https://strophe.im/libstrophe/doc/0.10.0/group___connections.html
+/// [handlers]: https://strophe.im/libstrophe/doc/0.10.0/group___handlers.html
 /// [conn.c]: https://github.com/strophe/libstrophe/blob/0.10.0/src/conn.c
 /// [handler.c]: https://github.com/strophe/libstrophe/blob/0.10.0/src/handler.c
-/// [xmpp_conn_release]: http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga16967e3375efa5032ed2e08b407d8ae9
+/// [xmpp_conn_release]: https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga16967e3375efa5032ed2e08b407d8ae9
 #[derive(Debug)]
 pub struct Connection<'cb, 'cx> {
 	inner: NonNull<sys::xmpp_conn_t>,
@@ -81,10 +82,11 @@ pub struct Connection<'cb, 'cx> {
 }
 
 impl<'cb, 'cx> Connection<'cb, 'cx> {
-	/// [xmpp_conn_new](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga76c161884c23f69cd1d7fc025122cf21)
+	#[inline]
+	/// [xmpp_conn_new](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga76c161884c23f69cd1d7fc025122cf21)
 	pub fn new(ctx: Context<'cx, 'cb>) -> Self {
 		unsafe {
-			Self::from_inner(sys::xmpp_conn_new(ctx.as_inner()), ctx, Rc::new(RefCell::new(FatHandlers {
+			Self::from_owned(sys::xmpp_conn_new(ctx.as_ptr()), ctx, Rc::new(RefCell::new(FatHandlers {
 				connection: None,
 				timed: Vec::with_capacity(4),
 				stanza: Vec::with_capacity(4),
@@ -97,7 +99,8 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		Connection { inner: NonNull::new(inner).expect("Cannot allocate memory for Connection"), ctx: Some(ctx), owned, fat_handlers: handlers }
 	}
 
-	unsafe fn from_inner(inner: *mut sys::xmpp_conn_t, ctx: Context<'cx, 'cb>, handlers: Rc<RefCell<FatHandlers<'cb, 'cx>>>) -> Self {
+	#[inline]
+	unsafe fn from_owned(inner: *mut sys::xmpp_conn_t, ctx: Context<'cx, 'cb>, handlers: Rc<RefCell<FatHandlers<'cb, 'cx>>>) -> Self {
 		Self::with_inner(
 			inner,
 			ctx,
@@ -106,8 +109,9 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		)
 	}
 
-	unsafe fn from_inner_ref_mut(inner: *mut sys::xmpp_conn_t, handlers: Rc<RefCell<FatHandlers<'cb, 'cx>>>) -> Self {
-		let ctx = Context::from_inner_ref(sys::xmpp_conn_get_context(inner));
+	#[inline]
+	unsafe fn from_ref_mut(inner: *mut sys::xmpp_conn_t, handlers: Rc<RefCell<FatHandlers<'cb, 'cx>>>) -> Self {
+		let ctx = Context::from_ref(sys::xmpp_conn_get_context(inner));
 		Self::with_inner(inner, ctx, false, handlers)
 	}
 
@@ -118,7 +122,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	{
 		let connection_handler = void_ptr_as::<ConnectionFatHandler>(userdata);
 		if let Some(fat_handlers) = connection_handler.fat_handlers.upgrade() {
-			let mut conn = Self::from_inner_ref_mut(conn_ptr, fat_handlers);
+			let mut conn = Self::from_ref_mut(conn_ptr, fat_handlers);
 			let event = match event {
 				sys::xmpp_conn_event_t::XMPP_CONN_RAW_CONNECT => ConnectionEvent::RawConnect,
 				sys::xmpp_conn_event_t::XMPP_CONN_CONNECT => ConnectionEvent::Connect,
@@ -139,7 +143,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	{
 		let timed_handler = void_ptr_as::<TimedFatHandler>(userdata);
 		if let Some(fat_handlers) = timed_handler.fat_handlers.upgrade() {
-			let mut conn = Self::from_inner_ref_mut(conn_ptr, fat_handlers);
+			let mut conn = Self::from_ref_mut(conn_ptr, fat_handlers);
 			ensure_unique!(CB, conn_ptr, userdata, conn.context_detached(), &mut conn);
 			let res = (timed_handler.handler)(conn.context_detached(), &mut conn);
 			if !res {
@@ -157,8 +161,8 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	{
 		let stanza_handler = void_ptr_as::<StanzaFatHandler>(userdata);
 		if let Some(fat_handlers) = stanza_handler.fat_handlers.upgrade() {
-			let mut conn = Self::from_inner_ref_mut(conn_ptr, fat_handlers);
-			let stanza = Stanza::from_inner_ref(stanza);
+			let mut conn = Self::from_ref_mut(conn_ptr, fat_handlers);
+			let stanza = Stanza::from_ref(stanza);
 			ensure_unique!(CB, conn_ptr, userdata, conn.context_detached(), &mut conn, &stanza);
 			let res = (stanza_handler.handler)(conn.context_detached(), &mut conn, &stanza);
 			if !res {
@@ -182,17 +186,14 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	}
 
 	fn get_fat_handler_pos<CB: ?Sized, T>(fat_handlers: &Handlers<FatHandler<'cb, 'cx, CB, T>>, fat_handler_ptr: *const FatHandler<'cb, 'cx, CB, T>) -> Option<usize> {
-		#![allow(clippy::ptr_arg)]
 		fat_handlers.iter().position(|x| fat_handler_ptr == x.as_ref())
 	}
 
 	fn get_fat_handler_pos_by_callback<CB: ?Sized, T>(fat_handlers: &Handlers<FatHandler<'cb, 'cx, CB, T>>, cb_addr: *const ()) -> Option<usize> {
-		#![allow(clippy::ptr_arg)]
 		fat_handlers.iter().position(|x| cb_addr == x.cb_addr)
 	}
 
 	fn validate_fat_handler<'f, CB: ?Sized, T>(fat_handlers: &'f Handlers<FatHandler<'cb, 'cx, CB, T>>, fat_handler_ptr: *const FatHandler<'cb, 'cx, CB, T>) -> Option<&'f FatHandler<'cb, 'cx, CB, T>> {
-		#![allow(clippy::ptr_arg)]
 		Self::get_fat_handler_pos(fat_handlers, fat_handler_ptr).map(|pos| {
 			fat_handlers[pos].as_ref()
 		})
@@ -207,6 +208,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}
 	}
 
+	#[inline]
 	fn make_fat_handler<CB: ?Sized, T>(&self, handler: Box<CB>, cb_addr: *const (), extra: T) -> FatHandler<'cb, 'cx, CB, T> {
 		FatHandler {
 			fat_handlers: Rc::downgrade(&self.fat_handlers),
@@ -216,37 +218,43 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}
 	}
 
+	#[inline]
 	unsafe fn context_detached<'a>(&self) -> &'a Context<'cx, 'cb> {
 		(self.ctx.as_ref().unwrap() as *const Context).as_ref().unwrap()
 	}
 
-	/// [xmpp_conn_get_flags](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gaa9724ae412b01562dc81c31fd178d2f3)
+	#[inline]
+	/// [xmpp_conn_get_flags](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gaa9724ae412b01562dc81c31fd178d2f3)
 	pub fn flags(&self) -> ConnectionFlags {
 		ConnectionFlags::from_bits(unsafe { sys::xmpp_conn_get_flags(self.inner.as_ptr()) }).unwrap()
 	}
 
-	/// [xmpp_conn_set_flags](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga92761a101e721df9b923e9c35f6ad949)
+	#[inline]
+	/// [xmpp_conn_set_flags](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga92761a101e721df9b923e9c35f6ad949)
 	pub fn set_flags(&mut self, flags: ConnectionFlags) -> Result<()> {
 		unsafe {
 			sys::xmpp_conn_set_flags(self.inner.as_mut(), flags.bits())
 		}.into_result()
 	}
 
-	/// [xmpp_conn_get_jid](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga52b5fee898fc6ef06ba1ea7f9a507a39)
+	#[inline]
+	/// [xmpp_conn_get_jid](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga52b5fee898fc6ef06ba1ea7f9a507a39)
 	pub fn jid(&self) -> Option<&str> {
 		unsafe {
 			FFI(sys::xmpp_conn_get_jid(self.inner.as_ptr())).receive()
 		}
 	}
 
-	/// [xmpp_conn_get_bound_jid](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga9bc4f0527c6aa7ac4d5b112be6189889)
+	#[inline]
+	/// [xmpp_conn_get_bound_jid](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga9bc4f0527c6aa7ac4d5b112be6189889)
 	pub fn bound_jid(&self) -> Option<&str> {
 		unsafe {
 			FFI(sys::xmpp_conn_get_bound_jid(self.inner.as_ptr())).receive()
 		}
 	}
 
-	/// [xmpp_conn_set_jid](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga8dff6d97ac458d5f3fc901d688d86084)
+	#[inline]
+	/// [xmpp_conn_set_jid](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga8dff6d97ac458d5f3fc901d688d86084)
 	pub fn set_jid(&mut self, jid: impl AsRef<str>) {
 		let jid = FFI(jid.as_ref()).send();
 		unsafe {
@@ -254,14 +262,16 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}
 	}
 
-	/// [xmpp_conn_get_pass](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gaa5e1ce97c2d8ad50380b92b2ca204dec)
+	#[inline]
+	/// [xmpp_conn_get_pass](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gaa5e1ce97c2d8ad50380b92b2ca204dec)
 	pub fn pass(&self) -> Option<&str> {
 		unsafe {
 			FFI(sys::xmpp_conn_get_pass(self.inner.as_ptr())).receive()
 		}
 	}
 
-	/// [xmpp_conn_set_pass](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gac64373b712d9d8af12e57b753d9b3bfc)
+	#[inline]
+	/// [xmpp_conn_set_pass](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gac64373b712d9d8af12e57b753d9b3bfc)
 	pub fn set_pass(&mut self, pass: impl AsRef<str>) {
 		let pass = FFI(pass.as_ref()).send();
 		unsafe {
@@ -269,21 +279,24 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}
 	}
 
-	/// [xmpp_conn_disable_tls](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga1730868abcec1c6c63f2351bb81a43ac)
+	#[inline]
+	/// [xmpp_conn_disable_tls](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga1730868abcec1c6c63f2351bb81a43ac)
 	pub fn disable_tls(&mut self) {
 		unsafe {
 			sys::xmpp_conn_disable_tls(self.inner.as_mut())
 		}
 	}
 
-	/// [xmpp_conn_is_secured](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga331bfca7c9c9ce3a17c909e770a73b02)
+	#[inline]
+	/// [xmpp_conn_is_secured](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga331bfca7c9c9ce3a17c909e770a73b02)
 	pub fn is_secured(&self) -> bool {
 		unsafe {
 			FFI(sys::xmpp_conn_is_secured(self.inner.as_ptr())).receive_bool()
 		}
 	}
 
-	/// [xmpp_conn_set_keepalive](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga0c75095f31ee66febcf71cad1e60d4f6)
+	#[inline]
+	/// [xmpp_conn_set_keepalive](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga0c75095f31ee66febcf71cad1e60d4f6)
 	pub fn set_keepalive(&mut self, timeout: Duration, interval: Duration) {
 		unsafe {
 			sys::xmpp_conn_set_keepalive(self.inner.as_mut(), timeout.as_secs() as _, interval.as_secs() as _)
@@ -291,7 +304,8 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	}
 
 	#[cfg(feature = "libstrophe-0_10_0")]
-	/// [xmpp_conn_is_connecting](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga5cb50fa16740ce2e76c6a9ba42328cf9)
+	#[inline]
+	/// [xmpp_conn_is_connecting](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga5cb50fa16740ce2e76c6a9ba42328cf9)
 	pub fn is_connecting(&self) -> bool {
 		unsafe {
 			FFI(sys::xmpp_conn_is_connecting(self.inner.as_ptr())).receive_bool()
@@ -299,7 +313,8 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	}
 
 	#[cfg(feature = "libstrophe-0_10_0")]
-	/// [xmpp_conn_is_connected](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga86cd3d3bbd62112c2d6c612eab8cdbb4)
+	#[inline]
+	/// [xmpp_conn_is_connected](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga86cd3d3bbd62112c2d6c612eab8cdbb4)
 	pub fn is_connected(&self) -> bool {
 		unsafe {
 			FFI(sys::xmpp_conn_is_connected(self.inner.as_ptr())).receive_bool()
@@ -307,154 +322,137 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	}
 
 	#[cfg(feature = "libstrophe-0_10_0")]
-	/// [xmpp_conn_is_disconnected](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gabc16f0e9abf60f91c3b6327c6c4d6609)
+	#[inline]
+	/// [xmpp_conn_is_disconnected](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gabc16f0e9abf60f91c3b6327c6c4d6609)
 	pub fn is_disconnected(&self) -> bool {
 		unsafe {
 			FFI(sys::xmpp_conn_is_disconnected(self.inner.as_ptr())).receive_bool()
 		}
 	}
 
-	/// [xmpp_connect_client](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gaf81281d31f398cfac039f32429061c03)
-	///
-	/// Pre-last `error: i32` argument in the handler contains a TLS error code that can be passed
-	/// together with `XMPP_CONN_DISCONNECT` event. The specific meaning if that code depends on the
-	/// underlying TLS implementation:
-	///
-	///   * for `openssl` it's the result of [`SSL_get_error()`]
-	///   * for `schannel` it's the result of [`WSAGetLastError()`]
-	///
-	/// Additionally the following OS dependent error constants can be set for `error`:
-	///
-	///   * `ETIMEDOUT`/`WSAETIMEDOUT`
-	///   * `ECONNRESET`/`WSAECONNRESET`
-	///   * `ECONNABORTED`/`WSAECONNABORTED`
-	///
-	/// [`SSL_get_error()`]: https://www.openssl.org/docs/manmaster/man3/SSL_get_error.html#RETURN-VALUES
-	/// [`WSAGetLastError()`]: https://docs.microsoft.com/en-us/windows/desktop/api/winsock/nf-winsock-wsagetlasterror#return-value
-	pub fn connect_client<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectClientError<'cb, 'cx>>
+	/// [xmpp_connect_client](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gaf81281d31f398cfac039f32429061c03)
+	pub fn connect_client<CB>(mut self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectClientError<'cb, 'cx>>
 		where
 			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
 	{
-		let mut me = self; // hack to not expose mutability via function interface
 		let alt_host = FFI(alt_host).send();
 		let alt_port: Nullable<_> = alt_port.into().into();
-		if me.jid().is_none() {
+		if self.jid().is_none() {
 			return Err(ConnectClientError {
-				conn: me,
+				conn: self,
 				error: Error::InvalidOperation,
 			});
 		}
 		let callback = Self::connection_handler_cb::<CB>;
-		let new_handler = Some(me.make_fat_handler(Box::new(handler) as _, callback as _, ()));
-		let old_handler = mem::replace(&mut me.fat_handlers.borrow_mut().connection, new_handler);
+		let new_handler = Some(self.make_fat_handler(Box::new(handler) as _, callback as _, ()));
+		let old_handler = mem::replace(&mut self.fat_handlers.borrow_mut().connection, new_handler);
 		let out = unsafe {
 			sys::xmpp_connect_client(
-				me.inner.as_mut(),
+				self.inner.as_mut(),
 				alt_host.as_ptr(),
 				alt_port.val(),
 				Some(callback),
-				as_void_ptr(me.fat_handlers.borrow().connection.as_ref().unwrap()),
+				as_void_ptr(self.fat_handlers.borrow().connection.as_ref().unwrap()),
 			)
 		}.into_result();
 		match out {
 			Ok(_) => {
-				let mut out = me.ctx.take().expect("Internal context is empty, it must never happen");
-				out.consume_connection(me);
+				let mut out = self.ctx.take().expect("Internal context is empty, it must never happen");
+				out.consume_connection(self);
 				Ok(out)
 			},
 			Err(e) => {
-				me.fat_handlers.borrow_mut().connection = old_handler;
+				self.fat_handlers.borrow_mut().connection = old_handler;
 				Err(ConnectClientError {
-					conn: me,
+					conn: self,
 					error: e,
 				})
 			}
 		}
 	}
 
-	/// [xmpp_connect_component](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga80c8cd7906a48fc27664fcce8f15ed7d)
+	/// [xmpp_connect_component](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga80c8cd7906a48fc27664fcce8f15ed7d)
 	///
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
-	pub fn connect_component<CB>(self, host: impl AsRef<str>, port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectClientError<'cb, 'cx>>
+	pub fn connect_component<CB>(mut self, host: impl AsRef<str>, port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectClientError<'cb, 'cx>>
 		where
 			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
 	{
-		let mut me = self; // hack to not expose mutability via function interface
 		let host = FFI(host.as_ref()).send();
 		let port: Nullable<_> = port.into().into();
 		let callback = Self::connection_handler_cb::<CB>;
-		let new_handler = Some(me.make_fat_handler(Box::new(handler) as _, callback as _, ()));
-		let old_handler = mem::replace(&mut me.fat_handlers.borrow_mut().connection, new_handler);
+		let new_handler = Some(self.make_fat_handler(Box::new(handler) as _, callback as _, ()));
+		let old_handler = mem::replace(&mut self.fat_handlers.borrow_mut().connection, new_handler);
 		let out = unsafe {
 			sys::xmpp_connect_component(
-				me.inner.as_mut(),
+				self.inner.as_mut(),
 				host.as_ptr(),
 				port.val(),
 				Some(callback),
-				as_void_ptr(&me.fat_handlers.borrow().connection),
+				as_void_ptr(&self.fat_handlers.borrow().connection),
 			)
 		}.into_result();
 		match out {
 			Ok(_) => {
-				let mut out = me.ctx.take().expect("Internal context is empty, it must never happen");
-				out.consume_connection(me);
+				let mut out = self.ctx.take().expect("Internal context is empty, it must never happen");
+				out.consume_connection(self);
 				Ok(out)
 			},
 			Err(e) => {
-				me.fat_handlers.borrow_mut().connection = old_handler;
+				self.fat_handlers.borrow_mut().connection = old_handler;
 				Err(ConnectClientError {
-					conn: me,
+					conn: self,
 					error: e,
 				})
 			}
 		}
 	}
 
-	/// [xmpp_connect_raw](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gae64b7a2ec8e138a1501bb7bf12089776)
+	/// [xmpp_connect_raw](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gae64b7a2ec8e138a1501bb7bf12089776)
 	///
 	/// See also [`connect_client()`](#method.connect_client) for additional info.
-	pub fn connect_raw<CB>(self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectClientError<'cb, 'cx>>
+	pub fn connect_raw<CB>(mut self, alt_host: Option<&str>, alt_port: impl Into<Option<u16>>, handler: CB) -> Result<Context<'cx, 'cb>, ConnectClientError<'cb, 'cx>>
 		where
 			CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
 	{
-		let mut me = self; // hack to not expose mutability via function interface
 		let alt_host = FFI(alt_host).send();
 		let alt_port: Nullable<_> = alt_port.into().into();
-		if me.jid().is_none() {
+		if self.jid().is_none() {
 			return Err(ConnectClientError {
-				conn: me,
+				conn: self,
 				error: Error::InvalidOperation,
 			});
 		}
 		let callback = Self::connection_handler_cb::<CB>;
-		let new_handler = Some(me.make_fat_handler(Box::new(handler) as _, callback as _, ()));
-		let old_handler = mem::replace(&mut me.fat_handlers.borrow_mut().connection, new_handler);
+		let new_handler = Some(self.make_fat_handler(Box::new(handler) as _, callback as _, ()));
+		let old_handler = mem::replace(&mut self.fat_handlers.borrow_mut().connection, new_handler);
 		let out = unsafe {
 			sys::xmpp_connect_raw(
-				me.inner.as_mut(),
+				self.inner.as_mut(),
 				alt_host.as_ptr(),
 				alt_port.val(),
 				Some(callback),
-				as_void_ptr(me.fat_handlers.borrow().connection.as_ref().unwrap()),
+				as_void_ptr(self.fat_handlers.borrow().connection.as_ref().unwrap()),
 			)
 		}.into_result();
 		match out {
 			Ok(_) => {
-				let mut out = me.ctx.take().expect("Internal context is empty, it must never happen");
-				out.consume_connection(me);
+				let mut out = self.ctx.take().expect("Internal context is empty, it must never happen");
+				out.consume_connection(self);
 				Ok(out)
 			},
 			Err(e) => {
-				me.fat_handlers.borrow_mut().connection = old_handler;
+				self.fat_handlers.borrow_mut().connection = old_handler;
 				Err(ConnectClientError {
-					conn: me,
+					conn: self,
 					error: e,
 				})
 			}
 		}
 	}
 
-	/// [xmpp_conn_open_stream_default](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gaac72cb61c7a69499fd1387c1d499c08e)
+	#[inline]
+	/// [xmpp_conn_open_stream_default](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gaac72cb61c7a69499fd1387c1d499c08e)
 	///
 	/// Related to [`connect_raw()`](#method.connect_raw).
 	pub fn open_stream_default(&self) -> Result<()> {
@@ -463,18 +461,18 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}.into_result()
 	}
 
-	/// [xmpp_conn_open_stream](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga85ccb1c2d95caf29dff0c9b70424c53e)
+	/// [xmpp_conn_open_stream](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga85ccb1c2d95caf29dff0c9b70424c53e)
 	///
 	/// Related to [`connect_raw()`](#method.connect_raw).
-	pub fn open_stream(&self, attributes: &collections::HashMap<&str, &str>) -> Result<()> {
+	pub fn open_stream(&self, attributes: &HashMap<&str, &str>) -> Result<()> {
 		let mut storage = Vec::with_capacity(attributes.len() * 2);
-		let mut attrs = Vec::with_capacity(attributes.len() * 2);
 		for attr in attributes {
 			storage.push(FFI(*attr.0).send());
 			storage.push(FFI(*attr.1).send());
-			attrs.push(storage[storage.len() - 2].as_ptr() as _);
-			attrs.push(storage[storage.len() - 1].as_ptr() as _);
 		}
+		let mut attrs = storage.iter()
+			.map(|s| s.as_ptr() as *mut _)
+			.collect::<Vec<_>>();
 		unsafe {
 			sys::xmpp_conn_open_stream(
 				self.inner.as_ptr(),
@@ -484,7 +482,8 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}.into_result()
 	}
 
-	/// [xmpp_conn_tls_start](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga759b1ae6fd1e40335afd8acc26d3858f)
+	#[inline]
+	/// [xmpp_conn_tls_start](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga759b1ae6fd1e40335afd8acc26d3858f)
 	///
 	/// Related to [`connect_raw()`](#method.connect_raw).
 	pub fn tls_start(&self) -> Result<()> {
@@ -493,14 +492,16 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}.into_result()
 	}
 
-	/// [xmpp_disconnect](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga809ee4c8bb95e86ec2119db1052849ce)
+	#[inline]
+	/// [xmpp_disconnect](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga809ee4c8bb95e86ec2119db1052849ce)
 	pub fn disconnect(&mut self) {
 		unsafe {
 			sys::xmpp_disconnect(self.inner.as_mut())
 		}
 	}
 
-	/// [xmpp_send_raw_string](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga606ee8f53d8992941d93ecf27e41595b)
+	#[inline]
+	/// [xmpp_send_raw_string](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga606ee8f53d8992941d93ecf27e41595b)
 	///
 	/// Be aware that this method performs a lot of allocations internally so you might want to use
 	/// [`send_raw()`](#method.send_raw) instead.
@@ -511,7 +512,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}
 	}
 
-	/// [xmpp_send_raw](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gadd1c8707fa269e6d6845d6b856584add)
+	/// [xmpp_send_raw](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gadd1c8707fa269e6d6845d6b856584add)
 	pub fn send_raw(&mut self, data: impl AsRef<[u8]>) {
 		let data = data.as_ref();
 		#[cfg(feature = "log")]
@@ -535,10 +536,11 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		}
 	}
 
-	/// [xmpp_send](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gac064b81b22a3166d5b396b5aa8e40b7d)
-	pub fn send(&mut self, stanza: &Stanza) { unsafe { sys::xmpp_send(self.inner.as_mut(), stanza.as_inner()) } }
+	#[inline]
+	/// [xmpp_send](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#gac064b81b22a3166d5b396b5aa8e40b7d)
+	pub fn send(&mut self, stanza: &Stanza) { unsafe { sys::xmpp_send(self.inner.as_mut(), stanza.as_ptr()) } }
 
-	/// [xmpp_timed_handler_add](http://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#ga0a74b20f2367389e5dc8852b4d3fdcda)
+	/// [xmpp_timed_handler_add](https://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#ga0a74b20f2367389e5dc8852b4d3fdcda)
 	///
 	/// See `handler_add()` for additional information.
 	pub fn timed_handler_add<CB>(&mut self, handler: CB, period: Duration) -> Option<TimedHandlerId<'cb, 'cx, CB>>
@@ -560,7 +562,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		})
 	}
 
-	/// [xmpp_timed_handler_delete](http://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#gae70f02f84a0f232c6a8c2866ecb47b82)
+	/// [xmpp_timed_handler_delete](https://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#gae70f02f84a0f232c6a8c2866ecb47b82)
 	///
 	/// See `handler_delete()` for additional information.
 	pub fn timed_handler_delete<CB>(&mut self, handler_id: TimedHandlerId<CB>)
@@ -582,7 +584,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		self.fat_handlers.borrow_mut().timed.shrink_to_fit();
 	}
 
-	/// [xmpp_id_handler_add](http://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#ga2142d78b7d6e8d278eebfa8a63f194a4)
+	/// [xmpp_id_handler_add](https://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#ga2142d78b7d6e8d278eebfa8a63f194a4)
 	///
 	/// See `handler_add()` for additional information.
 	pub fn id_handler_add<CB>(&mut self, handler: CB, id: impl Into<String>) -> Option<IdHandlerId<'cb, 'cx, CB>>
@@ -610,7 +612,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		})
 	}
 
-	/// [xmpp_id_handler_delete](http://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#ga6bd02f7254b2a53214824d3d5e4f59ce)
+	/// [xmpp_id_handler_delete](https://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#ga6bd02f7254b2a53214824d3d5e4f59ce)
 	///
 	/// See `handler_delete()` for additional information.
 	pub fn id_handler_delete<CB>(&mut self, handler_id: IdHandlerId<CB>)
@@ -640,7 +642,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		self.fat_handlers.borrow_mut().stanza.shrink_to_fit();
 	}
 
-	/// [xmpp_handler_add](http://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#gad307e5a22d16ef3d6fa18d503b68944f)
+	/// [xmpp_handler_add](https://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#gad307e5a22d16ef3d6fa18d503b68944f)
 	///
 	/// This function returns `HandlerId` which is later can be used to remove the handler using `handler_delete()`.
 	pub fn handler_add<CB>(&mut self, handler: CB, ns: Option<&str>, name: Option<&str>, typ: Option<&str>) -> Option<HandlerId<'cb, 'cx, CB>>
@@ -667,7 +669,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		})
 	}
 
-	/// [xmpp_handler_delete](http://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#ga881756ae98f74748212bcbc61e6a4c89)
+	/// [xmpp_handler_delete](https://strophe.im/libstrophe/doc/0.10.0/group___handlers.html#ga881756ae98f74748212bcbc61e6a4c89)
 	///
 	/// This version of this function accepts `HandlerId` returned from `add_handler()` function instead of function reference as the underlying
 	/// library does. If you can't keep track of those handles, but still want ability to remove handlers, check `handlers_clear()` function.
@@ -696,7 +698,8 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		self.fat_handlers.borrow_mut().stanza.shrink_to_fit();
 	}
 
-	pub fn timed_handlers_same<L, R>(_left: L, _right: R) -> bool
+	#[allow(dead_code)]
+	pub(crate) fn timed_handlers_same<L, R>(_left: L, _right: R) -> bool
 		where
 			L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + Send + 'cb,
 			R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + Send + 'cb,
@@ -704,7 +707,8 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		ptr::eq(Self::timed_handler_cb::<L> as *const (), Self::timed_handler_cb::<R> as *const ())
 	}
 
-	pub fn stanza_handlers_same<L, R>(_left: L, _right: R) -> bool
+	#[allow(dead_code)]
+	pub(crate) fn stanza_handlers_same<L, R>(_left: L, _right: R) -> bool
 		where
 			L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb,
 			R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb,
@@ -712,7 +716,8 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		ptr::eq(Self::handler_cb::<L> as *const (), Self::handler_cb::<R> as *const ())
 	}
 
-	pub fn connection_handlers_same<L, R>(_left: L, _right: R) -> bool
+	#[allow(dead_code)]
+	pub(crate) fn connection_handlers_same<L, R>(_left: L, _right: R) -> bool
 		where
 			L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
 			R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb,
@@ -730,7 +735,7 @@ impl PartialEq for Connection<'_, '_> {
 impl Eq for Connection<'_, '_> {}
 
 impl Drop for Connection<'_, '_> {
-	/// [xmpp_conn_release](http://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga16967e3375efa5032ed2e08b407d8ae9)
+	/// [xmpp_conn_release](https://strophe.im/libstrophe/doc/0.10.0/group___connections.html#ga16967e3375efa5032ed2e08b407d8ae9)
 	fn drop(&mut self) {
 		if self.owned {
 			unsafe {
@@ -740,7 +745,6 @@ impl Drop for Connection<'_, '_> {
 	}
 }
 
-#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for Connection<'_, '_> {}
 
 pub struct HandlerId<'cb, 'cx, CB>(*const FatHandler<'cb, 'cx, CB, ()>);

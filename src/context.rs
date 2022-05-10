@@ -26,11 +26,11 @@ use crate::{
 ///   * `Eq` by comparing internal pointers
 ///   * `Send`
 ///
-/// [context]: http://strophe.im/libstrophe/doc/0.10.0/group___context.html
-/// [event loop]: http://strophe.im/libstrophe/doc/0.10.0/group___event_loop.html
+/// [context]: https://strophe.im/libstrophe/doc/0.10.0/group___context.html
+/// [event loop]: https://strophe.im/libstrophe/doc/0.10.0/group___event_loop.html
 /// [ctx.c]: https://github.com/strophe/libstrophe/blob/0.10.0/src/ctx.c
 /// [event.c]: https://github.com/strophe/libstrophe/blob/0.10.0/src/event.c
-/// [xmpp_ctx_free]: http://strophe.im/libstrophe/doc/0.10.0/group___context.html#ga3ae5f04bc23ab2e7b55760759e21d623
+/// [xmpp_ctx_free]: https://strophe.im/libstrophe/doc/0.10.0/group___context.html#ga3ae5f04bc23ab2e7b55760759e21d623
 #[derive(Debug)]
 pub struct Context<'lg, 'cn> {
 	inner: NonNull<sys::xmpp_ctx_t>,
@@ -41,13 +41,13 @@ pub struct Context<'lg, 'cn> {
 }
 
 impl<'lg, 'cn> Context<'lg, 'cn> {
-	/// [xmpp_ctx_new](http://strophe.im/libstrophe/doc/0.10.0/group___context.html#gaeb32490f33760a7ffc0f86a0565b43b2)
+	/// [xmpp_ctx_new](https://strophe.im/libstrophe/doc/0.10.0/group___context.html#gaeb32490f33760a7ffc0f86a0565b43b2)
 	pub fn new(logger: Logger<'lg>) -> Self {
 		crate::init();
 		let memory = Box::new(AllocContext::get_xmpp_mem_t());
 		unsafe {
 			Self::with_inner(
-				sys::xmpp_ctx_new(memory.as_ref(), logger.as_inner()),
+				sys::xmpp_ctx_new(memory.as_ref(), logger.as_ptr()),
 				true,
 				Some(memory),
 				Some(logger),
@@ -90,20 +90,20 @@ impl<'lg, 'cn> Context<'lg, 'cn> {
 	/// # Safety
 	/// inner must be a valid pointer to a previously allocated xmp_ctx_t and you must make sure that
 	/// Self doesn't outlive the context behind that pointer
-	pub unsafe fn from_inner_ref(inner: *const sys::xmpp_ctx_t) -> Self {
-		Self::from_inner_ref_mut(inner as _)
+	pub unsafe fn from_ref(inner: *const sys::xmpp_ctx_t) -> Self {
+		Self::from_ref_mut(inner as _)
 	}
 
 	/// # Safety
 	/// inner must be a valid pointer to a previously allocated mutable xmp_ctx_t and you must make
 	/// sure that Self doesn't outlive the context behind that pointer
-	pub unsafe fn from_inner_ref_mut(inner: *mut sys::xmpp_ctx_t) -> Self {
+	pub unsafe fn from_ref_mut(inner: *mut sys::xmpp_ctx_t) -> Self {
 		Self::with_inner(inner, false, None, None)
 	}
 
-	pub fn as_inner(&self) -> *mut sys::xmpp_ctx_t { self.inner.as_ptr() }
+	pub(crate) fn as_ptr(&self) -> *mut sys::xmpp_ctx_t { self.inner.as_ptr() }
 
-	/// [xmpp_set_timeout](http://strophe.im/libstrophe/doc/0.10.0/group___context.html#gab03acfbb7c9aa92f60fedb8f6ca43114)
+	/// [xmpp_set_timeout](https://strophe.im/libstrophe/doc/0.10.0/group___context.html#gab03acfbb7c9aa92f60fedb8f6ca43114)
 	///
 	/// Default timeout is 1000ms
 	pub fn set_timeout(&mut self, timeout: Duration) {
@@ -114,21 +114,21 @@ impl<'lg, 'cn> Context<'lg, 'cn> {
 
 	// todo: add global_timed_handler support
 
-	/// [xmpp_run_once](http://strophe.im/libstrophe/doc/0.10.0/group___event_loop.html#ga02816aa5ce34d97fe5bbde5f9c6956ce)
+	/// [xmpp_run_once](https://strophe.im/libstrophe/doc/0.10.0/group___event_loop.html#ga02816aa5ce34d97fe5bbde5f9c6956ce)
 	pub fn run_once(&self, timeout: Duration) {
 		unsafe {
 			sys::xmpp_run_once(self.inner.as_ptr(), timeout.as_millis() as raw::c_ulong)
 		}
 	}
 
-	/// [xmpp_run](http://strophe.im/libstrophe/doc/0.10.0/group___event_loop.html#ga14ca97546803cf27c772fa8d2eabfffd)
+	/// [xmpp_run](https://strophe.im/libstrophe/doc/0.10.0/group___event_loop.html#ga14ca97546803cf27c772fa8d2eabfffd)
 	pub fn run(&self) {
 		unsafe {
 			sys::xmpp_run(self.inner.as_ptr())
 		}
 	}
 
-	/// [xmpp_stop](http://strophe.im/libstrophe/doc/0.10.0/group___event_loop.html#ga44689e9b7782cec520ed60196e8c15c2)
+	/// [xmpp_stop](https://strophe.im/libstrophe/doc/0.10.0/group___event_loop.html#ga44689e9b7782cec520ed60196e8c15c2)
 	pub fn stop(&self) {
 		unsafe {
 			sys::xmpp_stop(self.inner.as_ptr())
@@ -149,7 +149,7 @@ impl PartialEq for Context<'_, '_> {
 impl Eq for Context<'_, '_> {}
 
 impl Drop for Context<'_, '_> {
-	/// [xmpp_ctx_free](http://strophe.im/libstrophe/doc/0.10.0/group___context.html#ga3ae5f04bc23ab2e7b55760759e21d623)
+	/// [xmpp_ctx_free](https://strophe.im/libstrophe/doc/0.10.0/group___context.html#ga3ae5f04bc23ab2e7b55760759e21d623)
 	fn drop(&mut self) {
 		if self.owned {
 			self.connections.clear();

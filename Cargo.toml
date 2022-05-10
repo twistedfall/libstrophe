@@ -12,17 +12,17 @@ readme = "README.md"
 repository = "https://github.com/twistedfall/libstrophe"
 
 [dependencies]
-bitflags = "1.0"
+bitflags = "1"
 log = { version = "0.4", optional = true }
 num-traits = "0.2"
-once_cell = "1.0"
-scopeguard = "1.0"
+once_cell = "1"
+scopeguard = "1"
 sys = { package = "libstrophe-sys-bindgen", version = "4.3" }
 
 [dev-dependencies]
 env_logger = "0.9"
 matches = "0.1"
-trybuild = "1.0"
+trybuild = "1"
 
 [features]
 default = ["rust-log", "libstrophe-0_10_0"]

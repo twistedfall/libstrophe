@@ -1,7 +1,7 @@
 use std::{
 	error::Error as StdError,
 	fmt,
-	os::raw::c_int,
+	os::raw::{c_char, c_int},
 	result::Result as StdResult,
 	str::Utf8Error,
 	sync::Mutex,
@@ -138,8 +138,8 @@ impl<'t> From<&'t sys::xmpp_stream_error_t> for StreamError<'t, 't> {
 	fn from(inner: &'t sys::xmpp_stream_error_t) -> Self {
 		StreamError {
 			typ: inner.type_,
-			text: unsafe { FFI(inner.text as _).receive() },
-			stanza: unsafe { Stanza::from_inner_ref_mut(inner.stanza) },
+			text: unsafe { FFI(inner.text as *const c_char).receive() },
+			stanza: unsafe { Stanza::from_ref_mut(inner.stanza) },
 		}
 	}
 }
