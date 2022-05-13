@@ -122,21 +122,6 @@ use ffi_types::FFI;
 pub use logger::Logger;
 pub use stanza::{Stanza, StanzaMutRef, StanzaRef};
 
-/// In the release mode Rust/LLVM tries to meld functions that have identical bodies together,
-/// but the crate code requires that monomorphized callback functions passed to C remain unique.
-/// Those are `connection_handler_cb`, `timed_handler_cb`, `handler_cb`. They are not making
-/// any use of the type argument in their bodies thus there will be only one function address for
-/// each callback function and libstrophe rejects callback with the same address. This macro
-/// imitates the use of the typed argument so that the code is actually different and those
-/// functions are not melded together.
-macro_rules! ensure_unique {
-	($typ: ty, $conn_ptr: ident, $userdata: ident, $($args: expr),*) => {
-		if $conn_ptr as *mut ::core::ffi::c_void == $userdata {
-			$crate::void_ptr_as::<$typ>($userdata)($($args),*);
-		}
-	};
-}
-
 mod alloc_context;
 mod ffi_types;
 mod connection;

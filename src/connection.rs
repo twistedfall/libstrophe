@@ -5,11 +5,13 @@ use std::{
 	mem,
 	os::raw,
 	ptr::{self, NonNull},
-	rc::{Rc, Weak},
+	rc::Rc,
 	result,
 	str,
 	time::Duration,
 };
+
+use internals::*;
 
 use crate::{
 	ALLOC_CONTEXT,
@@ -28,32 +30,8 @@ use crate::{
 	void_ptr_as,
 };
 
-type ConnectionCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb;
-type ConnectionFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, ConnectionCallback<'cb, 'cx>, ()>;
-
-type Handlers<H> = Vec<Box<H>>;
-
-type TimedCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> bool + Send + 'cb;
-type TimedFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, TimedCallback<'cb, 'cx>, ()>;
-
-type StanzaCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> bool + Send + 'cb;
-type StanzaFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, StanzaCallback<'cb, 'cx>, Option<String>>;
-
-struct FatHandlers<'cb, 'cx> {
-	connection: Option<ConnectionFatHandler<'cb, 'cx>>,
-	timed: Handlers<TimedFatHandler<'cb, 'cx>>,
-	stanza: Handlers<StanzaFatHandler<'cb, 'cx>>,
-}
-
-impl fmt::Debug for FatHandlers<'_, '_> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		let mut s = f.debug_struct("FatHandlers");
-		s.field("connection", &if self.connection.is_some() { "set" } else { "unset" });
-		s.field("timed", &format!("{} handlers", self.timed.len()));
-		s.field("stanza", &format!("{} handlers", self.stanza.len()));
-		s.finish()
-	}
-}
+#[macro_use]
+mod internals;
 
 /// Proxy to the underlying `xmpp_conn_t` struct.
 ///
@@ -769,13 +747,6 @@ impl<CB> fmt::Debug for IdHandlerId<'_, '_, CB> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
 		write!(f, "{:?}", self.0)
 	}
-}
-
-pub struct FatHandler<'cb, 'cx, CB: ?Sized, T> {
-	fat_handlers: Weak<RefCell<FatHandlers<'cb, 'cx>>>,
-	handler: Box<CB>,
-	cb_addr: *const (),
-	extra: T,
 }
 
 #[derive(Debug)]
