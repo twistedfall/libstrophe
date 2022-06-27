@@ -3,7 +3,11 @@ mod libstrophe {
 	pub use crate::*;
 }
 
-fn version_handler(_ctx: &libstrophe::Context, conn: &mut libstrophe::Connection, stanza: &libstrophe::Stanza) -> bool {
+fn version_handler(
+	_ctx: &libstrophe::Context,
+	conn: &mut libstrophe::Connection,
+	stanza: &libstrophe::Stanza,
+) -> libstrophe::StanzaResult {
 	eprintln!("Received version request from {}", stanza.from().expect("Empty from"));
 
 	let mut reply = stanza.reply();
@@ -36,23 +40,31 @@ fn version_handler(_ctx: &libstrophe::Context, conn: &mut libstrophe::Connection
 	reply.add_child(query).expect("Cannot add child");
 
 	conn.send(&reply);
-	true
+	libstrophe::StanzaResult::Keep
 }
 
-fn message_handler(_ctx: &libstrophe::Context, conn: &mut libstrophe::Connection, stanza: &libstrophe::Stanza) -> bool {
+fn message_handler(
+	_ctx: &libstrophe::Context,
+	conn: &mut libstrophe::Connection,
+	stanza: &libstrophe::Stanza,
+) -> libstrophe::StanzaResult {
 	let body = match stanza.get_child_by_name("body") {
 		Some(body) => body,
-		None => return true,
+		None => return libstrophe::StanzaResult::Keep,
 	};
 
 	match stanza.stanza_type() {
-		Some("error") | None => return true,
+		Some("error") | None => return libstrophe::StanzaResult::Keep,
 		_ => (),
 	}
 
 	let intext = body.text().expect("Cannot get body");
 
-	eprintln!("Incoming message from {}: {}", stanza.from().expect("Cannot get from"), intext);
+	eprintln!(
+		"Incoming message from {}: {}",
+		stanza.from().expect("Cannot get from"),
+		intext
+	);
 
 	let mut reply = stanza.reply();
 	if reply.stanza_type().is_none() {
@@ -72,10 +84,10 @@ fn message_handler(_ctx: &libstrophe::Context, conn: &mut libstrophe::Connection
 		conn.disconnect();
 	}
 
-	true
+	libstrophe::StanzaResult::Keep
 }
 
-/// Port of the [bot.c](https://github.com/strophe/libstrophe/blob/0.11.0/examples/bot.c) code
+/// Port of the [bot.c](https://github.com/strophe/libstrophe/blob/0.12.2/examples/bot.c) code
 #[allow(dead_code)]
 pub fn main() {
 	env_logger::init();
@@ -100,7 +112,9 @@ pub fn main() {
 	let mut conn = libstrophe::Connection::new(libstrophe::Context::new_with_default_logger());
 	conn.set_jid(jid);
 	conn.set_pass(pass);
-	let ctx = conn.connect_client(None, None, conn_handler).expect("Cannot connect to XMPP server");
+	let ctx = conn
+		.connect_client(None, None, conn_handler)
+		.expect("Cannot connect to XMPP server");
 	ctx.run();
 	libstrophe::shutdown();
 }

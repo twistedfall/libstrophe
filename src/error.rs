@@ -1,18 +1,11 @@
-use std::{
-	error::Error as StdError,
-	fmt,
-	os::raw::{c_char, c_int},
-	result::Result as StdResult,
-	str::Utf8Error,
-	sync::Mutex,
-};
+use std::error::Error as StdError;
+use std::ffi::{c_char, c_int};
+use std::fmt;
+use std::result::Result as StdResult;
+use std::str::Utf8Error;
+use std::sync::Mutex;
 
-use crate::{
-	Connection,
-	FFI,
-	Stanza,
-	StanzaMutRef,
-};
+use crate::{Connection, Stanza, StanzaMutRef, FFI};
 
 #[derive(Copy, Eq, PartialEq, Clone, Debug)]
 pub enum Error {
@@ -293,7 +286,6 @@ impl fmt::Display for OwnedConnectionError {
 		}
 	}
 }
-
 
 impl StdError for OwnedConnectionError {
 	fn source(&self) -> Option<&(dyn StdError + 'static)> {

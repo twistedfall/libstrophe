@@ -1,22 +1,12 @@
-use std::{
-	fmt,
-	hash::{
-		Hash,
-		Hasher,
-	},
-	os::raw,
-	ptr::NonNull,
-};
+use std::ffi::{c_char, c_void};
+use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::ptr::NonNull;
 
 #[cfg(feature = "log")]
 use log::{debug, error, info, warn};
 
-use crate::{
-	as_void_ptr,
-	FFI,
-	LogLevel,
-	void_ptr_as
-};
+use crate::{as_void_ptr, void_ptr_as, LogLevel, FFI};
 
 type LogHandler<'cb> = dyn Fn(LogLevel, &str, &str) + Send + 'cb;
 
@@ -45,22 +35,30 @@ impl<'cb> Logger<'cb> {
 	///
 	/// The callback argument will be called every time a log message needs to be printed.
 	pub fn new<CB>(handler: CB) -> Self
-		where
-			CB: Fn(LogLevel, &str, &str) + Send + 'cb,
+	where
+		CB: Fn(LogLevel, &str, &str) + Send + 'cb,
 	{
 		let handler = Box::new(handler);
-		Logger::with_inner(Box::into_raw(Box::new(sys::xmpp_log_t {
-			handler: Some(Self::log_handler_cb::<CB>),
-			userdata: as_void_ptr(&*handler),
-		})), handler, true)
+		Logger::with_inner(
+			Box::into_raw(Box::new(sys::xmpp_log_t {
+				handler: Some(Self::log_handler_cb::<CB>),
+				userdata: as_void_ptr(&*handler),
+			})),
+			handler,
+			true,
+		)
 	}
 
 	#[inline]
 	fn with_inner(inner: *mut sys::xmpp_log_t, handler: Box<LogHandler<'cb>>, owned: bool) -> Self {
-		Logger { inner: NonNull::new(inner).expect("Cannot allocate memory for Logger"), owned, handler }
+		Logger {
+			inner: NonNull::new(inner).expect("Cannot allocate memory for Logger"),
+			owned,
+			handler,
+		}
 	}
 
-	/// [xmpp_get_default_logger](https://strophe.im/libstrophe/doc/0.11.0/group___context.html#ga40caddfbd7d786f8ef1390866880edb9)
+	/// [xmpp_get_default_logger](https://strophe.im/libstrophe/doc/0.12.2/group___context.html#ga40caddfbd7d786f8ef1390866880edb9)
 	///
 	/// This method returns default `libstrophe` logger that just outputs log lines to stderr. Use it
 	/// if you compile without `rust-log` feature and want a quick debug log output.
@@ -77,9 +75,13 @@ impl<'cb> Logger<'cb> {
 		Logger::new(|_, _, _| {})
 	}
 
-	unsafe extern "C" fn log_handler_cb<CB>(userdata: *mut raw::c_void, level: sys::xmpp_log_level_t, area: *const raw::c_char, msg: *const raw::c_char)
-		where
-			CB: FnMut(LogLevel, &str, &str) + Send + 'cb,
+	unsafe extern "C" fn log_handler_cb<CB>(
+		userdata: *mut c_void,
+		level: sys::xmpp_log_level_t,
+		area: *const c_char,
+		msg: *const c_char,
+	) where
+		CB: FnMut(LogLevel, &str, &str) + Send + 'cb,
 	{
 		let area = FFI(area).receive().unwrap();
 		let msg = FFI(msg).receive().unwrap();
@@ -104,13 +106,11 @@ impl Default for Logger<'static> {
 	/// [`log`]: https://crates.io/crates/log
 	#[cfg(feature = "log")]
 	fn default() -> Self {
-		Logger::new(|log_level, area, message| {
-			match log_level {
-				LogLevel::XMPP_LEVEL_DEBUG => debug!("{}: {}", area, message),
-				LogLevel::XMPP_LEVEL_INFO => info!("{}: {}", area, message),
-				LogLevel::XMPP_LEVEL_WARN => warn!("{}: {}", area, message),
-				LogLevel::XMPP_LEVEL_ERROR => error!("{}: {}", area, message),
-			}
+		Logger::new(|log_level, area, message| match log_level {
+			LogLevel::XMPP_LEVEL_DEBUG => debug!("{}: {}", area, message),
+			LogLevel::XMPP_LEVEL_INFO => info!("{}: {}", area, message),
+			LogLevel::XMPP_LEVEL_WARN => warn!("{}: {}", area, message),
+			LogLevel::XMPP_LEVEL_ERROR => error!("{}: {}", area, message),
 		})
 	}
 
@@ -163,17 +163,21 @@ unsafe impl Send for Logger<'_> {}
 #[test]
 fn callbacks() {
 	fn logger_eq<L, R>(_left: L, _right: R) -> bool
-		where
-			L: FnMut(LogLevel, &str, &str) + Send,
-			R: FnMut(LogLevel, &str, &str) + Send,
+	where
+		L: FnMut(LogLevel, &str, &str) + Send,
+		R: FnMut(LogLevel, &str, &str) + Send,
 	{
 		let ptr_left = Logger::log_handler_cb::<L> as *const ();
 		let ptr_right = Logger::log_handler_cb::<R> as *const ();
 		ptr_left == ptr_right
 	}
 
-	let a = |_: LogLevel, _: &str, _: &str| { println!("1"); };
-	let b = |_: LogLevel, _: &str, _: &str| { println!("2"); };
+	let a = |_: LogLevel, _: &str, _: &str| {
+		println!("1");
+	};
+	let b = |_: LogLevel, _: &str, _: &str| {
+		println!("2");
+	};
 
 	assert!(logger_eq(a, a));
 	assert!(!logger_eq(a, b));

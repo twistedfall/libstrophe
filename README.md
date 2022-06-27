@@ -116,7 +116,7 @@ The following features are provided:
 
 [libstrophe]: https://strophe.im/libstrophe/
 [`log`]: https://crates.io/crates/log
-[docs]: https://strophe.im/libstrophe/doc/0.11.0/
+[docs]: https://strophe.im/libstrophe/doc/0.12.2/
 [libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.11.0/examples
 [`Context`]: https://docs.rs/libstrophe/*/libstrophe/struct.Context.html
 [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html

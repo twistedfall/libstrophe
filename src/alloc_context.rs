@@ -1,9 +1,7 @@
-use std::{
-	alloc,
-	mem::{align_of, size_of},
-	os::raw::c_void,
-	ptr::{self, NonNull},
-};
+use std::ffi::c_void;
+use std::mem::{align_of, size_of};
+use std::ptr::NonNull;
+use std::{alloc, ptr};
 
 /// Internal `Context` that only specifies allocation functions and uses null logger. Needed to not pass
 /// `Context` to e.g. `Stanza` because it uses only allocation functions from `Context`.
@@ -33,11 +31,17 @@ impl AllocContext {
 	#[inline(always)]
 	unsafe fn read_real_alloc(p: *mut c_void) -> (*mut u8, alloc::Layout) {
 		if p.is_null() {
-			(p as _, alloc::Layout::from_size_align(0, align_of::<AllocUnit>()).expect("Cannot create layout"))
+			(
+				p as _,
+				alloc::Layout::from_size_align(0, align_of::<AllocUnit>()).expect("Cannot create layout"),
+			)
 		} else {
 			let memory = (p as *mut AllocUnit).sub(1);
 			let size = memory.read();
-			(memory as _, alloc::Layout::from_size_align(size, align_of::<AllocUnit>()).expect("Cannot create layout"))
+			(
+				memory as _,
+				alloc::Layout::from_size_align(size, align_of::<AllocUnit>()).expect("Cannot create layout"),
+			)
 		}
 	}
 
@@ -74,9 +78,11 @@ impl AllocContext {
 		}
 	}
 
-	pub(crate) fn as_ptr(&self) -> *mut sys::xmpp_ctx_t { self.inner.as_ptr() }
+	pub(crate) fn as_ptr(&self) -> *mut sys::xmpp_ctx_t {
+		self.inner.as_ptr()
+	}
 
-	/// [xmpp_free](https://strophe.im/libstrophe/doc/0.11.0/ctx_8c.html#acc734a5f5f115629c9e7775a4d3796e2)
+	/// [xmpp_free](https://strophe.im/libstrophe/doc/0.12.2/ctx_8c.html#acc734a5f5f115629c9e7775a4d3796e2)
 	///
 	/// # Safety
 	/// p must be non-null and allocated by the libstrophe library (xmpp_alloc function)
@@ -89,7 +95,8 @@ impl Default for AllocContext {
 	fn default() -> Self {
 		let memory = Box::new(Self::get_xmpp_mem_t());
 		Self {
-			inner: NonNull::new(unsafe { sys::xmpp_ctx_new(memory.as_ref(), ptr::null()) }).expect("Cannot allocate memory for Context"),
+			inner: NonNull::new(unsafe { sys::xmpp_ctx_new(memory.as_ref(), ptr::null()) })
+				.expect("Cannot allocate memory for Context"),
 			_memory: memory,
 		}
 	}
@@ -116,13 +123,17 @@ mod alloc_test {
 			assert_eq!(realloc_mem2, realloc_mem);
 			let realloc_mem3 = unsafe { AllocContext::custom_realloc(realloc_mem2, 10, null_mut()) };
 			assert_eq!(realloc_mem3, realloc_mem2);
-			unsafe { AllocContext::custom_free(realloc_mem3, null_mut()); }
+			unsafe {
+				AllocContext::custom_free(realloc_mem3, null_mut());
+			}
 		}
 
 		{
 			let alloc_mem = unsafe { AllocContext::custom_realloc(null_mut(), 10, null_mut()) }; // equal to alloc
 			assert!(!alloc_mem.is_null());
-			unsafe { AllocContext::custom_free(alloc_mem, null_mut()); }
+			unsafe {
+				AllocContext::custom_free(alloc_mem, null_mut());
+			}
 		}
 
 		{

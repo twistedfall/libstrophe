@@ -9,29 +9,23 @@ on:
     branches:
       - "*"
 jobs:
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        rust:
-          - stable
-          - beta
+  ci:
     runs-on: ubuntu-20.04
     env:
-      PKG_VERSION: 0.11.0
+      PKG_VERSION: 0.12.2
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install dependencies
         run: ci/install.sh
         shell: bash
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          default: true
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Test project
+      - name: Clippy
+        run: ci/clippy.sh
+        shell: bash
+
+      - name: Test
         run: ci/script.sh
         shell: bash

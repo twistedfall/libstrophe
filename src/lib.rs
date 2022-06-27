@@ -97,72 +97,81 @@
 //!   * `libstrophe-0_9_3` - enabled by default, enables functionality specific to libstrophe-0.9.3
 //!   * `libstrophe-0_10_0` - enabled by default, enables functionality specific to libstrophe-0.10.0
 //!   * `libstrophe-0_11_0` - enabled by default, enables functionality specific to libstrophe-0.11.0
+//!   * `libstrophe-0_12_0` - enabled by default, enables functionality specific to libstrophe-0.12.0
 //!
 //! [libstrophe]: https://strophe.im/libstrophe/
 //! [`log`]: https://crates.io/crates/log
-//! [docs]: https://strophe.im/libstrophe/doc/0.11.0/
-//! [libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.11.0/examples
+//! [docs]: https://strophe.im/libstrophe/doc/0.12.2/
+//! [libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.12.2/examples
 //! [`Context`]: https://docs.rs/libstrophe/*/libstrophe/struct.Context.html
 //! [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
 //! [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
 
-use std::{
-	os::raw,
-	sync::Once,
-};
+use std::ffi::{c_long, c_void};
+use std::sync::Once;
 
 use bitflags::bitflags;
 use once_cell::sync::Lazy;
 
 pub use alloc_context::AllocContext;
-pub use connection::{Connection, ConnectionEvent, HandlerId, IdHandlerId, TimedHandlerId};
 #[cfg(feature = "libstrophe-0_11_0")]
 pub use connection::CertFailResult;
+#[cfg(feature = "libstrophe-0_12_0")]
+pub use connection::SockoptResult;
+pub use connection::{Connection, ConnectionEvent, HandlerId, IdHandlerId, StanzaResult, TimedHandlerId};
 pub use context::Context;
-pub use error::{ConnectClientError, ConnectionError, Error, OwnedConnectionError, OwnedStreamError, Result, StreamError, ToTextError};
+pub use error::{
+	ConnectClientError, ConnectionError, Error, OwnedConnectionError, OwnedStreamError, Result, StreamError, ToTextError,
+};
 use ffi_types::FFI;
 pub use logger::Logger;
-pub use stanza::{Stanza, StanzaMutRef, StanzaRef};
+#[cfg(feature = "libstrophe-0_12_0")]
+pub use sm_state::SMState;
+pub use stanza::{Stanza, StanzaMutRef, StanzaRef, XMPP_STANZA_NAME_IN_NS};
+#[cfg(feature = "libstrophe-0_12_0")]
+pub use sys::xmpp_queue_element_t as QueueElement;
 pub use sys::{xmpp_cert_element_t as CertElement, xmpp_log_level_t as LogLevel};
 #[cfg(feature = "libstrophe-0_11_0")]
 pub use tls_cert::TlsCert;
 
 mod alloc_context;
-mod ffi_types;
-#[cfg(feature = "libstrophe-0_11_0")]
-mod tls_cert;
 mod connection;
 mod context;
-pub mod jid;
 mod error;
+mod ffi_types;
+pub mod jid;
 mod logger;
+#[cfg(feature = "libstrophe-0_12_0")]
+mod sm_state;
 mod stanza;
+#[cfg(feature = "libstrophe-0_11_0")]
+mod tls_cert;
 
-#[cfg(test)]
-mod tests;
 #[cfg(test)]
 mod examples;
+#[cfg(test)]
+mod tests;
 
 bitflags! {
-	pub struct ConnectionFlags: raw::c_long {
-		const DISABLE_TLS = sys::XMPP_CONN_FLAG_DISABLE_TLS as raw::c_long;
-		const MANDATORY_TLS = sys::XMPP_CONN_FLAG_MANDATORY_TLS as raw::c_long;
-		const LEGACY_SSL = sys::XMPP_CONN_FLAG_LEGACY_SSL as raw::c_long;
-		const TRUST_TLS = sys::XMPP_CONN_FLAG_TRUST_TLS as raw::c_long;
+	pub struct ConnectionFlags: c_long {
+		const DISABLE_TLS = sys::XMPP_CONN_FLAG_DISABLE_TLS as c_long;
+		const MANDATORY_TLS = sys::XMPP_CONN_FLAG_MANDATORY_TLS as c_long;
+		const LEGACY_SSL = sys::XMPP_CONN_FLAG_LEGACY_SSL as c_long;
+		const TRUST_TLS = sys::XMPP_CONN_FLAG_TRUST_TLS as c_long;
 		#[cfg(feature = "libstrophe-0_9_3")]
-		const LEGACY_AUTH = sys::XMPP_CONN_FLAG_LEGACY_AUTH as raw::c_long;
+		const LEGACY_AUTH = sys::XMPP_CONN_FLAG_LEGACY_AUTH as c_long;
 	}
 }
 
 static ALLOC_CONTEXT: Lazy<AllocContext> = Lazy::new(AllocContext::default);
 
 /// Convert type to *void for passing as `userdata`
-fn as_void_ptr<T>(cb: &T) -> *mut raw::c_void {
+fn as_void_ptr<T>(cb: &T) -> *mut c_void {
 	cb as *const _ as _
 }
 
 /// Convert *void from `userdata` to appropriate type
-unsafe fn void_ptr_as<'cb, T>(ptr: *const raw::c_void) -> &'cb mut T {
+unsafe fn void_ptr_as<'cb, T>(ptr: *const c_void) -> &'cb mut T {
 	(ptr as *mut T).as_mut().expect("userdata must be non-null")
 }
 
@@ -171,30 +180,22 @@ unsafe fn void_ptr_as<'cb, T>(ptr: *const raw::c_void) -> &'cb mut T {
 /// Must be called from every possible crate usage entry point.
 fn init() {
 	static INIT: Once = Once::new();
-	INIT.call_once(|| {
-		unsafe {
-			sys::xmpp_initialize();
-		}
+	INIT.call_once(|| unsafe {
+		sys::xmpp_initialize();
 	});
 }
 
 fn deinit() {
 	static DEINIT: Once = Once::new();
-	DEINIT.call_once(|| {
-		unsafe {
-			sys::xmpp_shutdown()
-		}
-	});
+	DEINIT.call_once(|| unsafe { sys::xmpp_shutdown() });
 }
 
-/// [xmpp_version_check](https://strophe.im/libstrophe/doc/0.11.0/group___init.html#ga6cc7afca422acce51e0e7f52424f1db3)
+/// [xmpp_version_check](https://strophe.im/libstrophe/doc/0.12.2/group___init.html#ga6cc7afca422acce51e0e7f52424f1db3)
 pub fn version_check(major: i32, minor: i32) -> bool {
-	unsafe {
-		FFI(sys::xmpp_version_check(major, minor)).receive_bool()
-	}
+	unsafe { FFI(sys::xmpp_version_check(major, minor)).receive_bool() }
 }
 
-/// [xmpp_shutdown](https://strophe.im/libstrophe/doc/0.11.0/group___init.html#gaf44ac02b42061ac3c17a894c48ef3787)
+/// [xmpp_shutdown](https://strophe.im/libstrophe/doc/0.12.2/group___init.html#ga06e07524aee531de1ceb825541307963)
 ///
 /// Call this function when your application terminates, but be aware that you can't use the library
 /// after you called `shutdown()` and there is now way to reinitialize it again.

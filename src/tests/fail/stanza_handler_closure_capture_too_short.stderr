@@ -1,19 +1,19 @@
 error[E0597]: `val` does not live long enough
-  --> src/tests/fail/stanza_handler_closure_capture_too_short.rs:8:4
+  --> src/tests/fail/stanza_handler_closure_capture_too_short.rs:9:5
    |
-7  |         conn.handler_add(|_, _, _| {
-   |                          --------- value captured here
-8  |             val = 1;
-   |             ^^^ borrowed value does not live long enough
+8  |             |_, _, _| {
+   |             --------- value captured here
+9  |                 val = 1;
+   |                 ^^^ borrowed value does not live long enough
 ...
-11 |         conn
+16 |         conn
    |         ---- a temporary with access to the borrow is created here ...
-12 |     };
+17 |     };
    |     -- ... and the borrow might be used here, when that temporary is dropped and runs the `Drop` code for type `Connection`
    |     |
    |     `val` dropped here while still borrowed
    |
 help: consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped
    |
-11 |         conn;
+16 |         conn;
    |             +
