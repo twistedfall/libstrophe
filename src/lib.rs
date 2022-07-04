@@ -124,6 +124,7 @@ use ffi_types::FFI;
 pub use logger::Logger;
 pub use stanza::{Stanza, StanzaMutRef, StanzaRef};
 pub use sys::{xmpp_cert_element_t as CertElement, xmpp_log_level_t as LogLevel};
+#[cfg(feature = "libstrophe-0_11_0")]
 pub use tls_cert::TlsCert;
 
 mod alloc_context;
