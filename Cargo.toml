@@ -20,7 +20,7 @@ scopeguard = "1"
 sys = { package = "libstrophe-sys-bindgen", version = "5" }
 
 [dev-dependencies]
-env_logger = "0.9"
+env_logger = "0.10"
 matches = "0.1"
 trybuild = "1"
 
