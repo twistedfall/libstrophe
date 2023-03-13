@@ -12,7 +12,7 @@ readme = "README.md"
 repository = "https://github.com/twistedfall/libstrophe"
 
 [dependencies]
-bitflags = "1"
+bitflags = "2"
 log = { version = "0.4", optional = true }
 num-traits = "0.2"
 once_cell = "1"
