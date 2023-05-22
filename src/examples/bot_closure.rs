@@ -101,7 +101,7 @@ pub fn main() {
 	let mut conn = libstrophe::Connection::new(libstrophe::Context::new_with_default_logger());
 	conn.set_jid(jid);
 	conn.set_pass(pass);
-	let ctx = conn.connect_client(None, None, &conn_handler).expect("Cannot connect to XMPP server");
+	let ctx = conn.connect_client(None, None, conn_handler).expect("Cannot connect to XMPP server");
 	ctx.run();
 	libstrophe::shutdown();
 }

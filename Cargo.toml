@@ -11,6 +11,9 @@ documentation = "https://docs.rs/libstrophe"
 readme = "README.md"
 repository = "https://github.com/twistedfall/libstrophe"
 
+[badges]
+maintenance = { status = "passively-maintained" }
+
 [workspace]
 members = ["libstrophe-sys-bindgen"]
 

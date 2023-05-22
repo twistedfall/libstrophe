@@ -77,7 +77,7 @@ pub struct FatHandler<'cb, 'cx, CB: ?Sized, T> {
 /// functions are not melded together.
 macro_rules! ensure_unique {
 	($typ: ty, $conn_ptr: ident, $userdata: ident, $($args: expr),*) => {
-		if $conn_ptr as *mut ::core::ffi::c_void == $userdata {
+		if $conn_ptr as *mut ::core::ffi::c_void == $userdata { // dummy condition that's never true
 			$crate::void_ptr_as::<$typ>($userdata)($($args),*);
 		}
 	};

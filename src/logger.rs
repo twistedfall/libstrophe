@@ -152,7 +152,7 @@ impl Drop for Logger<'_> {
 	fn drop(&mut self) {
 		if self.owned {
 			unsafe {
-				Box::from_raw(self.inner.as_mut());
+				drop(Box::from_raw(self.inner.as_mut()));
 			}
 		}
 	}

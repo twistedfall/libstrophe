@@ -36,7 +36,7 @@ fn build_wrapper() {
 	out_path.push("src/ffi.rs");
 	bindings
 		.write_to_file(&out_path)
-		.expect(&format!("Couldn't write bindings to: {}", out_path.display()));
+		.unwrap_or_else(|e| panic!("Couldn't write bindings to: {}, error: {}", out_path.display(), e));
 }
 
 fn main() {

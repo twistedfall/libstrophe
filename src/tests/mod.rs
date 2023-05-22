@@ -69,7 +69,7 @@ fn conn_client() {
 	{
 		let mut conn = Connection::new(Context::new_with_null_logger());
 		conn.set_jid("test-JID@127.50.60.70");
-		let ctx = conn.connect_client(None, None, &conn_handler).unwrap();
+		let ctx = conn.connect_client(None, None, conn_handler).unwrap();
 		ctx.run();
 	}
 
@@ -95,7 +95,7 @@ fn conn_raw() {
 	{
 		let mut conn = Connection::new(Context::new_with_null_logger());
 		conn.set_jid("test-JID@127.50.60.70");
-		let ctx = conn.connect_raw(None, Some(1234), &conn_handler).unwrap();
+		let ctx = conn.connect_raw(None, Some(1234), conn_handler).unwrap();
 		ctx.run();
 	}
 
@@ -151,7 +151,7 @@ fn stanza_handler_in_con() {
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
 	conn.set_jid("test-JID@127.50.60.70");
-	conn.connect_client(None, None, &con_handler).unwrap();
+	conn.connect_client(None, None, con_handler).unwrap();
 }
 
 #[test]
