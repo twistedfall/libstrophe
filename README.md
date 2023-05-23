@@ -9,10 +9,12 @@ See [full documentation](https://docs.rs/libstrophe)
 Add this to your Cargo.toml:
 ```
 [dependencies]
-libstrophe = "0.17.0"
+libstrophe = "0.18.0"
 ```
 
+![Maintenance](https://img.shields.io/badge/maintenance-passively--maintained-yellowgreen.svg)
 [![Build Status](https://github.com/twistedfall/libstrophe/actions/workflows/libstrophe.yml/badge.svg)](https://github.com/twistedfall/libstrophe/actions/workflows/libstrophe.yml)
+[![Documentation](https://docs.rs/libstrophe/badge.svg)](https://docs.rs/libstrophe)
 
 ## libstrophe - ergonomic wrapper for Rust
 
@@ -113,11 +115,12 @@ The following features are provided:
   * `libstrophe-0_9_3` - enabled by default, enables functionality specific to libstrophe-0.9.3
   * `libstrophe-0_10_0` - enabled by default, enables functionality specific to libstrophe-0.10.0
   * `libstrophe-0_11_0` - enabled by default, enables functionality specific to libstrophe-0.11.0
+  * `libstrophe-0_12_0` - enabled by default, enables functionality specific to libstrophe-0.12.0
 
 [libstrophe]: https://strophe.im/libstrophe/
 [`log`]: https://crates.io/crates/log
 [docs]: https://strophe.im/libstrophe/doc/0.12.2/
-[libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.11.0/examples
+[libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.12.2/examples
 [`Context`]: https://docs.rs/libstrophe/*/libstrophe/struct.Context.html
 [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
 [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
