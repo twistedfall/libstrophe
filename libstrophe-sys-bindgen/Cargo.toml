@@ -1,6 +1,6 @@
 [package]
 name = "libstrophe-sys-bindgen"
-version = "6.0.0"
+version = "6.0.1"
 edition = "2018"
 description = "Rust bindings for libstrophe, generated using bindgen"
 keywords = ["jabber", "xmpp", "libstrophe", "bindgen", "im"]
