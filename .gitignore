@@ -1,8 +1,6 @@
 /target/
 **/*.rs.bk
 Cargo.lock
-/libstrophe
 /Makefile
-/README.tpl
 /jid.txt
 /password.txt
