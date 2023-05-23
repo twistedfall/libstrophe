@@ -4,6 +4,7 @@ error[E0597]: `stanza` does not live long enough
 5  |     let _a = {
    |         -- borrow later stored here
 6  |         let stanza = Stanza::new();
+   |             ------ binding `stanza` declared here
 7  |         let child_iter = stanza.children();
    |                          ^^^^^^^^^^^^^^^^^ borrowed value does not live long enough
 ...
@@ -13,6 +14,8 @@ error[E0597]: `stanza` does not live long enough
 error[E0505]: cannot move out of `stanza` because it is borrowed
  --> src/tests/fail/stanza_iterator_parent.rs:8:8
   |
+6 |         let stanza = Stanza::new();
+  |             ------ binding `stanza` declared here
 7 |         let child_iter = stanza.children();
   |                          ----------------- borrow of `stanza` occurs here
 8 |         drop(stanza);
@@ -26,6 +29,7 @@ error[E0597]: `stanza` does not live long enough
 13 |     let _a = {
    |         -- borrow later stored here
 14 |         let stanza = Stanza::new();
+   |             ------ binding `stanza` declared here
 15 |         let mut child_iter = stanza.children();
    |                              ^^^^^^^^^^^^^^^^^ borrowed value does not live long enough
 ...
@@ -35,6 +39,8 @@ error[E0597]: `stanza` does not live long enough
 error[E0505]: cannot move out of `stanza` because it is borrowed
   --> src/tests/fail/stanza_iterator_parent.rs:18:8
    |
+14 |         let stanza = Stanza::new();
+   |             ------ binding `stanza` declared here
 15 |         let mut child_iter = stanza.children();
    |                              ----------------- borrow of `stanza` occurs here
 ...
@@ -49,6 +55,7 @@ error[E0597]: `stanza` does not live long enough
 23 |     let _a = {
    |         -- borrow later stored here
 24 |         let mut stanza = Stanza::new();
+   |             ---------- binding `stanza` declared here
 25 |         let child_iter = stanza.children_mut();
    |                          ^^^^^^^^^^^^^^^^^^^^^ borrowed value does not live long enough
 ...
@@ -58,6 +65,8 @@ error[E0597]: `stanza` does not live long enough
 error[E0505]: cannot move out of `stanza` because it is borrowed
   --> src/tests/fail/stanza_iterator_parent.rs:26:8
    |
+24 |         let mut stanza = Stanza::new();
+   |             ---------- binding `stanza` declared here
 25 |         let child_iter = stanza.children_mut();
    |                          --------------------- borrow of `stanza` occurs here
 26 |         drop(stanza);
@@ -68,14 +77,19 @@ error[E0505]: cannot move out of `stanza` because it is borrowed
 error[E0596]: cannot borrow `stanza` as mutable, as it is not declared as mutable
   --> src/tests/fail/stanza_iterator_parent.rs:33:24
    |
-32 |         let stanza = Stanza::new();
-   |             ------ help: consider changing this to be mutable: `mut stanza`
 33 |         let mut child_iter = stanza.children_mut();
    |                              ^^^^^^^^^^^^^^^^^^^^^ cannot borrow as mutable
+   |
+help: consider changing this to be mutable
+   |
+32 |         let mut stanza = Stanza::new();
+   |             +++
 
 error[E0505]: cannot move out of `stanza` because it is borrowed
   --> src/tests/fail/stanza_iterator_parent.rs:36:8
    |
+32 |         let stanza = Stanza::new();
+   |             ------ binding `stanza` declared here
 33 |         let mut child_iter = stanza.children_mut();
    |                              --------------------- borrow of `stanza` occurs here
 ...

@@ -1,6 +1,8 @@
 error[E0597]: `handler` does not live long enough
  --> src/tests/fail/logger_too_short.rs:6:28
   |
+5 |         let handler = |_: LogLevel, _: &str, _: &str| {};
+  |             ------- binding `handler` declared here
 6 |         let logger = Logger::new(&handler);
   |                                  ^^^^^^^^ borrowed value does not live long enough
 7 |         Context::new(logger)

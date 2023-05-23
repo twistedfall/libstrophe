@@ -9,6 +9,8 @@ warning: unused import: `StreamError`
 error[E0597]: `handler` does not live long enough
  --> src/tests/fail/conn_handler_too_short.rs:7:35
   |
+6 |         let handler = |_: &Context, _: &mut Connection, _: ConnectionEvent| {};
+  |             ------- binding `handler` declared here
 7 |         conn.connect_client(None, None, &handler).unwrap()
   |         --------------------------------^^^^^^^^----------
   |         |                               |

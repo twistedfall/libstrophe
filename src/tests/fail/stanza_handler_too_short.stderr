@@ -1,6 +1,8 @@
 error[E0597]: `handler` does not live long enough
   --> src/tests/fail/stanza_handler_too_short.rs:8:20
    |
+7  |         let handler = |_: &Context, _: &mut Connection, _: &Stanza| { false };
+   |             ------- binding `handler` declared here
 8  |         conn.handler_add(&handler, None, None, None);
    |                          ^^^^^^^^ borrowed value does not live long enough
 9  |         conn
