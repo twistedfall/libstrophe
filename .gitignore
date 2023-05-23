@@ -4,3 +4,5 @@ Cargo.lock
 /Makefile
 /jid.txt
 /password.txt
+/*.crt
+/*.key

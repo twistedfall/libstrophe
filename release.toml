@@ -1,0 +1,2 @@
+allow-branch = ["master"]
+pre-release-hook = "tools/pre-release.sh"
