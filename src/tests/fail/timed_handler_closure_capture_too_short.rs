@@ -1,4 +1,4 @@
-use libstrophe::{Connection, Context, StanzaResult};
+use libstrophe::{Connection, Context, HandlerResult};
 use std::time::Duration;
 
 fn main() {
@@ -8,7 +8,7 @@ fn main() {
 		conn.timed_handler_add(
 			|_, _| {
 				val = 1;
-				StanzaResult::Remove
+				HandlerResult::RemoveHandler
 			},
 			Duration::from_secs(1),
 		);

@@ -118,7 +118,7 @@ pub use alloc_context::AllocContext;
 pub use connection::CertFailResult;
 #[cfg(feature = "libstrophe-0_12_0")]
 pub use connection::SockoptResult;
-pub use connection::{Connection, ConnectionEvent, HandlerId, IdHandlerId, StanzaResult, TimedHandlerId};
+pub use connection::{Connection, ConnectionEvent, HandlerId, HandlerResult, IdHandlerId, TimedHandlerId};
 pub use context::Context;
 pub use error::{
 	ConnectClientError, ConnectionError, Error, OwnedConnectionError, OwnedStreamError, Result, StreamError, ToTextError,

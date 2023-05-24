@@ -31,8 +31,8 @@ mod libstrophe_0_11 {
 	#[derive(Debug)]
 	#[repr(i32)]
 	pub enum CertFailResult {
-		Invalid = 0,
-		Valid = 1,
+		TerminateConnection = 0,
+		EstablishConnection = 1,
 	}
 }
 
@@ -64,9 +64,9 @@ mod libstrophe_0_12 {
 
 #[derive(Debug)]
 #[repr(i32)]
-pub enum StanzaResult {
-	Remove = 0,
-	Keep = 1,
+pub enum HandlerResult {
+	RemoveHandler = 0,
+	KeepHandler = 1,
 }
 
 pub type ConnectionCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, ConnectionEvent) + Send + 'cb;
@@ -74,11 +74,11 @@ pub type ConnectionFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, ConnectionCallbac
 
 pub type Handlers<H> = Vec<Box<H>>;
 
-pub type TimedCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> StanzaResult + Send + 'cb;
+pub type TimedCallback<'cb, 'cx> = dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> HandlerResult + Send + 'cb;
 pub type TimedFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, TimedCallback<'cb, 'cx>, ()>;
 
 pub type StanzaCallback<'cb, 'cx> =
-	dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> StanzaResult + Send + 'cb;
+	dyn FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> HandlerResult + Send + 'cb;
 pub type StanzaFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, StanzaCallback<'cb, 'cx>, Option<String>>;
 
 pub struct FatHandlers<'cb, 'cx> {
@@ -161,7 +161,7 @@ pub unsafe extern "C" fn certfail_handler_cb<CB: 'static>(cert: *const sys::xmpp
 			return handler(&cert, error_msg) as c_int;
 		}
 	}
-	CertFailResult::Invalid as c_int
+	CertFailResult::TerminateConnection as c_int
 }
 
 #[cfg(feature = "libstrophe-0_12_0")]

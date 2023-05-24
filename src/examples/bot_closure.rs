@@ -44,22 +44,22 @@ pub fn main() {
 		reply.add_child(query).expect("Cannot add child");
 
 		conn.send(&reply);
-		libstrophe::StanzaResult::Keep
+		libstrophe::HandlerResult::KeepHandler
 	};
 
 	let message_handler = |_ctx: &libstrophe::Context, conn: &mut libstrophe::Connection, stanza: &libstrophe::Stanza| {
 		let body = match stanza.get_child_by_name("body") {
 			Some(body) => body,
-			None => return libstrophe::StanzaResult::Keep,
+			None => return libstrophe::HandlerResult::KeepHandler,
 		};
 
 		match stanza.stanza_type() {
 			Some(typ) => {
 				if typ == "error" {
-					return libstrophe::StanzaResult::Keep;
+					return libstrophe::HandlerResult::KeepHandler;
 				}
 			}
-			None => return libstrophe::StanzaResult::Keep,
+			None => return libstrophe::HandlerResult::KeepHandler,
 		};
 
 		let intext = body.text().expect("Cannot get body");
@@ -88,7 +88,7 @@ pub fn main() {
 			conn.disconnect();
 		}
 
-		libstrophe::StanzaResult::Keep
+		libstrophe::HandlerResult::KeepHandler
 	};
 
 	let conn_handler = move |ctx: &libstrophe::Context, conn: &mut libstrophe::Connection, evt: libstrophe::ConnectionEvent| {

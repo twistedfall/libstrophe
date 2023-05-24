@@ -110,7 +110,7 @@ fn conn_raw() {
 
 #[test]
 fn timed_handler() {
-	let timed_handler = |_: &Context, _: &mut Connection| StanzaResult::Remove;
+	let timed_handler = |_: &Context, _: &mut Connection| HandlerResult::RemoveHandler;
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
 	let handle = conn
@@ -122,7 +122,7 @@ fn timed_handler() {
 
 #[test]
 fn stanza_handler() {
-	let stanza_handler = |_: &Context, _: &mut Connection, _: &Stanza| StanzaResult::Remove;
+	let stanza_handler = |_: &Context, _: &mut Connection, _: &Stanza| HandlerResult::RemoveHandler;
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
 	let handle = conn
@@ -138,7 +138,7 @@ fn stanza_handler() {
 
 #[test]
 fn id_handler() {
-	let id_handler = |_: &Context, _: &mut Connection, _: &Stanza| StanzaResult::Remove;
+	let id_handler = |_: &Context, _: &mut Connection, _: &Stanza| HandlerResult::RemoveHandler;
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
 	let h = conn.id_handler_add(&id_handler, "test").expect("Can't add id handler");
@@ -148,7 +148,7 @@ fn id_handler() {
 
 #[test]
 fn stanza_handler_in_con() {
-	let stanza_handler = |_: &Context, _: &mut Connection, _: &Stanza| StanzaResult::Remove;
+	let stanza_handler = |_: &Context, _: &mut Connection, _: &Stanza| HandlerResult::RemoveHandler;
 	let con_handler = move |_: &Context, conn: &mut Connection, _: ConnectionEvent| {
 		conn.handler_add(stanza_handler, None, None, None).expect("Can't add handler");
 	};
@@ -428,7 +428,7 @@ mod with_credentials {
 				let i = i.clone();
 				move |_: &Context, _: &mut Connection, _: &Stanza| {
 					*i.write().unwrap() += 1;
-					StanzaResult::Remove
+					HandlerResult::RemoveHandler
 				}
 			};
 			assert_ne!(mem::size_of_val(&i_incrementer), 0);
@@ -438,7 +438,7 @@ mod with_credentials {
 				let zero_sized = |_: &Context, conn: &mut Connection, _: &Stanza| {
 					let pres = Stanza::new_presence();
 					conn.send(&pres);
-					StanzaResult::Remove
+					HandlerResult::RemoveHandler
 				};
 				assert_eq!(mem::size_of_val(&zero_sized), 0);
 
@@ -456,7 +456,7 @@ mod with_credentials {
 									.timed_handler_add(
 										|_, conn| {
 											conn.disconnect();
-											StanzaResult::Remove
+											HandlerResult::RemoveHandler
 										},
 										Duration::from_secs(1),
 									)
@@ -491,7 +491,7 @@ mod with_credentials {
 									.timed_handler_add(
 										|_, conn| {
 											conn.disconnect();
-											StanzaResult::Remove
+											HandlerResult::RemoveHandler
 										},
 										Duration::from_secs(1),
 									)
@@ -512,7 +512,7 @@ mod with_credentials {
 				let zero_sized = |_: &Context, conn: &mut Connection, _: &Stanza| {
 					let pres = Stanza::new_presence();
 					conn.send(&pres);
-					StanzaResult::Remove
+					HandlerResult::RemoveHandler
 				};
 				assert_eq!(mem::size_of_val(&zero_sized), 0);
 
@@ -540,7 +540,7 @@ mod with_credentials {
 									.timed_handler_add(
 										|_, conn| {
 											conn.disconnect();
-											StanzaResult::Remove
+											HandlerResult::RemoveHandler
 										},
 										Duration::from_secs(1),
 									)
@@ -608,7 +608,7 @@ mod with_credentials {
 				.timed_handler_add(
 					|_, conn| {
 						conn.disconnect();
-						StanzaResult::Remove
+						HandlerResult::RemoveHandler
 					},
 					Duration::from_secs(1),
 				)
@@ -620,7 +620,7 @@ mod with_credentials {
 				let i = i.clone();
 				move |_: &Context, _: &mut Connection| {
 					*i.write().unwrap() += 1;
-					StanzaResult::Keep
+					HandlerResult::KeepHandler
 				}
 			};
 
@@ -762,7 +762,7 @@ mod with_credentials {
 				.timed_handler_add(
 					|_, conn| {
 						conn.disconnect();
-						StanzaResult::Remove
+						HandlerResult::RemoveHandler
 					},
 					Duration::from_secs(1),
 				)
@@ -774,7 +774,7 @@ mod with_credentials {
 				let i = i.clone();
 				move |_: &Context, _: &mut Connection, _: &Stanza| {
 					*i.write().unwrap() += 1;
-					StanzaResult::Keep
+					HandlerResult::KeepHandler
 				}
 			};
 
@@ -921,7 +921,7 @@ mod with_credentials {
 			let i = i.clone();
 			move |_: &Context, _: &mut Connection, _: &Stanza| {
 				*i.write().unwrap() += 1;
-				StanzaResult::Keep
+				HandlerResult::KeepHandler
 			}
 		};
 
@@ -1008,7 +1008,7 @@ mod with_credentials {
 						let stz = stz.clone();
 						move |_, _, stanza| {
 							*stz.lock().unwrap() = Some(stanza.clone());
-							StanzaResult::Remove
+							HandlerResult::RemoveHandler
 						}
 					},
 					None,
@@ -1043,14 +1043,14 @@ mod with_credentials {
 					let flags = Arc::clone(&flags);
 					move |_cert, _err| {
 						flags.write().unwrap().0 += 2;
-						CertFailResult::Invalid
+						CertFailResult::TerminateConnection
 					}
 				});
 				conn.set_certfail_handler({
 					let flags = Arc::clone(&flags);
 					move |_cert, _err| {
 						flags.write().unwrap().0 += 1;
-						CertFailResult::Invalid
+						CertFailResult::TerminateConnection
 					}
 				});
 				let ctx = conn
@@ -1091,7 +1091,7 @@ mod with_credentials {
 					let flags = Arc::clone(&flags);
 					move |_cert, _err| {
 						flags.write().unwrap().0 += 1;
-						CertFailResult::Valid
+						CertFailResult::EstablishConnection
 					}
 				});
 				let ctx = conn

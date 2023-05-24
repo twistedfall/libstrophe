@@ -12,9 +12,9 @@ use std::{fmt, mem, ptr, result, str};
 
 #[cfg(feature = "libstrophe-0_11_0")]
 pub use internals::CertFailResult;
+pub use internals::HandlerResult;
 #[cfg(feature = "libstrophe-0_12_0")]
 pub use internals::SockoptResult;
-pub use internals::StanzaResult;
 #[cfg(feature = "libstrophe-0_11_0")]
 use internals::CERT_FAIL_HANDLERS;
 use internals::{ConnectionFatHandler, FatHandler, FatHandlers, Handlers, StanzaFatHandler, TimedFatHandler};
@@ -149,19 +149,19 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 
 	unsafe extern "C" fn timed_handler_cb<CB>(conn_ptr: *mut sys::xmpp_conn_t, userdata: *mut c_void) -> c_int
 	where
-		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> StanzaResult + Send + 'cb,
+		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> HandlerResult + Send + 'cb,
 	{
 		let timed_handler = void_ptr_as::<TimedFatHandler>(userdata);
 		if let Some(fat_handlers) = timed_handler.fat_handlers.upgrade() {
 			let mut conn = Self::from_ref_mut(conn_ptr, fat_handlers);
 			ensure_unique!(CB, conn_ptr, userdata, conn.context_detached(), &mut conn);
 			let res = (timed_handler.handler)(conn.context_detached(), &mut conn);
-			if matches!(res, StanzaResult::Remove) {
+			if matches!(res, HandlerResult::RemoveHandler) {
 				Self::drop_fat_handler(&mut conn.fat_handlers.borrow_mut().timed, timed_handler);
 			}
 			res as c_int
 		} else {
-			StanzaResult::Remove as c_int
+			HandlerResult::RemoveHandler as c_int
 		}
 	}
 
@@ -171,7 +171,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		userdata: *mut c_void,
 	) -> c_int
 	where
-		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> StanzaResult + Send + 'cb,
+		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> HandlerResult + Send + 'cb,
 	{
 		let stanza_handler = void_ptr_as::<StanzaFatHandler>(userdata);
 		if let Some(fat_handlers) = stanza_handler.fat_handlers.upgrade() {
@@ -179,12 +179,12 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 			let stanza = Stanza::from_ref(stanza);
 			ensure_unique!(CB, conn_ptr, userdata, conn.context_detached(), &mut conn, &stanza);
 			let res = (stanza_handler.handler)(conn.context_detached(), &mut conn, &stanza);
-			if matches!(res, StanzaResult::Remove) {
+			if matches!(res, HandlerResult::RemoveHandler) {
 				Self::drop_fat_handler(&mut conn.fat_handlers.borrow_mut().stanza, stanza_handler);
 			}
 			res as c_int
 		} else {
-			StanzaResult::Remove as c_int
+			HandlerResult::RemoveHandler as c_int
 		}
 	}
 
@@ -747,7 +747,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See [Connection::handler_add] for additional information.
 	pub fn timed_handler_add<CB>(&mut self, handler: CB, period: Duration) -> Option<TimedHandlerId<'cb, 'cx, CB>>
 	where
-		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> StanzaResult + Send + 'cb,
+		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> HandlerResult + Send + 'cb,
 	{
 		let callback = Self::timed_handler_cb::<CB>;
 		let handler = self.make_fat_handler(Box::new(handler) as _, callback as _, ());
@@ -771,7 +771,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See [Connection::handler_delete] for additional information.
 	pub fn timed_handler_delete<CB>(&mut self, handler_id: TimedHandlerId<CB>)
 	where
-		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> StanzaResult + Send + 'cb,
+		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> HandlerResult + Send + 'cb,
 	{
 		#![allow(clippy::needless_pass_by_value)]
 		unsafe { sys::xmpp_timed_handler_delete(self.inner.as_mut(), Some(Self::timed_handler_cb::<CB>)) }
@@ -792,7 +792,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See [Connection::handler_add] for additional information.
 	pub fn id_handler_add<CB>(&mut self, handler: CB, id: impl Into<String>) -> Option<IdHandlerId<'cb, 'cx, CB>>
 	where
-		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> StanzaResult + Send + 'cb,
+		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> HandlerResult + Send + 'cb,
 	{
 		let id = id.into();
 		let ffi_id = FFI(id.as_str()).send();
@@ -813,7 +813,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See [Connection::handler_delete] for additional information.
 	pub fn id_handler_delete<CB>(&mut self, handler_id: IdHandlerId<CB>)
 	where
-		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> StanzaResult + Send + 'cb,
+		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> HandlerResult + Send + 'cb,
 	{
 		#![allow(clippy::needless_pass_by_value)]
 		if let Some(fat_handler) = Self::validate_fat_handler(&self.fat_handlers.borrow().stanza, handler_id.0 as _) {
@@ -854,7 +854,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		typ: Option<&str>,
 	) -> Option<HandlerId<'cb, 'cx, CB>>
 	where
-		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> StanzaResult + Send + 'cb,
+		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> HandlerResult + Send + 'cb,
 	{
 		let ns = FFI(ns).send();
 		let name = FFI(name).send();
@@ -884,7 +884,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// library does. If you can't keep track of those handles, but still want ability to remove handlers, check `handlers_clear()` function.
 	pub fn handler_delete<CB>(&mut self, handler_id: HandlerId<CB>)
 	where
-		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> StanzaResult + Send + 'cb,
+		CB: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> HandlerResult + Send + 'cb,
 	{
 		#![allow(clippy::needless_pass_by_value)]
 		unsafe { sys::xmpp_handler_delete(self.inner.as_mut(), Some(Self::handler_cb::<CB>)) }
@@ -908,8 +908,8 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	#[allow(dead_code)]
 	pub(crate) fn timed_handlers_same<L, R>(_left: L, _right: R) -> bool
 	where
-		L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> StanzaResult + Send + 'cb,
-		R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> StanzaResult + Send + 'cb,
+		L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> HandlerResult + Send + 'cb,
+		R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>) -> HandlerResult + Send + 'cb,
 	{
 		ptr::eq(
 			Self::timed_handler_cb::<L> as *const (),
@@ -920,8 +920,8 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	#[allow(dead_code)]
 	pub(crate) fn stanza_handlers_same<L, R>(_left: L, _right: R) -> bool
 	where
-		L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> StanzaResult + Send + 'cb,
-		R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> StanzaResult + Send + 'cb,
+		L: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> HandlerResult + Send + 'cb,
+		R: FnMut(&Context<'cx, 'cb>, &mut Connection<'cb, 'cx>, &Stanza) -> HandlerResult + Send + 'cb,
 	{
 		ptr::eq(Self::handler_cb::<L> as *const (), Self::handler_cb::<R> as *const ())
 	}
@@ -1020,11 +1020,11 @@ fn callbacks() {
 	{
 		let a = |_: &Context, _: &mut Connection| {
 			print!("1");
-			StanzaResult::Keep
+			HandlerResult::KeepHandler
 		};
 		let b = |_: &Context, _: &mut Connection| {
 			print!("2");
-			StanzaResult::Remove
+			HandlerResult::RemoveHandler
 		};
 
 		assert!(Connection::timed_handlers_same(a, a));
@@ -1034,11 +1034,11 @@ fn callbacks() {
 	{
 		let a = |_: &Context, _: &mut Connection, _: &Stanza| {
 			print!("1");
-			StanzaResult::Keep
+			HandlerResult::KeepHandler
 		};
 		let b = |_: &Context, _: &mut Connection, _: &Stanza| {
 			print!("2");
-			StanzaResult::Keep
+			HandlerResult::KeepHandler
 		};
 
 		assert!(Connection::stanza_handlers_same(a, a));

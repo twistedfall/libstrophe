@@ -1,7 +1,7 @@
 error[E0597]: `handler` does not live long enough
  --> src/tests/fail/id_handler_too_short.rs:7:23
   |
-6 |         let handler = |_: &Context, _: &mut Connection, _: &Stanza| StanzaResult::Remove;
+6 |         let handler = |_: &Context, _: &mut Connection, _: &Stanza| HandlerResult::RemoveHandler;
   |             ------- binding `handler` declared here
 7 |         conn.id_handler_add(&handler, "id");
   |                             ^^^^^^^^ borrowed value does not live long enough

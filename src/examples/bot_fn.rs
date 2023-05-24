@@ -7,7 +7,7 @@ fn version_handler(
 	_ctx: &libstrophe::Context,
 	conn: &mut libstrophe::Connection,
 	stanza: &libstrophe::Stanza,
-) -> libstrophe::StanzaResult {
+) -> libstrophe::HandlerResult {
 	eprintln!("Received version request from {}", stanza.from().expect("Empty from"));
 
 	let mut reply = stanza.reply();
@@ -40,21 +40,21 @@ fn version_handler(
 	reply.add_child(query).expect("Cannot add child");
 
 	conn.send(&reply);
-	libstrophe::StanzaResult::Keep
+	libstrophe::HandlerResult::KeepHandler
 }
 
 fn message_handler(
 	_ctx: &libstrophe::Context,
 	conn: &mut libstrophe::Connection,
 	stanza: &libstrophe::Stanza,
-) -> libstrophe::StanzaResult {
+) -> libstrophe::HandlerResult {
 	let body = match stanza.get_child_by_name("body") {
 		Some(body) => body,
-		None => return libstrophe::StanzaResult::Keep,
+		None => return libstrophe::HandlerResult::KeepHandler,
 	};
 
 	match stanza.stanza_type() {
-		Some("error") | None => return libstrophe::StanzaResult::Keep,
+		Some("error") | None => return libstrophe::HandlerResult::KeepHandler,
 		_ => (),
 	}
 
@@ -84,7 +84,7 @@ fn message_handler(
 		conn.disconnect();
 	}
 
-	libstrophe::StanzaResult::Keep
+	libstrophe::HandlerResult::KeepHandler
 }
 
 /// Port of the [bot.c](https://github.com/strophe/libstrophe/blob/0.12.2/examples/bot.c) code

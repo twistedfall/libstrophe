@@ -1,4 +1,4 @@
-use libstrophe::{Connection, Context, StanzaResult};
+use libstrophe::{Connection, Context, HandlerResult};
 
 fn main() {
 	{
@@ -7,7 +7,7 @@ fn main() {
 		conn.handler_add(
 			|_, _, _| {
 				val = 1;
-				StanzaResult::Remove
+				HandlerResult::RemoveHandler
 			},
 			None,
 			None,
