@@ -1,8 +1,13 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::process::Command;
 use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
+use std::{env, mem};
 
 use matches::assert_matches;
+use names::Generator;
 
 use crate::*;
 
@@ -272,7 +277,6 @@ fn stanza_get_child() {
 	let mut msg = Stanza::new_message(Some("chat"), Some("id"), Some("to"));
 	msg.set_body("Test body").unwrap();
 	root.add_child(msg.clone()).unwrap();
-	dbg!(&root.to_string());
 
 	assert_eq!(presence.to_string(), root.get_child_by_name("presence").unwrap().to_string());
 	assert_eq!(iq_ns.to_string(), root.get_child_by_ns("iq_namespace").unwrap().to_string());
@@ -388,201 +392,701 @@ fn stanza_from_str() {
 	assert_eq!(None, children.next().as_deref());
 }
 
-#[cfg(feature = "creds-test")]
-mod with_credentials {
-	use std::mem;
-	use std::sync::{Arc, Mutex, RwLock};
+#[test]
+fn zero_sized_handlers() {
+	let creds = if let Some(creds) = Creds::acquire() {
+		creds
+	} else {
+		eprintln!("Can't acquire creds, skipping test");
+		return;
+	};
+	let i = Arc::new(RwLock::new(0));
 
-	use super::*;
+	{
+		let i_incrementer = {
+			let i = i.clone();
+			move |_: &Context, _: &mut Connection, _: &Stanza| {
+				*i.write().unwrap() += 1;
+				HandlerResult::RemoveHandler
+			}
+		};
+		assert_ne!(mem::size_of_val(&i_incrementer), 0);
 
-	const JID: &str = include_str!("../../jid.txt");
-	const PASS: &str = include_str!("../../password.txt");
-
-	fn make_conn<'cn>() -> Connection<'cn, 'static> {
-		let mut conn = Connection::new(Context::new_with_default_logger());
-		conn.set_jid(JID.trim());
-		conn.set_pass(PASS.trim());
-		conn
-			.set_flags(ConnectionFlags::TRUST_TLS)
-			.expect("Cannot set connection flags");
-		conn
-	}
-
-	#[cfg(feature = "libstrophe-0_11_0")]
-	fn make_tls_conn<'cn>() -> Connection<'cn, 'static> {
-		let mut conn = Connection::new(Context::new_with_default_logger());
-		conn.set_jid(JID.trim());
-		conn.set_pass(PASS.trim());
-		conn
-			.set_flags(ConnectionFlags::MANDATORY_TLS)
-			.expect("Cannot set connection flags");
-		conn
-	}
-
-	#[test]
-	fn zero_sized_handlers() {
-		let i = Arc::new(RwLock::new(0));
-
+		// zero sized handlers are called
 		{
-			let i_incrementer = {
-				let i = i.clone();
-				move |_: &Context, _: &mut Connection, _: &Stanza| {
-					*i.write().unwrap() += 1;
-					HandlerResult::RemoveHandler
-				}
+			let zero_sized = |_: &Context, conn: &mut Connection, _: &Stanza| {
+				let pres = Stanza::new_presence();
+				conn.send(&pres);
+				HandlerResult::RemoveHandler
 			};
+			assert_eq!(mem::size_of_val(&zero_sized), 0);
+
+			let conn = creds.make_conn();
+			let ctx = conn
+				.connect_client(None, None, {
+					let i_incrementer = i_incrementer.clone();
+					move |ctx, conn, evt| match evt {
+						ConnectionEvent::Connect => {
+							conn.handler_add(zero_sized, None, None, None).expect("Can't add handler");
+							conn
+								.handler_add(i_incrementer.clone(), None, Some("presence"), None)
+								.expect("Can't add handler");
+							conn
+								.timed_handler_add(
+									|_, conn| {
+										conn.disconnect();
+										HandlerResult::RemoveHandler
+									},
+									Duration::from_secs(1),
+								)
+								.expect("Can't add timed handler");
+						}
+						ConnectionEvent::Disconnect(_) => ctx.stop(),
+						_ => (),
+					}
+				})
+				.unwrap();
+			ctx.run();
+		}
+		assert_eq!(*i.read().unwrap(), 1);
+
+		// non zero sized handlers are called
+		*i.write().unwrap() = 0;
+		{
 			assert_ne!(mem::size_of_val(&i_incrementer), 0);
 
-			// zero sized handlers are called
-			{
-				let zero_sized = |_: &Context, conn: &mut Connection, _: &Stanza| {
-					let pres = Stanza::new_presence();
-					conn.send(&pres);
+			let conn = creds.make_conn();
+			let ctx = conn
+				.connect_client(None, None, {
+					let i_incrementer = i_incrementer.clone();
+					move |ctx, conn, evt| match evt {
+						ConnectionEvent::Connect => {
+							conn
+								.handler_add(i_incrementer.clone(), None, Some("presence"), None)
+								.expect("Can't add handler");
+							let pres = Stanza::new_presence();
+							conn.send(&pres);
+							conn
+								.timed_handler_add(
+									|_, conn| {
+										conn.disconnect();
+										HandlerResult::RemoveHandler
+									},
+									Duration::from_secs(1),
+								)
+								.expect("Can't add timed handler");
+						}
+						ConnectionEvent::Disconnect(_) => ctx.stop(),
+						_ => (),
+					}
+				})
+				.unwrap();
+			ctx.run();
+		}
+		assert_eq!(*i.read().unwrap(), 1);
+
+		// handlers_clear clears zs and non-zs handlers
+		*i.write().unwrap() = 0;
+		{
+			let zero_sized = |_: &Context, conn: &mut Connection, _: &Stanza| {
+				let pres = Stanza::new_presence();
+				conn.send(&pres);
+				HandlerResult::RemoveHandler
+			};
+			assert_eq!(mem::size_of_val(&zero_sized), 0);
+
+			let conn = creds.make_conn();
+			let ctx = conn
+				.connect_client(None, None, {
+					let i_incrementer = i_incrementer.clone();
+					move |ctx, conn, evt| match evt {
+						ConnectionEvent::Connect => {
+							conn.handler_add(zero_sized, None, None, None).expect("Can't add handler");
+							if conn.handler_add(zero_sized, None, None, None).is_some() {
+								panic!("Must not be able to add handler");
+							}
+							conn
+								.handler_add(i_incrementer.clone(), None, None, None)
+								.expect("Can't add handler");
+							if conn.handler_add(i_incrementer.clone(), None, None, None).is_some() {
+								panic!("Must not be able to add handler");
+							}
+							conn.handlers_clear();
+							conn
+								.handler_add(i_incrementer.clone(), None, Some("presence"), None)
+								.expect("Can't add handler");
+							conn
+								.timed_handler_add(
+									|_, conn| {
+										conn.disconnect();
+										HandlerResult::RemoveHandler
+									},
+									Duration::from_secs(1),
+								)
+								.expect("Can't add timed handler");
+						}
+						ConnectionEvent::Disconnect(_) => ctx.stop(),
+						_ => (),
+					}
+				})
+				.unwrap();
+			ctx.run();
+		}
+		assert_eq!(*i.read().unwrap(), 0);
+	}
+
+	assert_eq!(
+		Arc::try_unwrap(i)
+			.expect("There are hanging references to Rc value")
+			.into_inner()
+			.unwrap(),
+		0
+	);
+}
+
+#[test]
+fn connection_handler() {
+	let creds = if let Some(creds) = Creds::acquire() {
+		creds
+	} else {
+		eprintln!("Can't acquire creds, skipping test");
+		return;
+	};
+
+	let flags = Arc::new(RwLock::new((0, 0, 0)));
+	{
+		let conn = creds.make_conn();
+		let ctx = conn
+			.connect_client(None, None, {
+				let flags = Arc::clone(&flags);
+				move |ctx, conn, evt| match evt {
+					ConnectionEvent::Connect => {
+						flags.write().unwrap().0 += 1;
+						conn.disconnect();
+					}
+					ConnectionEvent::RawConnect => {
+						flags.write().unwrap().1 += 1;
+					}
+					ConnectionEvent::Disconnect(_) => {
+						flags.write().unwrap().2 += 1;
+						ctx.stop();
+					}
+				}
+			})
+			.unwrap();
+		ctx.run();
+	}
+	assert_eq!(
+		Arc::try_unwrap(flags)
+			.expect("There are hanging references to Rc value")
+			.into_inner()
+			.unwrap(),
+		(1, 0, 1)
+	);
+}
+
+#[test]
+fn timed_handler_creds() {
+	let creds = if let Some(creds) = Creds::acquire() {
+		creds
+	} else {
+		eprintln!("Can't acquire creds, skipping test");
+		return;
+	};
+
+	let i = Arc::new(RwLock::new(0));
+
+	let do_common_stuff = |conn: &mut Connection| {
+		conn
+			.timed_handler_add(
+				|_, conn| {
+					conn.disconnect();
 					HandlerResult::RemoveHandler
-				};
-				assert_eq!(mem::size_of_val(&zero_sized), 0);
+				},
+				Duration::from_secs(1),
+			)
+			.expect("Can't add timed handler");
+	};
 
-				let conn = make_conn();
-				let ctx = conn
-					.connect_client(None, None, {
-						let i_incrementer = i_incrementer.clone();
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								conn.handler_add(zero_sized, None, None, None).expect("Can't add handler");
-								conn
-									.handler_add(i_incrementer.clone(), None, Some("presence"), None)
-									.expect("Can't add handler");
-								conn
-									.timed_handler_add(
-										|_, conn| {
-											conn.disconnect();
-											HandlerResult::RemoveHandler
-										},
-										Duration::from_secs(1),
-									)
-									.expect("Can't add timed handler");
-							}
-							ConnectionEvent::Disconnect(_) => ctx.stop(),
-							_ => (),
-						}
-					})
-					.unwrap();
-				ctx.run();
+	{
+		let i_incrementer = {
+			let i = i.clone();
+			move |_: &Context, _: &mut Connection| {
+				*i.write().unwrap() += 1;
+				HandlerResult::KeepHandler
 			}
-			assert_eq!(*i.read().unwrap(), 1);
+		};
 
-			// non zero sized handlers are called
-			*i.write().unwrap() = 0;
-			{
-				assert_ne!(mem::size_of_val(&i_incrementer), 0);
-
-				let conn = make_conn();
-				let ctx = conn
-					.connect_client(None, None, {
-						let i_incrementer = i_incrementer.clone();
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								conn
-									.handler_add(i_incrementer.clone(), None, Some("presence"), None)
-									.expect("Can't add handler");
-								let pres = Stanza::new_presence();
-								conn.send(&pres);
-								conn
-									.timed_handler_add(
-										|_, conn| {
-											conn.disconnect();
-											HandlerResult::RemoveHandler
-										},
-										Duration::from_secs(1),
-									)
-									.expect("Can't add timed handler");
-							}
-							ConnectionEvent::Disconnect(_) => ctx.stop(),
-							_ => (),
+		// timed trigger, inside
+		{
+			let conn = creds.make_conn();
+			let ctx = conn
+				.connect_client(None, None, {
+					let i_incrementer = i_incrementer.clone();
+					move |ctx, conn, evt| match evt {
+						ConnectionEvent::Connect => {
+							conn
+								.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1))
+								.expect("Can't add timed handler");
+							do_common_stuff(conn);
 						}
-					})
-					.unwrap();
-				ctx.run();
-			}
-			assert_eq!(*i.read().unwrap(), 1);
+						ConnectionEvent::Disconnect(_) => ctx.stop(),
+						_ => {}
+					}
+				})
+				.unwrap();
+			ctx.run();
+			assert!(*i.read().unwrap() > 0);
+			assert!(*i.read().unwrap() < 1000);
+		}
 
-			// handlers_clear clears zs and non-zs handlers
-			*i.write().unwrap() = 0;
-			{
-				let zero_sized = |_: &Context, conn: &mut Connection, _: &Stanza| {
-					let pres = Stanza::new_presence();
-					conn.send(&pres);
-					HandlerResult::RemoveHandler
-				};
-				assert_eq!(mem::size_of_val(&zero_sized), 0);
-
-				let conn = make_conn();
-				let ctx = conn
-					.connect_client(None, None, {
-						let i_incrementer = i_incrementer.clone();
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								conn.handler_add(zero_sized, None, None, None).expect("Can't add handler");
-								if conn.handler_add(zero_sized, None, None, None).is_some() {
-									panic!("Must not be able to add handler");
-								}
-								conn
-									.handler_add(i_incrementer.clone(), None, None, None)
-									.expect("Can't add handler");
-								if conn.handler_add(i_incrementer.clone(), None, None, None).is_some() {
-									panic!("Must not be able to add handler");
-								}
-								conn.handlers_clear();
-								conn
-									.handler_add(i_incrementer.clone(), None, Some("presence"), None)
-									.expect("Can't add handler");
-								conn
-									.timed_handler_add(
-										|_, conn| {
-											conn.disconnect();
-											HandlerResult::RemoveHandler
-										},
-										Duration::from_secs(1),
-									)
-									.expect("Can't add timed handler");
-							}
-							ConnectionEvent::Disconnect(_) => ctx.stop(),
-							_ => (),
+		// outside
+		*i.write().unwrap() = 0;
+		{
+			let mut conn = creds.make_conn();
+			conn
+				.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1))
+				.expect("Can't add timed handler");
+			let ctx = conn
+				.connect_client(None, None, {
+					move |ctx, conn, evt| match evt {
+						ConnectionEvent::Connect => {
+							do_common_stuff(conn);
 						}
-					})
-					.unwrap();
-				ctx.run();
-			}
+						ConnectionEvent::Disconnect(_) => {
+							ctx.stop();
+						}
+						_ => {}
+					}
+				})
+				.unwrap();
+			ctx.run();
+			assert!(*i.read().unwrap() > 0);
+			assert!(*i.read().unwrap() < 1000);
+		}
+
+		// delete
+		*i.write().unwrap() = 0;
+		{
+			let conn = creds.make_conn();
+			let ctx = conn
+				.connect_client(None, None, {
+					let i_incrementer = i_incrementer.clone();
+					move |ctx, conn, evt| match evt {
+						ConnectionEvent::Connect => {
+							let handler = conn
+								.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1))
+								.expect("Can't add timed handler");
+							conn.timed_handler_delete(handler);
+							do_common_stuff(conn);
+						}
+						ConnectionEvent::Disconnect(_) => {
+							ctx.stop();
+						}
+						_ => {}
+					}
+				})
+				.unwrap();
+			ctx.run();
 			assert_eq!(*i.read().unwrap(), 0);
 		}
 
-		assert_eq!(
-			Arc::try_unwrap(i)
-				.expect("There are hanging references to Rc value")
-				.into_inner()
-				.unwrap(),
-			0
-		);
+		// clear
+		*i.write().unwrap() = 0;
+		{
+			let conn = creds.make_conn();
+			let ctx = conn
+				.connect_client(None, None, {
+					let i_incrementer = i_incrementer.clone();
+					move |ctx, conn, evt| match evt {
+						ConnectionEvent::Connect => {
+							conn
+								.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1))
+								.expect("Can't add timed handler");
+							conn.timed_handlers_clear();
+							do_common_stuff(conn);
+						}
+						ConnectionEvent::Disconnect(_) => {
+							ctx.stop();
+						}
+						_ => {}
+					}
+				})
+				.unwrap();
+			ctx.run();
+			assert_eq!(*i.read().unwrap(), 0);
+		}
+	}
+	assert_eq!(
+		Arc::try_unwrap(i)
+			.expect("There are hanging references to Rc value")
+			.into_inner()
+			.unwrap(),
+		0
+	);
+}
+
+/*#[test]
+fn ctx_con_lifetime_issues() {
+	let ctx = Context::new_with_default_logger();
+
+	// if you exchange the next 2 lines then it works, probably not related to code lifetimes, but to Rust
+	let make_conn = || { Connection::new(ctx.clone()) };
+
+	let default_con_handler = |conn: &mut Connection, evt: ConnectionEvent, _: i32, _: Option<&StreamError>| {};
+
+	let mut conn = creds.make_conn();
+	conn.connect_client(None, None, &default_con_handler).unwrap();
+}*/
+
+#[test]
+fn id_handler_creds() {
+	let creds = if let Some(creds) = Creds::acquire() {
+		creds
+	} else {
+		eprintln!("Can't acquire creds, skipping test");
+		return;
+	};
+
+	let i = Arc::new(RwLock::new(0));
+
+	let do_common_stuff = |_: &Context, conn: &mut Connection| {
+		let mut iq = Stanza::new_iq(Some("get"), Some("get_roster"));
+		let mut query = Stanza::new();
+		query.set_name("query").unwrap();
+		query.set_ns("jabber:iq:roster").unwrap();
+		iq.add_child(query).unwrap();
+		conn.send(&iq);
+
+		conn
+			.timed_handler_add(
+				|_, conn| {
+					conn.disconnect();
+					HandlerResult::RemoveHandler
+				},
+				Duration::from_secs(1),
+			)
+			.expect("Can't add id handler");
+	};
+
+	{
+		let i_incrementer = {
+			let i = i.clone();
+			move |_: &Context, _: &mut Connection, _: &Stanza| {
+				*i.write().unwrap() += 1;
+				HandlerResult::KeepHandler
+			}
+		};
+
+		// iq trigger, inside
+		{
+			let conn = creds.make_conn();
+			let ctx = conn
+				.connect_client(None, None, {
+					let i_incrementer = i_incrementer.clone();
+					move |ctx, conn, evt| match evt {
+						ConnectionEvent::Connect => {
+							conn
+								.id_handler_add(i_incrementer.clone(), "get_roster")
+								.expect("Can't add id handler");
+
+							let mut iq = Stanza::new_iq(Some("get"), Some("get_roster1"));
+							let mut query = Stanza::new();
+							query.set_name("query").unwrap();
+							query.set_ns("jabber:iq:roster").unwrap();
+							iq.add_child(query).unwrap();
+							conn.send(&iq);
+
+							do_common_stuff(ctx, conn);
+						}
+						ConnectionEvent::Disconnect(_) => {
+							ctx.stop();
+						}
+						_ => {}
+					}
+				})
+				.unwrap();
+			ctx.run();
+			assert_eq!(*i.read().unwrap(), 1);
+		}
+
+		// outside
+		*i.write().unwrap() = 0;
+		{
+			let mut conn = creds.make_conn();
+			conn
+				.id_handler_add(i_incrementer.clone(), "get_roster")
+				.expect("Can't add id handler");
+			let ctx = conn
+				.connect_client(None, None, {
+					move |ctx, conn, evt| match evt {
+						ConnectionEvent::Connect => {
+							let mut iq = Stanza::new_iq(Some("get"), Some("get_roster1"));
+							let mut query = Stanza::new();
+							query.set_name("query").unwrap();
+							query.set_ns("jabber:iq:roster").unwrap();
+							iq.add_child(query).unwrap();
+							conn.send(&iq);
+
+							do_common_stuff(ctx, conn);
+						}
+						ConnectionEvent::Disconnect(_) => {
+							ctx.stop();
+						}
+						_ => {}
+					}
+				})
+				.unwrap();
+			ctx.run();
+			assert_eq!(*i.read().unwrap(), 1);
+		}
+
+		// delete
+		*i.write().unwrap() = 0;
+		{
+			let conn = creds.make_conn();
+			let ctx = conn
+				.connect_client(None, None, {
+					let i_incrementer = i_incrementer.clone();
+					move |ctx, conn, evt| match evt {
+						ConnectionEvent::Connect => {
+							let handler = conn
+								.id_handler_add(i_incrementer.clone(), "get_roster")
+								.expect("Can't id timed handler");
+							conn.id_handler_delete(handler);
+
+							do_common_stuff(ctx, conn);
+						}
+						ConnectionEvent::Disconnect(_) => {
+							ctx.stop();
+						}
+						_ => {}
+					}
+				})
+				.unwrap();
+			ctx.run();
+			assert_eq!(*i.read().unwrap(), 0);
+		}
+
+		// clear
+		*i.write().unwrap() = 0;
+		{
+			let conn = creds.make_conn();
+			let ctx = conn
+				.connect_client(None, None, {
+					let i_incrementer = i_incrementer.clone();
+					move |ctx, conn, evt| match evt {
+						ConnectionEvent::Connect => {
+							conn
+								.id_handler_add(i_incrementer.clone(), "get_roster")
+								.expect("Can't add id handler");
+							conn.id_handlers_clear();
+							do_common_stuff(ctx, conn);
+						}
+						ConnectionEvent::Disconnect(_) => {
+							ctx.stop();
+						}
+						_ => {}
+					}
+				})
+				.unwrap();
+			ctx.run();
+			assert_eq!(*i.read().unwrap(), 0);
+		}
+	}
+	assert_eq!(
+		Arc::try_unwrap(i)
+			.expect("There are hanging references to Rc value")
+			.into_inner()
+			.unwrap(),
+		0
+	);
+}
+
+#[test]
+fn handler() {
+	let creds = if let Some(creds) = Creds::acquire() {
+		creds
+	} else {
+		eprintln!("Can't acquire creds, skipping test");
+		return;
+	};
+
+	let i = Arc::new(RwLock::new(0));
+
+	let default_con_handler = |ctx: &Context, conn: &mut Connection, evt: ConnectionEvent| match evt {
+		ConnectionEvent::Connect => {
+			conn.disconnect();
+		}
+		ConnectionEvent::Disconnect(_) => {
+			ctx.stop();
+		}
+		_ => {}
+	};
+
+	let i_incrementer = {
+		let i = i.clone();
+		move |_: &Context, _: &mut Connection, _: &Stanza| {
+			*i.write().unwrap() += 1;
+			HandlerResult::KeepHandler
+		}
+	};
+
+	// handler call stanza name filter
+	{
+		let mut conn = creds.make_conn();
+		conn
+			.handler_add(i_incrementer.clone(), None, Some("iq"), None)
+			.expect("Can't add handler");
+		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
+		ctx.run();
+		assert_eq!(*i.read().unwrap(), 1);
 	}
 
-	#[test]
-	fn connection_handler() {
-		let flags = Arc::new(RwLock::new((0, 0, 0)));
+	// handler call stanza name not existent
+	*i.write().unwrap() = 0;
+	{
+		let mut conn = creds.make_conn();
+		conn
+			.handler_add(i_incrementer.clone(), None, Some("non-existent"), None)
+			.expect("Can't add handler");
+		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
+		ctx.run();
+		assert_eq!(*i.read().unwrap(), 0);
+	}
+
+	// handler delete
+	*i.write().unwrap() = 0;
+	{
+		let mut conn = creds.make_conn();
+		let handler = conn
+			.handler_add(i_incrementer.clone(), None, None, None)
+			.expect("Can't add handler");
+		conn.handler_delete(handler);
+		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
+		ctx.run();
+		assert_eq!(*i.read().unwrap(), 0);
+	}
+
+	// handler clear
+	*i.write().unwrap() = 0;
+	{
+		let mut conn = creds.make_conn();
+		conn
+			.handler_add(i_incrementer.clone(), None, None, None)
+			.expect("Can't add handler");
+		conn.handlers_clear();
+		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
+		ctx.run();
+		assert_eq!(*i.read().unwrap(), 0);
+	}
+
+	// same handler twice
+	*i.write().unwrap() = 0;
+	{
+		let mut conn = creds.make_conn();
+		assert!(conn.handler_add(&i_incrementer, None, Some("iq"), None,).is_some());
+		assert!(conn.handler_add(&i_incrementer, None, Some("iq"), None).is_none());
+		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
+		ctx.run();
+		assert_eq!(*i.read().unwrap(), 1);
+	}
+
+	// cloned handler twice, not sure if this behaviour is right
+	*i.write().unwrap() = 0;
+	{
+		let mut conn = creds.make_conn();
+		assert!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None,).is_some());
+		assert!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None).is_none());
+		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
+		ctx.run();
+		assert_eq!(*i.read().unwrap(), 1);
+	}
+}
+
+#[test]
+fn stanza_global_context() {
+	let creds = if let Some(creds) = Creds::acquire() {
+		creds
+	} else {
+		eprintln!("Can't acquire creds, skipping test");
+		return;
+	};
+
+	let stz = Arc::new(Mutex::new(None));
+	{
+		let mut conn = creds.make_conn();
+		conn
+			.handler_add(
+				{
+					let stz = stz.clone();
+					move |_, _, stanza| {
+						*stz.lock().unwrap() = Some(stanza.clone());
+						HandlerResult::RemoveHandler
+					}
+				},
+				None,
+				Some("iq"),
+				None,
+			)
+			.expect("Can't add handler");
+		let ctx = conn
+			.connect_client(None, None, |ctx, conn, evt| match evt {
+				ConnectionEvent::Connect => conn.disconnect(),
+				ConnectionEvent::Disconnect(_) => ctx.stop(),
+				_ => (),
+			})
+			.unwrap();
+		ctx.run();
+	}
+	let stanza = Arc::try_unwrap(stz).unwrap().into_inner().unwrap().unwrap();
+	// without forcing ALLOC_CONTEXT it will segfault
+	assert_eq!(stanza.to_text().unwrap(), stanza.to_string());
+}
+
+#[test]
+#[cfg(feature = "libstrophe-0_11_0")]
+fn connection_handler_tls() {
+	let creds = if let Some(creds) = Creds::acquire() {
+		creds
+	} else {
+		eprintln!("Can't acquire creds, skipping test");
+		return;
+	};
+
+	{
+		// self-signed certificate reject
+		let flags = Arc::new(RwLock::new((0, 0, 0, 0)));
 		{
-			let conn = make_conn();
+			let mut conn = creds.make_tls_conn();
+			// this handler will be replaced by another one
+			conn.set_certfail_handler({
+				let flags = Arc::clone(&flags);
+				move |_cert, _err| {
+					flags.write().unwrap().0 += 2;
+					CertFailResult::TerminateConnection
+				}
+			});
+			conn.set_certfail_handler({
+				let flags = Arc::clone(&flags);
+				move |_cert, _err| {
+					flags.write().unwrap().0 += 1;
+					CertFailResult::TerminateConnection
+				}
+			});
 			let ctx = conn
 				.connect_client(None, None, {
 					let flags = Arc::clone(&flags);
 					move |ctx, conn, evt| match evt {
 						ConnectionEvent::Connect => {
-							flags.write().unwrap().0 += 1;
+							flags.write().unwrap().1 += 1;
 							conn.disconnect();
 						}
 						ConnectionEvent::RawConnect => {
-							flags.write().unwrap().1 += 1;
+							flags.write().unwrap().2 += 1;
 						}
 						ConnectionEvent::Disconnect(_) => {
-							flags.write().unwrap().2 += 1;
+							flags.write().unwrap().3 += 1;
 							ctx.stop();
 						}
 					}
@@ -595,535 +1099,51 @@ mod with_credentials {
 				.expect("There are hanging references to Rc value")
 				.into_inner()
 				.unwrap(),
-			(1, 0, 1)
+			(1, 0, 0, 1)
 		);
 	}
 
-	#[test]
-	fn timed_handler() {
-		let i = Arc::new(RwLock::new(0));
-
-		let do_common_stuff = |conn: &mut Connection| {
-			conn
-				.timed_handler_add(
-					|_, conn| {
-						conn.disconnect();
-						HandlerResult::RemoveHandler
-					},
-					Duration::from_secs(1),
-				)
-				.expect("Can't add timed handler");
-		};
-
+	{
+		// self-signed certificate accept
+		let flags = Arc::new(RwLock::new((0, 0, 0, 0)));
 		{
-			let i_incrementer = {
-				let i = i.clone();
-				move |_: &Context, _: &mut Connection| {
-					*i.write().unwrap() += 1;
-					HandlerResult::KeepHandler
+			let mut conn = creds.make_tls_conn();
+			conn.set_certfail_handler({
+				let flags = Arc::clone(&flags);
+				move |_cert, _err| {
+					flags.write().unwrap().0 += 1;
+					CertFailResult::EstablishConnection
 				}
-			};
-
-			// timed trigger, inside
-			{
-				let conn = make_conn();
-				let ctx = conn
-					.connect_client(None, None, {
-						let i_incrementer = i_incrementer.clone();
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								conn
-									.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1))
-									.expect("Can't add timed handler");
-								do_common_stuff(conn);
-							}
-							ConnectionEvent::Disconnect(_) => ctx.stop(),
-							_ => {}
-						}
-					})
-					.unwrap();
-				ctx.run();
-				assert!(*i.read().unwrap() > 0);
-				assert!(*i.read().unwrap() < 1000);
-			}
-
-			// outside
-			*i.write().unwrap() = 0;
-			{
-				let mut conn = make_conn();
-				conn
-					.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1))
-					.expect("Can't add timed handler");
-				let ctx = conn
-					.connect_client(None, None, {
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								do_common_stuff(conn);
-							}
-							ConnectionEvent::Disconnect(_) => {
-								ctx.stop();
-							}
-							_ => {}
-						}
-					})
-					.unwrap();
-				ctx.run();
-				assert!(*i.read().unwrap() > 0);
-				assert!(*i.read().unwrap() < 1000);
-			}
-
-			// delete
-			*i.write().unwrap() = 0;
-			{
-				let conn = make_conn();
-				let ctx = conn
-					.connect_client(None, None, {
-						let i_incrementer = i_incrementer.clone();
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								let handler = conn
-									.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1))
-									.expect("Can't add timed handler");
-								conn.timed_handler_delete(handler);
-								do_common_stuff(conn);
-							}
-							ConnectionEvent::Disconnect(_) => {
-								ctx.stop();
-							}
-							_ => {}
-						}
-					})
-					.unwrap();
-				ctx.run();
-				assert_eq!(*i.read().unwrap(), 0);
-			}
-
-			// clear
-			*i.write().unwrap() = 0;
-			{
-				let conn = make_conn();
-				let ctx = conn
-					.connect_client(None, None, {
-						let i_incrementer = i_incrementer.clone();
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								conn
-									.timed_handler_add(i_incrementer.clone(), Duration::from_millis(1))
-									.expect("Can't add timed handler");
-								conn.timed_handlers_clear();
-								do_common_stuff(conn);
-							}
-							ConnectionEvent::Disconnect(_) => {
-								ctx.stop();
-							}
-							_ => {}
-						}
-					})
-					.unwrap();
-				ctx.run();
-				assert_eq!(*i.read().unwrap(), 0);
-			}
-		}
-		assert_eq!(
-			Arc::try_unwrap(i)
-				.expect("There are hanging references to Rc value")
-				.into_inner()
-				.unwrap(),
-			0
-		);
-	}
-
-	/*#[test]
-	fn ctx_con_lifetime_issues() {
-		let ctx = Context::new_with_default_logger();
-
-		// if you exchange the next 2 lines then it works, probably not related to code lifetimes, but to Rust
-		let make_conn = || { Connection::new(ctx.clone()) };
-
-		let default_con_handler = |conn: &mut Connection, evt: ConnectionEvent, _: i32, _: Option<&StreamError>| {};
-
-		let mut conn = make_conn();
-		conn.connect_client(None, None, &default_con_handler).unwrap();
-	}*/
-
-	#[test]
-	fn id_handler() {
-		let i = Arc::new(RwLock::new(0));
-
-		let do_common_stuff = |_: &Context, conn: &mut Connection| {
-			let mut iq = Stanza::new_iq(Some("get"), Some("get_roster"));
-			let mut query = Stanza::new();
-			query.set_name("query").unwrap();
-			query.set_ns("jabber:iq:roster").unwrap();
-			iq.add_child(query).unwrap();
-			conn.send(&iq);
-
-			conn
-				.timed_handler_add(
-					|_, conn| {
-						conn.disconnect();
-						HandlerResult::RemoveHandler
-					},
-					Duration::from_secs(1),
-				)
-				.expect("Can't add id handler");
-		};
-
-		{
-			let i_incrementer = {
-				let i = i.clone();
-				move |_: &Context, _: &mut Connection, _: &Stanza| {
-					*i.write().unwrap() += 1;
-					HandlerResult::KeepHandler
-				}
-			};
-
-			// iq trigger, inside
-			{
-				let conn = make_conn();
-				let ctx = conn
-					.connect_client(None, None, {
-						let i_incrementer = i_incrementer.clone();
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								conn
-									.id_handler_add(i_incrementer.clone(), "get_roster")
-									.expect("Can't add id handler");
-
-								let mut iq = Stanza::new_iq(Some("get"), Some("get_roster1"));
-								let mut query = Stanza::new();
-								query.set_name("query").unwrap();
-								query.set_ns("jabber:iq:roster").unwrap();
-								iq.add_child(query).unwrap();
-								conn.send(&iq);
-
-								do_common_stuff(ctx, conn);
-							}
-							ConnectionEvent::Disconnect(_) => {
-								ctx.stop();
-							}
-							_ => {}
-						}
-					})
-					.unwrap();
-				ctx.run();
-				assert_eq!(*i.read().unwrap(), 1);
-			}
-
-			// outside
-			*i.write().unwrap() = 0;
-			{
-				let mut conn = make_conn();
-				conn
-					.id_handler_add(i_incrementer.clone(), "get_roster")
-					.expect("Can't add id handler");
-				let ctx = conn
-					.connect_client(None, None, {
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								let mut iq = Stanza::new_iq(Some("get"), Some("get_roster1"));
-								let mut query = Stanza::new();
-								query.set_name("query").unwrap();
-								query.set_ns("jabber:iq:roster").unwrap();
-								iq.add_child(query).unwrap();
-								conn.send(&iq);
-
-								do_common_stuff(ctx, conn);
-							}
-							ConnectionEvent::Disconnect(_) => {
-								ctx.stop();
-							}
-							_ => {}
-						}
-					})
-					.unwrap();
-				ctx.run();
-				assert_eq!(*i.read().unwrap(), 1);
-			}
-
-			// delete
-			*i.write().unwrap() = 0;
-			{
-				let conn = make_conn();
-				let ctx = conn
-					.connect_client(None, None, {
-						let i_incrementer = i_incrementer.clone();
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								let handler = conn
-									.id_handler_add(i_incrementer.clone(), "get_roster")
-									.expect("Can't id timed handler");
-								conn.id_handler_delete(handler);
-
-								do_common_stuff(ctx, conn);
-							}
-							ConnectionEvent::Disconnect(_) => {
-								ctx.stop();
-							}
-							_ => {}
-						}
-					})
-					.unwrap();
-				ctx.run();
-				assert_eq!(*i.read().unwrap(), 0);
-			}
-
-			// clear
-			*i.write().unwrap() = 0;
-			{
-				let conn = make_conn();
-				let ctx = conn
-					.connect_client(None, None, {
-						let i_incrementer = i_incrementer.clone();
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								conn
-									.id_handler_add(i_incrementer.clone(), "get_roster")
-									.expect("Can't add id handler");
-								conn.id_handlers_clear();
-								do_common_stuff(ctx, conn);
-							}
-							ConnectionEvent::Disconnect(_) => {
-								ctx.stop();
-							}
-							_ => {}
-						}
-					})
-					.unwrap();
-				ctx.run();
-				assert_eq!(*i.read().unwrap(), 0);
-			}
-		}
-		assert_eq!(
-			Arc::try_unwrap(i)
-				.expect("There are hanging references to Rc value")
-				.into_inner()
-				.unwrap(),
-			0
-		);
-	}
-
-	#[test]
-	fn handler() {
-		let i = Arc::new(RwLock::new(0));
-
-		let default_con_handler = |ctx: &Context, conn: &mut Connection, evt: ConnectionEvent| match evt {
-			ConnectionEvent::Connect => {
-				conn.disconnect();
-			}
-			ConnectionEvent::Disconnect(_) => {
-				ctx.stop();
-			}
-			_ => {}
-		};
-
-		let i_incrementer = {
-			let i = i.clone();
-			move |_: &Context, _: &mut Connection, _: &Stanza| {
-				*i.write().unwrap() += 1;
-				HandlerResult::KeepHandler
-			}
-		};
-
-		// handler call stanza name filter
-		{
-			let mut conn = make_conn();
-			conn
-				.handler_add(i_incrementer.clone(), None, Some("iq"), None)
-				.expect("Can't add handler");
-			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
-			ctx.run();
-			assert_eq!(*i.read().unwrap(), 1);
-		}
-
-		// handler call stanza name not existent
-		*i.write().unwrap() = 0;
-		{
-			let mut conn = make_conn();
-			conn
-				.handler_add(i_incrementer.clone(), None, Some("non-existent"), None)
-				.expect("Can't add handler");
-			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
-			ctx.run();
-			assert_eq!(*i.read().unwrap(), 0);
-		}
-
-		// handler delete
-		*i.write().unwrap() = 0;
-		{
-			let mut conn = make_conn();
-			let handler = conn
-				.handler_add(i_incrementer.clone(), None, None, None)
-				.expect("Can't add handler");
-			conn.handler_delete(handler);
-			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
-			ctx.run();
-			assert_eq!(*i.read().unwrap(), 0);
-		}
-
-		// handler clear
-		*i.write().unwrap() = 0;
-		{
-			let mut conn = make_conn();
-			conn
-				.handler_add(i_incrementer.clone(), None, None, None)
-				.expect("Can't add handler");
-			conn.handlers_clear();
-			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
-			ctx.run();
-			assert_eq!(*i.read().unwrap(), 0);
-		}
-
-		// same handler twice
-		*i.write().unwrap() = 0;
-		{
-			let mut conn = make_conn();
-			assert!(conn.handler_add(&i_incrementer, None, Some("iq"), None,).is_some());
-			assert!(conn.handler_add(&i_incrementer, None, Some("iq"), None).is_none());
-			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
-			ctx.run();
-			assert_eq!(*i.read().unwrap(), 1);
-		}
-
-		// cloned handler twice, not sure if this behaviour is right
-		*i.write().unwrap() = 0;
-		{
-			let mut conn = make_conn();
-			assert!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None,).is_some());
-			assert!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None).is_none());
-			let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
-			ctx.run();
-			assert_eq!(*i.read().unwrap(), 1);
-		}
-	}
-
-	#[test]
-	fn stanza_global_context() {
-		let stz = Arc::new(Mutex::new(None));
-		{
-			let mut conn = make_conn();
-			conn
-				.handler_add(
-					{
-						let stz = stz.clone();
-						move |_, _, stanza| {
-							*stz.lock().unwrap() = Some(stanza.clone());
-							HandlerResult::RemoveHandler
-						}
-					},
-					None,
-					Some("iq"),
-					None,
-				)
-				.expect("Can't add handler");
+			});
 			let ctx = conn
-				.connect_client(None, None, |ctx, conn, evt| match evt {
-					ConnectionEvent::Connect => conn.disconnect(),
-					ConnectionEvent::Disconnect(_) => ctx.stop(),
-					_ => (),
+				.connect_client(None, None, {
+					let flags = Arc::clone(&flags);
+					move |ctx, conn, evt| match evt {
+						ConnectionEvent::Connect => {
+							flags.write().unwrap().1 += 1;
+							if conn.peer_cert().is_some() {
+								flags.write().unwrap().1 += 1;
+							}
+							conn.disconnect();
+						}
+						ConnectionEvent::RawConnect => {
+							flags.write().unwrap().2 += 1;
+						}
+						ConnectionEvent::Disconnect(_) => {
+							flags.write().unwrap().3 += 1;
+							ctx.stop();
+						}
+					}
 				})
 				.unwrap();
 			ctx.run();
 		}
-		let stanza = Arc::try_unwrap(stz).unwrap().into_inner().unwrap().unwrap();
-		// without forcing ALLOC_CONTEXT it will segfault
-		assert_eq!(stanza.to_text().unwrap(), stanza.to_string());
-	}
-
-	#[test]
-	#[cfg(feature = "libstrophe-0_11_0")]
-	fn connection_handler_tls() {
-		{
-			// self-signed certificate reject
-			let flags = Arc::new(RwLock::new((0, 0, 0, 0)));
-			{
-				let mut conn = make_tls_conn();
-				// this handler will be replaced by another one
-				conn.set_certfail_handler({
-					let flags = Arc::clone(&flags);
-					move |_cert, _err| {
-						flags.write().unwrap().0 += 2;
-						CertFailResult::TerminateConnection
-					}
-				});
-				conn.set_certfail_handler({
-					let flags = Arc::clone(&flags);
-					move |_cert, _err| {
-						flags.write().unwrap().0 += 1;
-						CertFailResult::TerminateConnection
-					}
-				});
-				let ctx = conn
-					.connect_client(None, None, {
-						let flags = Arc::clone(&flags);
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								flags.write().unwrap().1 += 1;
-								conn.disconnect();
-							}
-							ConnectionEvent::RawConnect => {
-								flags.write().unwrap().2 += 1;
-							}
-							ConnectionEvent::Disconnect(_) => {
-								flags.write().unwrap().3 += 1;
-								ctx.stop();
-							}
-						}
-					})
-					.unwrap();
-				ctx.run();
-			}
-			assert_eq!(
-				Arc::try_unwrap(flags)
-					.expect("There are hanging references to Rc value")
-					.into_inner()
-					.unwrap(),
-				(1, 0, 0, 1)
-			);
-		}
-
-		{
-			// self-signed certificate accept
-			let flags = Arc::new(RwLock::new((0, 0, 0, 0)));
-			{
-				let mut conn = make_tls_conn();
-				conn.set_certfail_handler({
-					let flags = Arc::clone(&flags);
-					move |_cert, _err| {
-						flags.write().unwrap().0 += 1;
-						CertFailResult::EstablishConnection
-					}
-				});
-				let ctx = conn
-					.connect_client(None, None, {
-						let flags = Arc::clone(&flags);
-						move |ctx, conn, evt| match evt {
-							ConnectionEvent::Connect => {
-								flags.write().unwrap().1 += 1;
-								if conn.peer_cert().is_some() {
-									flags.write().unwrap().1 += 1;
-								}
-								conn.disconnect();
-							}
-							ConnectionEvent::RawConnect => {
-								flags.write().unwrap().2 += 1;
-							}
-							ConnectionEvent::Disconnect(_) => {
-								flags.write().unwrap().3 += 1;
-								ctx.stop();
-							}
-						}
-					})
-					.unwrap();
-				ctx.run();
-			}
-			let call_counts = Arc::try_unwrap(flags)
-				.expect("There are hanging references to Rc value")
-				.into_inner()
-				.unwrap();
-			// gives different results in CI and locally, probably difference in ejabberd versions
-			assert!((2, 2, 0, 1) == call_counts || (3, 2, 0, 1) == call_counts);
-		}
+		let call_counts = Arc::try_unwrap(flags)
+			.expect("There are hanging references to Rc value")
+			.into_inner()
+			.unwrap();
+		// gives different results in CI and locally, probably difference in ejabberd versions
+		assert!((2, 2, 0, 1) == call_counts || (3, 2, 0, 1) == call_counts);
 	}
 }
 
@@ -1131,4 +1151,58 @@ mod with_credentials {
 fn fail() {
 	let t = trybuild::TestCases::new();
 	t.compile_fail("src/tests/fail/*.rs");
+}
+
+#[derive(Debug)]
+struct Creds {
+	jid: String,
+	name: String,
+	pass: String,
+}
+
+impl Creds {
+	pub fn acquire() -> Option<Self> {
+		let mut generator = Generator::default();
+		let name = generator.next()?;
+		let jid = format!("{name}@localhost");
+		let pass = generator.next()?;
+		let creds_acquire_script = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR")?).join("creds-acquire.sh");
+		let result = Command::new(creds_acquire_script).arg(&name).arg(&pass).output().unwrap();
+		if !result.status.success() {
+			return None;
+		}
+		Some(Self { jid, name, pass })
+	}
+
+	pub fn make_conn(&self) -> Connection<'_, 'static> {
+		let mut conn = Connection::new(Context::new_with_default_logger());
+		conn.set_jid(&self.jid);
+		conn.set_pass(&self.pass);
+		conn
+			.set_flags(ConnectionFlags::TRUST_TLS)
+			.expect("Cannot set connection flags");
+		conn
+	}
+
+	#[cfg(feature = "libstrophe-0_11_0")]
+	pub fn make_tls_conn(&self) -> Connection<'_, 'static> {
+		let mut conn = Connection::new(Context::new_with_default_logger());
+		conn.set_jid(&self.jid);
+		conn.set_pass(&self.pass);
+		conn
+			.set_flags(ConnectionFlags::MANDATORY_TLS)
+			.expect("Cannot set connection flags");
+		conn
+	}
+}
+
+impl Drop for Creds {
+	fn drop(&mut self) {
+		if let Some(cargo_manifest_dir) = env::var_os("CARGO_MANIFEST_DIR") {
+			let creds_release_script = PathBuf::from(cargo_manifest_dir).join("creds-release.sh");
+			if let Err(e) = Command::new(creds_release_script).arg(&self.name).output() {
+				eprintln!("Failure releasing credentials: {e}");
+			}
+		}
+	}
 }

@@ -13,9 +13,6 @@ sudo apt-get update
 sudo apt-get -Vy install makepasswd autoconf libtool libssl-dev libxml2-dev build-essential ejabberd
 
 build_dir=~/build
-jabber_username=libstrophe
-jabber_host=localhost
-jabber_pwd="$(makepasswd)"
 
 mkdir -p "$build_dir"
 curl -L "https://github.com/strophe/libstrophe/archive/$PKG_VERSION.tar.gz" | tar -xzC "$build_dir"
@@ -25,6 +22,3 @@ pushd "$build_dir/libstrophe-$PKG_VERSION"
 sudo make -j"$(nproc)" install
 popd
 sudo systemctl start ejabberd
-echo -n "$jabber_username@$jabber_host" > jid.txt
-echo -n "$jabber_pwd" > password.txt
-sudo ejabberdctl register "$jabber_username" "$jabber_host" "$jabber_pwd"

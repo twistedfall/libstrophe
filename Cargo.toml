@@ -29,6 +29,7 @@ sys = { package = "libstrophe-sys-bindgen", version = "6", path = "libstrophe-sy
 [dev-dependencies]
 env_logger = "0.10"
 matches = "0.1"
+names = "0.14"
 trybuild = "1"
 
 [features]
@@ -39,4 +40,3 @@ libstrophe-0_10_0 = ["libstrophe-0_9_3"]
 libstrophe-0_11_0 = ["libstrophe-0_10_0"]
 libstrophe-0_12_0 = ["libstrophe-0_11_0"]
 rust-log = ["log"]
-creds-test = []
