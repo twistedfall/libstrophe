@@ -387,6 +387,9 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 
 	#[cfg(feature = "libstrophe-0_11_0")]
 	/// [xmpp_conn_set_certfail_handler](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#ga4f24b0fb42ab541f902d5e15b3b59b33)
+	/// [xmpp_certfail_handler](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#ga2e4aa651337c0aaf25b60ea160c2f4bd)
+	///
+	/// Callback function receives [TlsCert] object object and an error message.
 	pub fn set_certfail_handler<CB>(&mut self, handler: CB)
 	where
 		CB: Fn(&TlsCert, &str) -> CertFailResult + Send + Sync + 'static,
@@ -445,6 +448,10 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	#[inline]
 	/// [xmpp_conn_set_password_callback](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#gadcd27378977412d49ede93a5542f01e4)
 	/// [xmpp_password_callback](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#ga140b726d8daf4175a009b3f7cb414593)
+	///
+	/// Callback function receives Connection object and maximum allowed length of the password, it returns `Some(String)` with password
+	/// on success or None in case of error. If the returned `String` is longer than maximum allowed length it is ignored and the error
+	/// is returned.
 	pub fn set_password_callback<CB>(&mut self, handler: Option<CB>)
 	where
 		CB: Fn(&Connection<'cb, 'cx>, usize) -> Option<String> + Send + 'cb,
@@ -465,6 +472,9 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 
 	#[cfg(feature = "libstrophe-0_12_0")]
 	/// [xmpp_conn_set_sockopt_callback](https://strophe.im/libstrophe/doc/0.12.2/group___connections.html#ga40d4c1bc7dbd22d356067fd2105ba685)
+	/// [xmpp_sockopt_callback](https://strophe.im/libstrophe/doc/0.12.2/group___connections.html#gab69556790910b0875d9aa8564c415384)
+	///
+	/// Callback function receives pointer to a system-dependent socket object. See docs above for more details.
 	pub fn set_sockopt_callback<CB>(&mut self, handler: CB)
 	where
 		CB: Fn(*mut c_void) -> SockoptResult + Send + Sync + 'static,
@@ -483,6 +493,10 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	#[cfg(feature = "libstrophe-0_12_0")]
 	#[inline]
 	/// [xmpp_sockopt_cb_keepalive](https://strophe.im/libstrophe/doc/0.12.2/group___connections.html#ga044f1e5d519bff84066317cf8b9fe607)
+	///
+	/// Sets default sockopt_callback function that just uses compile-time internal defaults for the socket timeout. Those
+	/// values can be changed with a deprecated [Connection::set_keepalive]. If you use that function then you don't need to call
+	/// [Connection::set_default_sockopt_callback] manually because it will be called internally.
 	pub fn set_default_sockopt_callback(&mut self) {
 		unsafe { sys::xmpp_conn_set_sockopt_callback(self.inner.as_mut(), Some(sys::xmpp_sockopt_cb_keepalive)) }
 	}
