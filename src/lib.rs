@@ -128,9 +128,11 @@ pub use logger::Logger;
 #[cfg(feature = "libstrophe-0_12_0")]
 pub use sm_state::SMState;
 pub use stanza::{Stanza, StanzaMutRef, StanzaRef, XMPP_STANZA_NAME_IN_NS};
+#[cfg(feature = "libstrophe-0_11_0")]
+pub use sys::xmpp_cert_element_t as CertElement;
+pub use sys::xmpp_log_level_t as LogLevel;
 #[cfg(feature = "libstrophe-0_12_0")]
 pub use sys::xmpp_queue_element_t as QueueElement;
-pub use sys::{xmpp_cert_element_t as CertElement, xmpp_log_level_t as LogLevel};
 #[cfg(feature = "libstrophe-0_11_0")]
 pub use tls_cert::TlsCert;
 
@@ -160,6 +162,8 @@ bitflags! {
 		const TRUST_TLS = sys::XMPP_CONN_FLAG_TRUST_TLS as c_long;
 		#[cfg(feature = "libstrophe-0_9_3")]
 		const LEGACY_AUTH = sys::XMPP_CONN_FLAG_LEGACY_AUTH as c_long;
+		#[cfg(feature = "libstrophe-0_12_0")]
+		const DISABLE_SM = sys::XMPP_CONN_FLAG_DISABLE_SM as c_long;
 	}
 }
 
