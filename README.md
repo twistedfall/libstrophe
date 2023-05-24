@@ -9,7 +9,7 @@ See [full documentation](https://docs.rs/libstrophe)
 Add this to your Cargo.toml:
 ```
 [dependencies]
-libstrophe = "0.18.0"
+libstrophe = "0.19.0"
 ```
 
 ![Maintenance](https://img.shields.io/badge/maintenance-passively--maintained-yellowgreen.svg)
@@ -116,6 +116,8 @@ The following features are provided:
   * `libstrophe-0_10_0` - enabled by default, enables functionality specific to libstrophe-0.10.0
   * `libstrophe-0_11_0` - enabled by default, enables functionality specific to libstrophe-0.11.0
   * `libstrophe-0_12_0` - enabled by default, enables functionality specific to libstrophe-0.12.0
+  * `buildtime_bindgen` - forces regeneration of the bindings instead of relying on the
+    pre-generated sources
 
 [libstrophe]: https://strophe.im/libstrophe/
 [`log`]: https://crates.io/crates/log
