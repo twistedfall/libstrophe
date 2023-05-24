@@ -1,4 +1,4 @@
-use std::ffi::c_ulong;
+use std::os::raw::c_ulong;
 use std::ptr::NonNull;
 use std::time::Duration;
 

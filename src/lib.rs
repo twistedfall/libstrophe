@@ -109,7 +109,8 @@
 //! [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
 //! [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
 
-use std::ffi::{c_long, c_void};
+use std::ffi::c_void;
+use std::os::raw::c_long;
 use std::sync::Once;
 
 use bitflags::bitflags;

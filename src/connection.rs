@@ -2,9 +2,12 @@
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ffi::c_void;
 #[cfg(feature = "libstrophe-0_12_0")]
-use std::ffi::{c_char, CString};
-use std::ffi::{c_int, c_ulong, c_void};
+use std::ffi::CString;
+#[cfg(feature = "libstrophe-0_12_0")]
+use std::os::raw::c_char;
+use std::os::raw::{c_int, c_ulong};
 use std::ptr::NonNull;
 use std::rc::Rc;
 use std::time::Duration;

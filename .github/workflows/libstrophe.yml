@@ -21,11 +21,31 @@ jobs:
         shell: bash
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
 
-      - name: Clippy
+      - name: Checks
         run: ci/checks.sh
         shell: bash
 
       - name: Test
         run: ci/script.sh
+        shell: bash
+
+  msrv:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Get MSRV package metadata
+        id: metadata
+        run: cargo metadata --no-deps --format-version 1 | jq -r '"msrv="+(.packages[]|select(.name=="libstrophe").rust_version)' >> $GITHUB_OUTPUT
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.metadata.outputs.msrv }}
+          components: clippy,rustfmt
+
+      - name: Checks
+        run: ci/checks.sh
         shell: bash

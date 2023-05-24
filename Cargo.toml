@@ -1,7 +1,8 @@
 [package]
 name = "libstrophe"
 version = "0.18.0"
-edition = "2018"
+edition = "2021"
+rust-version = "1.60"
 description = "Rust ergonomic wrapper for libstrophe"
 keywords = ["jabber", "xmpp", "libstrophe", "messaging", "im"]
 categories = ["api-bindings", "network-programming"]

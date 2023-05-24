@@ -1,4 +1,5 @@
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
 use std::ptr;
 
 #[allow(clippy::upper_case_acronyms)]

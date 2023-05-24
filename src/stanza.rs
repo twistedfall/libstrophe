@@ -1,8 +1,9 @@
 use std::collections::HashMap;
-use std::ffi::{c_char, c_int, c_uint, CStr};
+use std::ffi::CStr;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
+use std::os::raw::{c_char, c_int, c_uint};
 use std::ptr::NonNull;
 use std::{fmt, ops, ptr, slice};
 

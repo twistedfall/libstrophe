@@ -3,9 +3,9 @@ use std::any::TypeId;
 use std::cell::RefCell;
 #[cfg(feature = "libstrophe-0_12_0")]
 use std::ffi::c_void;
-#[cfg(any(feature = "libstrophe-0_11_0", feature = "libstrophe-0_12_0"))]
-use std::ffi::{c_char, c_int};
 use std::fmt;
+#[cfg(any(feature = "libstrophe-0_11_0", feature = "libstrophe-0_12_0"))]
+use std::os::raw::{c_char, c_int};
 use std::rc::Weak;
 
 #[cfg(feature = "libstrophe-0_11_0")]

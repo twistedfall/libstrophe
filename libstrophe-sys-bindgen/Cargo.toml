@@ -1,7 +1,8 @@
 [package]
 name = "libstrophe-sys-bindgen"
 version = "6.0.2"
-edition = "2018"
+edition = "2021"
+rust-version = "1.60"
 description = "Rust bindings for libstrophe, generated using bindgen"
 keywords = ["jabber", "xmpp", "libstrophe", "bindgen", "im"]
 categories = ["external-ffi-bindings"]

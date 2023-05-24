@@ -1,6 +1,6 @@
 #[cfg(feature = "libstrophe-0_12_0")]
 pub fn stanza_get_child_by_path(stanza: *mut sys::xmpp_stanza_t, path: &[&str]) -> *mut sys::xmpp_stanza_t {
-	use std::ffi::c_char;
+	use std::os::raw::c_char;
 	use std::ptr;
 
 	use crate::ffi_types::FFI;

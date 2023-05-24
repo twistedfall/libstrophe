@@ -1,6 +1,7 @@
-use std::ffi::{c_char, c_void};
+use std::ffi::c_void;
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::os::raw::c_char;
 use std::ptr::NonNull;
 
 #[cfg(feature = "log")]

@@ -1,6 +1,6 @@
 use std::error::Error as StdError;
-use std::ffi::{c_char, c_int};
 use std::fmt;
+use std::os::raw::{c_char, c_int};
 use std::result::Result as StdResult;
 use std::str::Utf8Error;
 use std::sync::Mutex;
