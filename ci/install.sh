@@ -15,8 +15,8 @@ sudo apt-get -Vy install makepasswd autoconf libtool libssl-dev libxml2-dev buil
 build_dir=~/build
 
 mkdir -p "$build_dir"
-curl -L "https://github.com/strophe/libstrophe/archive/$PKG_VERSION.tar.gz" | tar -xzC "$build_dir"
-pushd "$build_dir/libstrophe-$PKG_VERSION"
+curl -L "https://github.com/strophe/libstrophe/archive/$LIBSTROPHE_VERSION.tar.gz" | tar -xzC "$build_dir"
+pushd "$build_dir/libstrophe-$LIBSTROPHE_VERSION"
 ./bootstrap.sh
 ./configure --prefix=/usr
 sudo make -j"$(nproc)" install

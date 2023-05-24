@@ -10,9 +10,17 @@ on:
       - "*"
 jobs:
   ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        libstrophe-version:
+          - 0.9.3
+          - 0.10.1
+          - 0.11.0
+          - 0.12.2
     runs-on: ubuntu-20.04
     env:
-      PKG_VERSION: 0.12.2
+      LIBSTROPHE_VERSION: ${{ matrix.libstrophe-version }}
     steps:
       - uses: actions/checkout@v3
 

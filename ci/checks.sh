@@ -4,4 +4,4 @@ set -xeu
 
 cargo fmt --check
 
-clippy -v --workspace --all-targets --all-features -- -D warnings
+cargo clippy -v --workspace --all-targets -- -D warnings
