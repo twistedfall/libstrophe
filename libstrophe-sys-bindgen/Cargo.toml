@@ -9,9 +9,9 @@ categories = ["external-ffi-bindings"]
 authors = ["Pro <twisted.fall@gmail.com>"]
 license = "LGPL-3.0"
 documentation = "https://docs.rs/libstrophe-sys-bindgen"
-readme = "README.md"
 repository = "https://github.com/twistedfall/libstrophe"
 links = "strophe"
+exclude = ["/.gitignore", "/tools"]
 
 [badges]
 maintenance = { status = "passively-maintained" }

@@ -9,8 +9,8 @@ categories = ["api-bindings", "network-programming"]
 authors = ["Pro <twisted.fall@gmail.com>"]
 license = "LGPL-3.0"
 documentation = "https://docs.rs/libstrophe"
-readme = "README.md"
 repository = "https://github.com/twistedfall/libstrophe"
+exclude = ["/.github", "/ci", "/tools", ".gitignore", "README.tpl", "release.toml", "rustfmt.toml"]
 
 [badges]
 maintenance = { status = "passively-maintained" }
