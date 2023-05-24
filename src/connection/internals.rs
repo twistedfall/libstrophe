@@ -58,7 +58,7 @@ mod libstrophe_0_12 {
 		Error = -1,
 	}
 
-	pub type PasswordCallback<'cb, 'cx> = dyn Fn(&Connection<'cb, 'cx>) -> Option<String> + Send + 'cb;
+	pub type PasswordCallback<'cb, 'cx> = dyn Fn(&Connection<'cb, 'cx>, usize) -> Option<String> + Send + 'cb;
 	pub type PasswordFatHandler<'cb, 'cx> = FatHandler<'cb, 'cx, PasswordCallback<'cb, 'cx>, ()>;
 }
 

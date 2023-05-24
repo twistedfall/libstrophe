@@ -196,16 +196,22 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		userdata: *mut c_void,
 	) -> c_int
 	where
-		CB: FnMut(&Connection<'cb, 'cx>) -> Option<String> + Send + 'cb,
+		CB: FnMut(&Connection<'cb, 'cx>, usize) -> Option<String> + Send + 'cb,
 	{
 		let password_handler = void_ptr_as::<PasswordFatHandler>(userdata);
 		if let Some(fat_handlers) = password_handler.fat_handlers.upgrade() {
 			let conn = Self::from_ref_mut(conn_ptr, fat_handlers);
-			ensure_unique!(CB, conn_ptr, userdata, &conn);
-			let result = (password_handler.handler)(&conn);
+			// we need to leave place for the null byte that will be written by libstrophe
+			let max_password_len = if pw_max < 1 {
+				0
+			} else {
+				pw_max - 1
+			};
+			ensure_unique!(CB, conn_ptr, userdata, &conn, max_password_len);
+			let result = (password_handler.handler)(&conn, max_password_len);
 			if let Some(password) = result {
 				if let Ok(password) = CString::new(password) {
-					if password.as_bytes().len() < pw_max {
+					if password.as_bytes().len() <= max_password_len {
 						let pass_len = password.as_bytes().len();
 						ptr::copy_nonoverlapping(password.as_ptr(), pw, pass_len);
 						return pass_len as c_int;
@@ -441,7 +447,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_password_callback](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#ga140b726d8daf4175a009b3f7cb414593)
 	pub fn set_password_callback<CB>(&mut self, handler: Option<CB>)
 	where
-		CB: Fn(&Connection<'cb, 'cx>) -> Option<String> + Send + 'cb,
+		CB: Fn(&Connection<'cb, 'cx>, usize) -> Option<String> + Send + 'cb,
 	{
 		if let Some(handler) = handler {
 			let callback = Self::password_handler_cb::<CB>;
