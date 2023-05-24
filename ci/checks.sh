@@ -1,6 +1,8 @@
 #!/bin/bash
 
-set -vex
+set -xeu
+
+cargo fmt --check
 
 cargo clippy -v --features=creds-test -- -D warnings
 cargo clippy -v --release --features=creds-test -- -D warnings

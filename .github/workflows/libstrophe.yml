@@ -23,7 +23,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Clippy
-        run: ci/clippy.sh
+        run: ci/checks.sh
         shell: bash
 
       - name: Test

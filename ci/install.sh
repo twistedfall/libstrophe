@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xev
+set -xeu
 
 # on installation ejabberd generates a new certificate with the following string therein:
 #   root@$(hostname -s).$(hostname -d)
