@@ -404,6 +404,9 @@ impl Stanza {
 
 	#[cfg(feature = "libstrophe-0_12_0")]
 	/// [xmpp_stanza_get_child_by_path](https://strophe.im/libstrophe/doc/0.12.2/group___stanza.html#ga12567a82abab6a54c396ea56cb895981)
+	///
+	/// Due to internal limitations (vararg call in C) this function supports a maximum of 10 elements
+	/// in the `path` slice.
 	pub fn get_child_by_path(&self, path: &[&str]) -> Option<StanzaRef> {
 		let res = internals::stanza_get_child_by_path(self.inner.as_ptr(), path);
 		unsafe { res.as_ref() }.map(|x| unsafe { Self::from_ref(x) })
@@ -412,6 +415,9 @@ impl Stanza {
 	#[inline]
 	#[cfg(feature = "libstrophe-0_12_0")]
 	/// [xmpp_stanza_get_child_by_path](https://strophe.im/libstrophe/doc/0.12.2/group___stanza.html#ga12567a82abab6a54c396ea56cb895981)
+	///
+	/// Due to internal limitations (vararg call in C) this function supports a maximum of 10 elements
+	/// in the `path` slice.
 	pub fn get_child_by_path_mut(&mut self, path: &[&str]) -> Option<StanzaMutRef> {
 		let res = internals::stanza_get_child_by_path(unsafe { self.inner.as_mut() }, path);
 		unsafe { res.as_mut() }.map(|x| unsafe { Self::from_ref_mut(x) })

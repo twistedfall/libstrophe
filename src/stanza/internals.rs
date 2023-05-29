@@ -5,76 +5,59 @@ pub fn stanza_get_child_by_path(stanza: *mut sys::xmpp_stanza_t, path: &[&str]) 
 
 	use crate::ffi_types::FFI;
 
+	macro_rules! call_with_paths {
+		() => {
+			unsafe {
+				sys::xmpp_stanza_get_child_by_path(stanza, ptr::null::<*const c_char>())
+			}
+		};
+
+		( $($path: ident),* ) => {
+			{
+				$(
+					let $path = FFI($path).send();
+				)*
+				unsafe {
+					sys::xmpp_stanza_get_child_by_path(stanza, $($path.as_ptr()),*, ptr::null::<*const c_char>())
+				}
+			}
+		};
+	}
+
 	match *path {
-		[path0] => unsafe {
-			let path0 = FFI(path0).send();
-			sys::xmpp_stanza_get_child_by_path(stanza, path0.as_ptr(), ptr::null::<*const c_char>())
-		},
-		[path0, path1] => unsafe {
-			let path0 = FFI(path0).send();
-			let path1 = FFI(path1).send();
-			sys::xmpp_stanza_get_child_by_path(stanza, path0.as_ptr(), path1.as_ptr(), ptr::null::<*const c_char>())
-		},
-		[path0, path1, path2] => unsafe {
-			let path0 = FFI(path0).send();
-			let path1 = FFI(path1).send();
-			let path2 = FFI(path2).send();
-			sys::xmpp_stanza_get_child_by_path(
-				stanza,
-				path0.as_ptr(),
-				path1.as_ptr(),
-				path2.as_ptr(),
-				ptr::null::<*const c_char>(),
-			)
-		},
-		[path0, path1, path2, path3] => unsafe {
-			let path0 = FFI(path0).send();
-			let path1 = FFI(path1).send();
-			let path2 = FFI(path2).send();
-			let path3 = FFI(path3).send();
-			sys::xmpp_stanza_get_child_by_path(
-				stanza,
-				path0.as_ptr(),
-				path1.as_ptr(),
-				path2.as_ptr(),
-				path3.as_ptr(),
-				ptr::null::<*const c_char>(),
-			)
-		},
-		[path0, path1, path2, path3, path4] => unsafe {
-			let path0 = FFI(path0).send();
-			let path1 = FFI(path1).send();
-			let path2 = FFI(path2).send();
-			let path3 = FFI(path3).send();
-			let path4 = FFI(path4).send();
-			sys::xmpp_stanza_get_child_by_path(
-				stanza,
-				path0.as_ptr(),
-				path1.as_ptr(),
-				path2.as_ptr(),
-				path3.as_ptr(),
-				path4.as_ptr(),
-				ptr::null::<*const c_char>(),
-			)
-		},
-		[path0, path1, path2, path3, path4, path5] => unsafe {
-			let path0 = FFI(path0).send();
-			let path1 = FFI(path1).send();
-			let path2 = FFI(path2).send();
-			let path3 = FFI(path3).send();
-			let path4 = FFI(path4).send();
-			let path5 = FFI(path5).send();
-			sys::xmpp_stanza_get_child_by_path(
-				stanza,
-				path0.as_ptr(),
-				path1.as_ptr(),
-				path2.as_ptr(),
-				path3.as_ptr(),
-				path4.as_ptr(),
-				path5.as_ptr(),
-				ptr::null::<*const c_char>(),
-			)
-		},
-		_ => panic!("Maximum supported amount of elements in path is 6"),
+		[] => {
+			call_with_paths!()
+		}
+		[path0] => {
+			call_with_paths!(path0)
+		}
+		[path0, path1] => {
+			call_with_paths!(path0, path1)
+		}
+		[path0, path1, path2] => {
+			call_with_paths!(path0, path1, path2)
+		}
+		[path0, path1, path2, path3] => {
+			call_with_paths!(path0, path1, path2, path3)
+		}
+		[path0, path1, path2, path3, path4] => {
+			call_with_paths!(path0, path1, path2, path3, path4)
+		}
+		[path0, path1, path2, path3, path4, path5] => {
+			call_with_paths!(path0, path1, path2, path3, path4, path5)
+		}
+		[path0, path1, path2, path3, path4, path5, path6] => {
+			call_with_paths!(path0, path1, path2, path3, path4, path5, path6)
+		}
+		[path0, path1, path2, path3, path4, path5, path6, path7] => {
+			call_with_paths!(path0, path1, path2, path3, path4, path5, path6, path7)
+		}
+		[path0, path1, path2, path3, path4, path5, path6, path7, path8] => {
+			call_with_paths!(path0, path1, path2, path3, path4, path5, path6, path7, path8)
+		}
+		[path0, path1, path2, path3, path4, path5, path6, path7, path8, path9] => {
+			call_with_paths!(path0, path1, path2, path3, path4, path5, path6, path7, path8, path9)
+		}
+		_ => panic!("Maximum supported amount of elements in path is 10"),
 	}
 }
