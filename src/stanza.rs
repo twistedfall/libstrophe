@@ -8,7 +8,7 @@ use std::ptr::NonNull;
 use std::{fmt, ops, ptr, slice};
 
 use crate::error::IntoResult;
-use crate::{Error, Result, ToTextError, ALLOC_CONTEXT, FFI};
+use crate::{Error, ErrorType, Result, ToTextError, ALLOC_CONTEXT, FFI};
 
 mod internals;
 
@@ -80,6 +80,14 @@ impl Stanza {
 				id.as_ptr(),
 			))
 		}
+	}
+
+	#[inline]
+	#[cfg(feature = "libstrophe-0_9_3")]
+	/// [xmpp_error_new](https://strophe.im/libstrophe/doc/0.12.2/group___stanza.html#ga867086f16735eff5220a116d9d5e353b)
+	pub fn new_error(typ: ErrorType, text: Option<&str>) -> Self {
+		let text = FFI(text).send();
+		unsafe { Stanza::from_owned(sys::xmpp_error_new(ALLOC_CONTEXT.as_ptr(), typ, text.as_ptr())) }
 	}
 
 	#[inline]

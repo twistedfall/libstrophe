@@ -133,6 +133,8 @@ pub use sm_state::SMState;
 pub use stanza::{Stanza, StanzaMutRef, StanzaRef, XMPP_STANZA_NAME_IN_NS};
 #[cfg(feature = "libstrophe-0_11_0")]
 pub use sys::xmpp_cert_element_t as CertElement;
+#[cfg(feature = "libstrophe-0_9_3")]
+pub use sys::xmpp_error_type_t as ErrorType;
 pub use sys::xmpp_log_level_t as LogLevel;
 #[cfg(feature = "libstrophe-0_12_0")]
 pub use sys::xmpp_queue_element_t as QueueElement;
