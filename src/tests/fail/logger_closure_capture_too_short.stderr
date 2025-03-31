@@ -1,6 +1,8 @@
 error[E0597]: `val` does not live long enough
   --> src/tests/fail/logger_closure_capture_too_short.rs:8:4
    |
+6  |           let val: AtomicU16 = AtomicU16::new(0);
+   |               --- binding `val` declared here
 7  |           Context::new(Logger::new(|_, _, _| {
    |           -                        --------- value captured here
    |  _________|

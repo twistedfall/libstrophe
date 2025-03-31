@@ -2,7 +2,7 @@ error[E0502]: cannot borrow `stanza` as mutable because it is also borrowed as i
  --> src/tests/fail/stanza_iterator_borrow.rs:6:2
   |
 5 |     let _a = stanza.children();
-  |              ----------------- immutable borrow occurs here
+  |              ------ immutable borrow occurs here
 6 |     stanza.get_first_child_mut();
   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
 7 | }

@@ -1,6 +1,9 @@
 error[E0597]: `val` does not live long enough
   --> src/tests/fail/timed_handler_closure_capture_too_short.rs:10:5
    |
+6  |         let mut val = 0;
+   |             ------- binding `val` declared here
+...
 9  |             |_, _| {
    |             ------ value captured here
 10 |                 val = 1;
