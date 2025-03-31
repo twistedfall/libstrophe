@@ -332,7 +332,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	}
 
 	#[inline]
-	#[deprecated]
+	#[deprecated(note = "replaced by set_flags()")]
 	/// [xmpp_conn_disable_tls](https://strophe.im/libstrophe/doc/0.12.2/group___connections.html#ga7f3012810acf47f6713032a26cb97a42)
 	pub fn disable_tls(&mut self) {
 		unsafe { sys::xmpp_conn_disable_tls(self.inner.as_mut()) }
@@ -392,7 +392,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// [xmpp_conn_set_certfail_handler](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#ga4f24b0fb42ab541f902d5e15b3b59b33)
 	/// [xmpp_certfail_handler](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#ga2e4aa651337c0aaf25b60ea160c2f4bd)
 	///
-	/// Callback function receives [TlsCert] object object and an error message.
+	/// Callback function receives [TlsCert] object and an error message.
 	pub fn set_certfail_handler<CB>(&mut self, handler: CB)
 	where
 		CB: Fn(&TlsCert, &str) -> CertFailResult + Send + Sync + 'static,
@@ -804,7 +804,15 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	/// See [Connection::handlers_clear] for additional information.
 	pub fn timed_handlers_clear(&mut self) {
 		for handler in self.fat_handlers.borrow_mut().timed.drain(..) {
-			unsafe { sys::xmpp_timed_handler_delete(self.inner.as_mut(), Some(mem::transmute(handler.cb_addr))) };
+			unsafe {
+				sys::xmpp_timed_handler_delete(
+					self.inner.as_mut(),
+					Some(mem::transmute::<
+						*const (),
+						unsafe extern "C" fn(conn: *mut sys::xmpp_conn_t, userdata: *mut c_void) -> c_int,
+					>(handler.cb_addr)),
+				)
+			};
 		}
 		self.fat_handlers.borrow_mut().timed.shrink_to_fit();
 	}
@@ -853,7 +861,14 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 				unsafe {
 					sys::xmpp_id_handler_delete(
 						self.inner.as_ptr(),
-						Some(mem::transmute(x.cb_addr)),
+						Some(mem::transmute::<
+							*const (),
+							unsafe extern "C" fn(
+								conn: *mut sys::xmpp_conn_t,
+								stanza: *mut sys::xmpp_stanza_t,
+								userdata: *mut c_void,
+							) -> c_int,
+						>(x.cb_addr)),
 						FFI(id.as_str()).send().as_ptr(),
 					)
 				};
@@ -919,7 +934,19 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	pub fn handlers_clear(&mut self) {
 		self.fat_handlers.borrow_mut().stanza.retain(|x| {
 			if x.extra.is_none() {
-				unsafe { sys::xmpp_handler_delete(self.inner.as_ptr(), Some(mem::transmute(x.cb_addr))) };
+				unsafe {
+					sys::xmpp_handler_delete(
+						self.inner.as_ptr(),
+						Some(mem::transmute::<
+							*const (),
+							unsafe extern "C" fn(
+								conn: *mut sys::xmpp_conn_t,
+								stanza: *mut sys::xmpp_stanza_t,
+								userdata: *mut c_void,
+							) -> c_int,
+						>(x.cb_addr)),
+					)
+				};
 				false
 			} else {
 				true

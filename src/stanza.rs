@@ -175,7 +175,7 @@ impl Stanza {
 			ctx: *mut sys::xmpp_ctx_t,
 		}
 
-		let mut inner = unsafe { (self.inner.as_ptr() as *mut xmpp_stanza_t).as_mut() }.expect("Null pointer for Stanza context");
+		let inner = unsafe { (self.inner.as_ptr() as *mut xmpp_stanza_t).as_mut() }.expect("Null pointer for Stanza context");
 		let alloc_ctx = ALLOC_CONTEXT.as_ptr();
 		inner.ctx = alloc_ctx;
 		if let Some(attrs) = unsafe { inner.attributes.as_mut() } {
@@ -568,14 +568,14 @@ impl Default for Stanza {
 
 unsafe impl Send for Stanza {}
 
-impl<'st> From<Stanza> for StanzaRef<'st> {
+impl From<Stanza> for StanzaRef<'_> {
 	#[inline]
 	fn from(s: Stanza) -> Self {
 		StanzaRef(s, PhantomData)
 	}
 }
 
-impl<'st> From<Stanza> for StanzaMutRef<'st> {
+impl From<Stanza> for StanzaMutRef<'_> {
 	#[inline]
 	fn from(s: Stanza) -> Self {
 		StanzaMutRef(s, PhantomData)

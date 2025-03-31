@@ -29,14 +29,14 @@ fn build_wrapper() {
 		.rustified_enum("xmpp_cert_element_t")
 		.rustified_enum("xmpp_queue_element_t");
 
-	let bindings = builder.generate().expect("Unable to generate bindings");
-
 	// Write the bindings to the src/ffi.rs file.
-	let mut out_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+	let mut out_path = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("Can't read CARGO_MANIFEST_DIR env var"));
 	out_path.push("src/ffi.rs");
-	bindings
+	builder
+		.generate()
+		.expect("Unable to generate bindings")
 		.write_to_file(&out_path)
-		.unwrap_or_else(|e| panic!("Couldn't write bindings to: {}, error: {}", out_path.display(), e));
+		.unwrap_or_else(|e| panic!("Couldn't write bindings to: {}, error: {e}", out_path.display()));
 }
 
 fn main() {
