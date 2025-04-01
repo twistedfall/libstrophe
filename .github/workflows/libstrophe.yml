@@ -17,12 +17,15 @@ jobs:
           - 0.9.3
           - 0.10.1
           - 0.11.0
-          - 0.12.2
-    runs-on: ubuntu-20.04
+          - 0.12.3
+    runs-on: ubuntu-24.04
     env:
       LIBSTROPHE_VERSION: ${{ matrix.libstrophe-version }}
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Install dependencies
         run: ci/install.sh
@@ -41,9 +44,13 @@ jobs:
         shell: bash
 
   msrv:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Get MSRV package metadata
         id: metadata
