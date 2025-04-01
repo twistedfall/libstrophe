@@ -400,13 +400,13 @@ fn zero_sized_handlers() {
 		eprintln!("Can't acquire creds, skipping test");
 		return;
 	};
-	let i = Arc::new(RwLock::new(0));
+	let i = Arc::new(AtomicU16::new(0));
 
 	{
 		let i_incrementer = {
-			let i = i.clone();
+			let i = Arc::clone(&i);
 			move |_: &Context, _: &mut Connection, _: &Stanza| {
-				*i.write().unwrap() += 1;
+				i.fetch_add(1, Ordering::Relaxed);
 				HandlerResult::RemoveHandler
 			}
 		};
@@ -448,10 +448,10 @@ fn zero_sized_handlers() {
 				.unwrap();
 			ctx.run();
 		}
-		assert_eq!(*i.read().unwrap(), 1);
+		assert_eq!(i.load(Ordering::Relaxed), 1);
 
 		// non zero sized handlers are called
-		*i.write().unwrap() = 0;
+		i.store(0, Ordering::Relaxed);
 		{
 			assert_ne!(mem::size_of_val(&i_incrementer), 0);
 
@@ -483,10 +483,10 @@ fn zero_sized_handlers() {
 				.unwrap();
 			ctx.run();
 		}
-		assert_eq!(*i.read().unwrap(), 1);
+		assert_eq!(i.load(Ordering::Relaxed), 1);
 
 		// handlers_clear clears zs and non-zs handlers
-		*i.write().unwrap() = 0;
+		i.store(0, Ordering::Relaxed);
 		{
 			let zero_sized = |_: &Context, conn: &mut Connection, _: &Stanza| {
 				let pres = Stanza::new_presence();
@@ -532,14 +532,13 @@ fn zero_sized_handlers() {
 				.unwrap();
 			ctx.run();
 		}
-		assert_eq!(*i.read().unwrap(), 0);
+		assert_eq!(i.load(Ordering::Relaxed), 0);
 	}
 
 	assert_eq!(
 		Arc::try_unwrap(i)
-			.expect("There are hanging references to Rc value")
-			.into_inner()
-			.unwrap(),
+			.expect("There are hanging references to rc value")
+			.into_inner(),
 		0
 	);
 }
@@ -578,7 +577,7 @@ fn connection_handler() {
 	}
 	assert_eq!(
 		Arc::try_unwrap(flags)
-			.expect("There are hanging references to Rc value")
+			.expect("There are hanging references to rc value")
 			.into_inner()
 			.unwrap(),
 		(1, 0, 1)
@@ -594,7 +593,7 @@ fn timed_handler_creds() {
 		return;
 	};
 
-	let i = Arc::new(RwLock::new(0));
+	let i = Arc::new(AtomicU16::new(0));
 
 	let do_common_stuff = |conn: &mut Connection| {
 		conn
@@ -610,9 +609,9 @@ fn timed_handler_creds() {
 
 	{
 		let i_incrementer = {
-			let i = i.clone();
+			let i = Arc::clone(&i);
 			move |_: &Context, _: &mut Connection| {
-				*i.write().unwrap() += 1;
+				i.fetch_add(1, Ordering::Relaxed);
 				HandlerResult::KeepHandler
 			}
 		};
@@ -636,12 +635,12 @@ fn timed_handler_creds() {
 				})
 				.unwrap();
 			ctx.run();
-			assert!(*i.read().unwrap() > 0);
-			assert!(*i.read().unwrap() < 1000);
+			assert!(i.load(Ordering::Relaxed) > 0);
+			assert!(i.load(Ordering::Relaxed) < 1000);
 		}
 
 		// outside
-		*i.write().unwrap() = 0;
+		i.store(0, Ordering::Relaxed);
 		{
 			let mut conn = creds.make_conn();
 			conn
@@ -661,12 +660,12 @@ fn timed_handler_creds() {
 				})
 				.unwrap();
 			ctx.run();
-			assert!(*i.read().unwrap() > 0);
-			assert!(*i.read().unwrap() < 1000);
+			assert!(i.load(Ordering::Relaxed) > 0);
+			assert!(i.load(Ordering::Relaxed) < 1000);
 		}
 
 		// delete
-		*i.write().unwrap() = 0;
+		i.store(0, Ordering::Relaxed);
 		{
 			let conn = creds.make_conn();
 			let ctx = conn
@@ -688,11 +687,11 @@ fn timed_handler_creds() {
 				})
 				.unwrap();
 			ctx.run();
-			assert_eq!(*i.read().unwrap(), 0);
+			assert_eq!(i.load(Ordering::Relaxed), 0);
 		}
 
 		// clear
-		*i.write().unwrap() = 0;
+		i.store(0, Ordering::Relaxed);
 		{
 			let conn = creds.make_conn();
 			let ctx = conn
@@ -714,14 +713,13 @@ fn timed_handler_creds() {
 				})
 				.unwrap();
 			ctx.run();
-			assert_eq!(*i.read().unwrap(), 0);
+			assert_eq!(i.load(Ordering::Relaxed), 0);
 		}
 	}
 	assert_eq!(
 		Arc::try_unwrap(i)
-			.expect("There are hanging references to Rc value")
-			.into_inner()
-			.unwrap(),
+			.expect("There are hanging references to rc value")
+			.into_inner(),
 		0
 	);
 }
@@ -748,7 +746,7 @@ fn id_handler_creds() {
 		return;
 	};
 
-	let i = Arc::new(RwLock::new(0));
+	let i = Arc::new(AtomicU16::new(0));
 
 	let do_common_stuff = |_: &Context, conn: &mut Connection| {
 		let mut iq = Stanza::new_iq(Some("get"), Some("get_roster"));
@@ -771,9 +769,9 @@ fn id_handler_creds() {
 
 	{
 		let i_incrementer = {
-			let i = i.clone();
+			let i = Arc::clone(&i);
 			move |_: &Context, _: &mut Connection, _: &Stanza| {
-				*i.write().unwrap() += 1;
+				i.fetch_add(1, Ordering::Relaxed);
 				HandlerResult::KeepHandler
 			}
 		};
@@ -807,11 +805,11 @@ fn id_handler_creds() {
 				})
 				.unwrap();
 			ctx.run();
-			assert_eq!(*i.read().unwrap(), 1);
+			assert_eq!(i.load(Ordering::Relaxed), 1);
 		}
 
 		// outside
-		*i.write().unwrap() = 0;
+		i.store(0, Ordering::Relaxed);
 		{
 			let mut conn = creds.make_conn();
 			conn
@@ -838,11 +836,11 @@ fn id_handler_creds() {
 				})
 				.unwrap();
 			ctx.run();
-			assert_eq!(*i.read().unwrap(), 1);
+			assert_eq!(i.load(Ordering::Relaxed), 1);
 		}
 
 		// delete
-		*i.write().unwrap() = 0;
+		i.store(0, Ordering::Relaxed);
 		{
 			let conn = creds.make_conn();
 			let ctx = conn
@@ -865,11 +863,11 @@ fn id_handler_creds() {
 				})
 				.unwrap();
 			ctx.run();
-			assert_eq!(*i.read().unwrap(), 0);
+			assert_eq!(i.load(Ordering::Relaxed), 0);
 		}
 
 		// clear
-		*i.write().unwrap() = 0;
+		i.store(0, Ordering::Relaxed);
 		{
 			let conn = creds.make_conn();
 			let ctx = conn
@@ -891,14 +889,13 @@ fn id_handler_creds() {
 				})
 				.unwrap();
 			ctx.run();
-			assert_eq!(*i.read().unwrap(), 0);
+			assert_eq!(i.load(Ordering::Relaxed), 0);
 		}
 	}
 	assert_eq!(
 		Arc::try_unwrap(i)
-			.expect("There are hanging references to Rc value")
-			.into_inner()
-			.unwrap(),
+			.expect("There are hanging references to rc value")
+			.into_inner(),
 		0
 	);
 }
@@ -912,7 +909,7 @@ fn handler() {
 		return;
 	};
 
-	let i = Arc::new(RwLock::new(0));
+	let i = Arc::new(AtomicU16::new(0));
 
 	let default_con_handler = |ctx: &Context, conn: &mut Connection, evt: ConnectionEvent| match evt {
 		ConnectionEvent::Connect => {
@@ -925,9 +922,9 @@ fn handler() {
 	};
 
 	let i_incrementer = {
-		let i = i.clone();
+		let i = Arc::clone(&i);
 		move |_: &Context, _: &mut Connection, _: &Stanza| {
-			*i.write().unwrap() += 1;
+			i.fetch_add(1, Ordering::Relaxed);
 			HandlerResult::KeepHandler
 		}
 	};
@@ -940,11 +937,11 @@ fn handler() {
 			.expect("Can't add handler");
 		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 		ctx.run();
-		assert_eq!(*i.read().unwrap(), 1);
+		assert_eq!(i.load(Ordering::Relaxed), 1);
 	}
 
 	// handler call stanza name not existent
-	*i.write().unwrap() = 0;
+	i.store(0, Ordering::Relaxed);
 	{
 		let mut conn = creds.make_conn();
 		conn
@@ -952,11 +949,11 @@ fn handler() {
 			.expect("Can't add handler");
 		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 		ctx.run();
-		assert_eq!(*i.read().unwrap(), 0);
+		assert_eq!(i.load(Ordering::Relaxed), 0);
 	}
 
 	// handler delete
-	*i.write().unwrap() = 0;
+	i.store(0, Ordering::Relaxed);
 	{
 		let mut conn = creds.make_conn();
 		let handler = conn
@@ -965,11 +962,11 @@ fn handler() {
 		conn.handler_delete(handler);
 		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 		ctx.run();
-		assert_eq!(*i.read().unwrap(), 0);
+		assert_eq!(i.load(Ordering::Relaxed), 0);
 	}
 
 	// handler clear
-	*i.write().unwrap() = 0;
+	i.store(0, Ordering::Relaxed);
 	{
 		let mut conn = creds.make_conn();
 		conn
@@ -978,29 +975,29 @@ fn handler() {
 		conn.handlers_clear();
 		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 		ctx.run();
-		assert_eq!(*i.read().unwrap(), 0);
+		assert_eq!(i.load(Ordering::Relaxed), 0);
 	}
 
 	// same handler twice
-	*i.write().unwrap() = 0;
+	i.store(0, Ordering::Relaxed);
 	{
 		let mut conn = creds.make_conn();
 		assert!(conn.handler_add(&i_incrementer, None, Some("iq"), None,).is_some());
 		assert!(conn.handler_add(&i_incrementer, None, Some("iq"), None).is_none());
 		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 		ctx.run();
-		assert_eq!(*i.read().unwrap(), 1);
+		assert_eq!(i.load(Ordering::Relaxed), 1);
 	}
 
 	// cloned handler twice, not sure if this behaviour is right
-	*i.write().unwrap() = 0;
+	i.store(0, Ordering::Relaxed);
 	{
 		let mut conn = creds.make_conn();
 		assert!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None,).is_some());
 		assert!(conn.handler_add(i_incrementer.clone(), None, Some("iq"), None).is_none());
 		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 		ctx.run();
-		assert_eq!(*i.read().unwrap(), 1);
+		assert_eq!(i.load(Ordering::Relaxed), 1);
 	}
 }
 
@@ -1096,7 +1093,7 @@ fn connection_handler_tls() {
 		}
 		assert_eq!(
 			Arc::try_unwrap(flags)
-				.expect("There are hanging references to Rc value")
+				.expect("There are hanging references to rc value")
 				.into_inner()
 				.unwrap(),
 			(1, 0, 0, 1)
@@ -1139,7 +1136,7 @@ fn connection_handler_tls() {
 			ctx.run();
 		}
 		let call_counts = Arc::try_unwrap(flags)
-			.expect("There are hanging references to Rc value")
+			.expect("There are hanging references to rc value")
 			.into_inner()
 			.unwrap();
 		// gives different results in CI and locally, probably difference in ejabberd versions
