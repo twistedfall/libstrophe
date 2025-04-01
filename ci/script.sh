@@ -25,13 +25,7 @@ if verlte "0.11.0" "$LIBSTROPHE_VERSION"; then
 	cargo test -v $ARGS --release -- --test-threads=1
 fi
 
-if verlte "0.12.1" "$LIBSTROPHE_VERSION"; then
-	ARGS="--no-default-features --features=buildtime_bindgen,libstrophe-0_12_0"
-	cargo test -v $ARGS -- --test-threads=1
-	cargo test -v $ARGS --release -- --test-threads=1
-fi
-
-if verlte "0.13.0" "$LIBSTROPHE_VERSION"; then
+if verlte "0.12.0" "$LIBSTROPHE_VERSION"; then
 	cargo test -v -- --test-threads=1
 	cargo test -v --release -- --test-threads=1
 	cargo test -v --features=buildtime_bindgen -- --test-threads=1
