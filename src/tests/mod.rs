@@ -448,7 +448,11 @@ fn zero_sized_handlers() {
 				.unwrap();
 			ctx.run();
 		}
-		assert_eq!(i.load(Ordering::Relaxed), 1);
+		if cfg!(feature = "libstrophe-0_13") {
+			assert_eq!(i.load(Ordering::Relaxed), 0);
+		} else {
+			assert_eq!(i.load(Ordering::Relaxed), 1);
+		}
 
 		// non zero sized handlers are called
 		i.store(0, Ordering::Relaxed);
@@ -937,7 +941,11 @@ fn handler() {
 			.expect("Can't add handler");
 		let ctx = conn.connect_client(None, None, default_con_handler).unwrap();
 		ctx.run();
-		assert_eq!(i.load(Ordering::Relaxed), 1);
+		if cfg!(feature = "libstrophe-0_13") {
+			assert_eq!(i.load(Ordering::Relaxed), 0);
+		} else {
+			assert_eq!(i.load(Ordering::Relaxed), 1);
+		}
 	}
 
 	// handler call stanza name not existent

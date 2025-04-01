@@ -33,10 +33,11 @@ names = "0.14"
 trybuild = "1"
 
 [features]
-default = ["rust-log", "libstrophe-0_12_0"]
+default = ["rust-log", "libstrophe-0_13"]
 buildtime_bindgen = ["sys/buildtime_bindgen"]
 libstrophe-0_9_3 = []
 libstrophe-0_10_0 = ["libstrophe-0_9_3"]
 libstrophe-0_11_0 = ["libstrophe-0_10_0"]
 libstrophe-0_12_0 = ["libstrophe-0_11_0"]
+libstrophe-0_13 = ["libstrophe-0_12_0"]
 rust-log = ["log"]
