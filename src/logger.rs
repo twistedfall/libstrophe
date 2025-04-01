@@ -1,20 +1,19 @@
-use std::ffi::c_void;
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::os::raw::c_char;
-use std::ptr::NonNull;
+use core::ffi::{c_char, c_void};
+use core::fmt;
+use core::hash::{Hash, Hasher};
+use core::ptr::NonNull;
 
 #[cfg(feature = "log")]
 use log::{debug, error, info, warn};
 
-use crate::{as_void_ptr, void_ptr_as, LogLevel, FFI};
+use crate::{FFI, LogLevel, as_void_ptr, void_ptr_as};
 
 type LogHandler<'cb> = dyn Fn(LogLevel, &str, &str) + Send + 'cb;
 
-/// Wrapper around the underlying `xmpp_log_t` struct.
+/// Wrapper around the underlying [sys::xmpp_log_t] struct.
 ///
-/// The best option to get a logger is to call [`Logger::default()`]. It will return you a logger that
-/// is tied into Rust logging facility provided by [`log`] crate. This functionality is available when
+/// The best option to get a logger is to call [Logger::default()]. It will return you a logger that
+/// is tied into Rust logging facility provided by [log] crate. This functionality is available when
 /// compiling with the default `rust-log` feature.
 ///
 /// This struct implements:
@@ -22,9 +21,6 @@ type LogHandler<'cb> = dyn Fn(LogLevel, &str, &str) + Send + 'cb;
 ///   * `Eq` by comparing internal pointers
 ///   * `Hash` by hashing internal pointer
 ///   * `Send`
-///
-/// [`Logger::default()`]: struct.Logger.html#method.default
-/// [`log`]: https://crates.io/crates/log
 pub struct Logger<'cb> {
 	inner: NonNull<sys::xmpp_log_t>,
 	owned: bool,
@@ -39,11 +35,11 @@ impl<'cb> Logger<'cb> {
 	where
 		CB: Fn(LogLevel, &str, &str) + Send + 'cb,
 	{
-		let handler = Box::new(handler);
+		let mut handler = Box::new(handler);
 		Logger::with_inner(
 			Box::into_raw(Box::new(sys::xmpp_log_t {
 				handler: Some(Self::log_handler_cb::<CB>),
-				userdata: as_void_ptr(&*handler),
+				userdata: as_void_ptr(handler.as_mut()),
 			})),
 			handler,
 			true,
@@ -59,7 +55,7 @@ impl<'cb> Logger<'cb> {
 		}
 	}
 
-	/// [xmpp_get_default_logger](https://strophe.im/libstrophe/doc/0.12.2/group___context.html#ga40caddfbd7d786f8ef1390866880edb9)
+	/// [xmpp_get_default_logger](https://strophe.im/libstrophe/doc/0.13.0/group___context.html#ga40caddfbd7d786f8ef1390866880edb9)
 	///
 	/// This method returns default `libstrophe` logger that just outputs log lines to stderr. Use it
 	/// if you compile without `rust-log` feature and want a quick debug log output.
@@ -84,9 +80,9 @@ impl<'cb> Logger<'cb> {
 	) where
 		CB: FnMut(LogLevel, &str, &str) + Send + 'cb,
 	{
-		let area = FFI(area).receive().unwrap();
-		let msg = FFI(msg).receive().unwrap();
-		void_ptr_as::<CB>(userdata)(level, area, msg);
+		let area = unsafe { FFI(area).receive() }.unwrap();
+		let msg = unsafe { FFI(msg).receive() }.unwrap();
+		unsafe { void_ptr_as::<CB>(userdata)(level, area, msg) }
 	}
 
 	pub(crate) fn as_ptr(&self) -> *const sys::xmpp_log_t {
@@ -108,10 +104,10 @@ impl Default for Logger<'static> {
 	#[cfg(feature = "log")]
 	fn default() -> Self {
 		Logger::new(|log_level, area, message| match log_level {
-			LogLevel::XMPP_LEVEL_DEBUG => debug!("{}: {}", area, message),
-			LogLevel::XMPP_LEVEL_INFO => info!("{}: {}", area, message),
-			LogLevel::XMPP_LEVEL_WARN => warn!("{}: {}", area, message),
-			LogLevel::XMPP_LEVEL_ERROR => error!("{}: {}", area, message),
+			LogLevel::XMPP_LEVEL_DEBUG => debug!("{area}: {message}"),
+			LogLevel::XMPP_LEVEL_INFO => info!("{area}: {message}"),
+			LogLevel::XMPP_LEVEL_WARN => warn!("{area}: {message}"),
+			LogLevel::XMPP_LEVEL_ERROR => error!("{area}: {message}"),
 		})
 	}
 
@@ -165,12 +161,13 @@ unsafe impl Send for Logger<'_> {}
 fn callbacks() {
 	fn logger_eq<L, R>(_left: L, _right: R) -> bool
 	where
-		L: FnMut(LogLevel, &str, &str) + Send,
-		R: FnMut(LogLevel, &str, &str) + Send,
+		L: FnMut(LogLevel, &str, &str) + Send + Sync,
+		R: FnMut(LogLevel, &str, &str) + Send + Sync,
 	{
-		let ptr_left = Logger::log_handler_cb::<L> as *const ();
-		let ptr_right = Logger::log_handler_cb::<R> as *const ();
-		ptr_left == ptr_right
+		std::ptr::eq(
+			Logger::log_handler_cb::<L> as *const (),
+			Logger::log_handler_cb::<R> as *const (),
+		)
 	}
 
 	let a = |_: LogLevel, _: &str, _: &str| {

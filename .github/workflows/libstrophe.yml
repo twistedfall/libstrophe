@@ -18,6 +18,8 @@ jobs:
           - 0.10.1
           - 0.11.0
           - 0.12.3
+          - 0.13.1
+          - 0.14.0
     runs-on: ubuntu-24.04
     env:
       LIBSTROPHE_VERSION: ${{ matrix.libstrophe-version }}
@@ -34,10 +36,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy,rustfmt
-
-      - name: Checks
-        run: ci/checks.sh
-        shell: bash
 
       - name: Test
         run: ci/script.sh

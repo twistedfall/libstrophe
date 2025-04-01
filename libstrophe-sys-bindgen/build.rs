@@ -1,7 +1,9 @@
 #[cfg(feature = "buildtime_bindgen")]
 fn build_wrapper() {
+	use std::env;
+	use std::path::PathBuf;
+
 	use bindgen::callbacks::{IntKind, MacroParsingBehavior, ParseCallbacks};
-	use std::{env, path::PathBuf};
 
 	#[derive(Debug)]
 	struct PCallbacks;
@@ -16,8 +18,10 @@ fn build_wrapper() {
 		}
 
 		fn int_macro(&self, name: &str, _value: i64) -> Option<IntKind> {
-			if name == "XMPP_EOK" {
-				Some(IntKind::I32)
+			if name.starts_with("XMPP_E") {
+				Some(IntKind::Int)
+			} else if name.starts_with("XMPP_CONN_FLAG_") {
+				Some(IntKind::Long)
 			} else {
 				None
 			}

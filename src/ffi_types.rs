@@ -1,6 +1,6 @@
-use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
-use std::ptr;
+use core::ffi::{CStr, c_char};
+use core::ptr;
+use std::ffi::CString;
 
 #[allow(clippy::upper_case_acronyms)]
 pub struct FFI<T>(pub T);
@@ -23,18 +23,19 @@ impl FFI<*const c_char> {
 	/// The lifetime of the returned reference is bound to "lifetime" of the pointer
 	#[inline]
 	pub unsafe fn receive<'s>(self) -> Option<&'s str> {
-		self
-			.0
-			.as_ref()
-			.map(|x| CStr::from_ptr(x).to_str().expect("Cannot convert non-null pointer into &str"))
+		unsafe { self.0.as_ref() }.map(|x| {
+			unsafe { CStr::from_ptr(x) }
+				.to_str()
+				.expect("Cannot convert non-null pointer into &str")
+		})
 	}
 }
 
 impl FFI<*mut c_char> {
 	#[inline]
 	pub unsafe fn receive_with_free(self, free: impl FnOnce(*mut c_char)) -> Option<String> {
-		self.0.as_mut().map(|x| {
-			let out = CStr::from_ptr(x)
+		unsafe { self.0.as_mut() }.map(|x| {
+			let out = unsafe { CStr::from_ptr(x) }
 				.to_owned()
 				.into_string()
 				.expect("Cannot convert non-null pointer into String");

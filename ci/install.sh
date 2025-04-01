@@ -16,9 +16,15 @@ build_dir=~/build
 
 mkdir -p "$build_dir"
 curl -L "https://github.com/strophe/libstrophe/archive/$LIBSTROPHE_VERSION.tar.gz" | tar -xzC "$build_dir"
-pushd "$build_dir/libstrophe-$LIBSTROPHE_VERSION"
+if [[ "$LIBSTROPHE_VERSION" == "0.13.1" ]]; then
+	# https://github.com/strophe/libstrophe/commit/9fef4b7d024b99aac9101bfa8b45cf78eef6508b
+	patch -p1 -d "$build_dir/libstrophe-$LIBSTROPHE_VERSION" < ci/0.13.1-tls-segfault.patch
+fi
+cd "$build_dir/libstrophe-$LIBSTROPHE_VERSION"
 ./bootstrap.sh
 ./configure --prefix=/usr
 sudo make -j"$(nproc)" install
-popd
-sudo systemctl start ejabberd
+cd -
+
+sudo sed -ri 's/starttls_required: true/starttls_required: false\n    starttls: true/' /etc/ejabberd/ejabberd.yml
+sudo systemctl restart ejabberd

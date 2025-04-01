@@ -1,8 +1,8 @@
 [package]
 name = "libstrophe"
 version = "0.19.3"
-edition = "2021"
-rust-version = "1.82.0"
+edition = "2024"
+rust-version = "1.85.0"
 description = "Rust ergonomic wrapper for libstrophe"
 keywords = ["jabber", "xmpp", "libstrophe", "messaging", "im"]
 categories = ["api-bindings", "network-programming"]
@@ -28,15 +28,16 @@ sys = { package = "libstrophe-sys-bindgen", version = "7", path = "libstrophe-sy
 
 [dev-dependencies]
 env_logger = "0.11"
-matches = "0.1"
 names = "0.14"
 trybuild = "1"
 
 [features]
-default = ["rust-log", "libstrophe-0_12_0"]
+default = ["rust-log", "libstrophe-0_14"]
 buildtime_bindgen = ["sys/buildtime_bindgen"]
 libstrophe-0_9_3 = []
 libstrophe-0_10_0 = ["libstrophe-0_9_3"]
 libstrophe-0_11_0 = ["libstrophe-0_10_0"]
 libstrophe-0_12_0 = ["libstrophe-0_11_0"]
+libstrophe-0_13 = ["libstrophe-0_12_0"]
+libstrophe-0_14 = ["libstrophe-0_13"]
 rust-log = ["log"]

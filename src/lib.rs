@@ -12,23 +12,23 @@
 //! # Workflow
 //!
 //! The general workflow is quite similar to what you get with the C library. The topmost object is
-//! [`Context`]. It contains platform-specific bits like logging and memory allocation. Plus an event
+//! [Context]. It contains platform-specific bits like logging and memory allocation. Plus an event
 //! loop used to keep things going. This crate wraps logging with the facilities provided by [`log`]
 //! crate (provided the default `rust-log` feature is enabled). Memory allocation is also handled by
-//! Rust native means. When a [`Connection`] is created it will temporarily consume the [`Context`].
-//! After all of the setup is done, call one of the `connect_*()` methods to retrieve the [`Context`]
-//! back. In this manner a single [`Context`] can be used for multiple [`Connection`]s consequently.
-//! When you're done with setting up [`Connection`]s for the [`Context`], use `run()` or `run_once()`
+//! Rust native means. When a [Connection] is created it will temporarily consume the [Context].
+//! After all the setup is done, call one of the `connect_*()` methods to retrieve the [Context]
+//! back. In this manner a single [Context] can be used for multiple [Connection]s consequently.
+//! When you're done with setting up [Connection]s for the [Context], use `run()` or `run_once()`
 //! methods to start the event loop rolling.
 //!
 //!
 //! # Safety
 //!
-//! This create tries to be as safe as possible. Yet it's not always possible to guarantee that when
-//! wrapping a C library. The following assumptions are made which might not necessary be true and
+//! This crate tries to be as safe as possible. Yet it's not always possible to guarantee that when
+//! wrapping a C library. The following assumptions are made which might not necessarily be true and
 //! thus might introduce unsafety:
 //!
-//!  * [`Context`] event loop methods are borrowing `self` immutably considering it immutable (or
+//!  * [Context] event loop methods are borrowing `self` immutably considering it immutable (or
 //!    more specifically having interior mutability)
 //!
 //! The main objects in this crate are marked as `Send` and it should be indeed be safe to send them
@@ -39,9 +39,9 @@
 //! # Initialization and shutdown
 //!
 //! You don't need to call the initialization function, it's done automatically when creating a
-//! [`Context`]. Yet you might want to call the [`shutdown()`] function when your application
+//! [Context]. Yet you might want to call the [shutdown()] function when your application
 //! terminates. Be aware though that the initialization can be called only once in the program
-//! lifetime so you won't be able to use the library properly after you called [`shutdown()`].
+//! lifetime so you won't be able to use the library properly after you called [shutdown()].
 //!
 //!
 //! # Callbacks
@@ -53,12 +53,12 @@
 //! can still remove the callback with the corresponding `*handler_delete()` or `*handler_clear()`
 //! method.
 //!
-//! Due to the way the the C libstrophe library is implemented and how Rust optimizes monomorphization,
+//! Due to the way the C libstrophe library is implemented and how Rust optimizes monomorphization,
 //! your callbacks must actually be compiled to different function with separate addresses when you
 //! pass them to the same handler setup method. So if you want to pass 2 callbacks `hander_add`
 //! ensure that their code is unique and rust didn't merge them into a single function behind the
 //! scenes. You can test whether 2 callbacks are same or not with the `Connection::*handlers_same()`
-//! family of functions. If it returns true than you will only be able to pass one of them to the
+//! family of functions. If it returns true then you will only be able to pass one of them to the
 //! corresponding handler function, the other will be silently ignored.
 //!
 //! Due to the fact that the crate uses `userdata` to pass the actual user callback, it's not possible
@@ -81,7 +81,7 @@
 //! let mut conn = libstrophe::Connection::new(ctx);
 //! conn.set_jid("example@127.0.0.1");
 //! conn.set_pass("password");
-//! let ctx = conn.connect_client(None, None, connection_handler).unwrap();
+//! let mut ctx = conn.connect_client(None, None, connection_handler).unwrap();
 //! ctx.run();
 //! libstrophe::shutdown();
 //! ```
@@ -93,24 +93,22 @@
 //!
 //! The following features are provided:
 //!
-//!   * `rust-log` - enabled by default, makes the create integrate into Rust logging facilities
-//!   * `libstrophe-0_9_3` - enabled by default, enables functionality specific to libstrophe-0.9.3
-//!   * `libstrophe-0_10_0` - enabled by default, enables functionality specific to libstrophe-0.10.0
-//!   * `libstrophe-0_11_0` - enabled by default, enables functionality specific to libstrophe-0.11.0
-//!   * `libstrophe-0_12_0` - enabled by default, enables functionality specific to libstrophe-0.12.0
+//!   * `rust-log` - enabled by default, makes the crate integrate into Rust logging facilities
+//!   * `libstrophe-0_9_3` - enabled by default, enables functions specific to libstrophe-0.9.3
+//!   * `libstrophe-0_10_0` - enabled by default, enables functions specific to libstrophe-0.10
+//!   * `libstrophe-0_11_0` - enabled by default, enables functions specific to libstrophe-0.11
+//!   * `libstrophe-0_12_0` - enabled by default, enables functions specific to libstrophe-0.12
+//!   * `libstrophe-0_13` - enabled by default, enables functions specific to libstrophe-0.13
+//!   * `libstrophe-0_14` - enabled by default, enables functions specific to libstrophe-0.14
 //!   * `buildtime_bindgen` - forces regeneration of the bindings instead of relying on the
 //!     pre-generated sources
 //!
 //! [libstrophe]: https://strophe.im/libstrophe/
 //! [`log`]: https://crates.io/crates/log
-//! [docs]: https://strophe.im/libstrophe/doc/0.12.2/
+//! [docs]: https://strophe.im/libstrophe/doc/0.13.0/
 //! [libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.12.2/examples
-//! [`Context`]: https://docs.rs/libstrophe/*/libstrophe/struct.Context.html
-//! [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
-//! [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
 
-use std::ffi::c_void;
-use std::os::raw::c_long;
+use core::ffi::{c_long, c_void};
 use std::sync::Once;
 
 use bitflags::bitflags;
@@ -130,6 +128,8 @@ use ffi_types::FFI;
 pub use logger::Logger;
 #[cfg(feature = "libstrophe-0_12_0")]
 pub use sm_state::SMState;
+#[cfg(feature = "libstrophe-0_14")]
+pub use sm_state::{SerializedSmState, SerializedSmStateRef};
 pub use stanza::{Stanza, StanzaMutRef, StanzaRef, XMPP_STANZA_NAME_IN_NS};
 #[cfg(feature = "libstrophe-0_11_0")]
 pub use sys::xmpp_cert_element_t as CertElement;
@@ -154,34 +154,33 @@ mod stanza;
 #[cfg(feature = "libstrophe-0_11_0")]
 mod tls_cert;
 
-#[cfg(test)]
-mod examples;
-#[cfg(test)]
-mod tests;
-
 bitflags! {
 	pub struct ConnectionFlags: c_long {
-		const DISABLE_TLS = sys::XMPP_CONN_FLAG_DISABLE_TLS as c_long;
-		const MANDATORY_TLS = sys::XMPP_CONN_FLAG_MANDATORY_TLS as c_long;
-		const LEGACY_SSL = sys::XMPP_CONN_FLAG_LEGACY_SSL as c_long;
-		const TRUST_TLS = sys::XMPP_CONN_FLAG_TRUST_TLS as c_long;
+		const DISABLE_TLS = sys::XMPP_CONN_FLAG_DISABLE_TLS;
+		const MANDATORY_TLS = sys::XMPP_CONN_FLAG_MANDATORY_TLS;
+		const LEGACY_SSL = sys::XMPP_CONN_FLAG_LEGACY_SSL;
+		const TRUST_TLS = sys::XMPP_CONN_FLAG_TRUST_TLS;
 		#[cfg(feature = "libstrophe-0_9_3")]
-		const LEGACY_AUTH = sys::XMPP_CONN_FLAG_LEGACY_AUTH as c_long;
+		const LEGACY_AUTH = sys::XMPP_CONN_FLAG_LEGACY_AUTH;
 		#[cfg(feature = "libstrophe-0_12_0")]
-		const DISABLE_SM = sys::XMPP_CONN_FLAG_DISABLE_SM as c_long;
+		const DISABLE_SM = sys::XMPP_CONN_FLAG_DISABLE_SM;
+		#[cfg(feature = "libstrophe-0_13")]
+		const ENABLE_COMPRESSION = sys::XMPP_CONN_FLAG_ENABLE_COMPRESSION;
+		#[cfg(feature = "libstrophe-0_13")]
+		const COMPRESSION_DONT_RESET = sys::XMPP_CONN_FLAG_COMPRESSION_DONT_RESET;
 	}
 }
 
 static ALLOC_CONTEXT: Lazy<AllocContext> = Lazy::new(AllocContext::default);
 
-/// Convert type to *void for passing as `userdata`
-fn as_void_ptr<T>(cb: &T) -> *mut c_void {
-	cb as *const _ as _
+/// Convert type to `void*` for passing as `userdata`
+fn as_void_ptr<T>(cb: &mut T) -> *mut c_void {
+	(cb as *mut T).cast::<c_void>()
 }
 
-/// Convert *void from `userdata` to appropriate type
-unsafe fn void_ptr_as<'cb, T>(ptr: *const c_void) -> &'cb mut T {
-	(ptr as *mut T).as_mut().expect("userdata must be non-null")
+/// Convert `void*` from `userdata` to the appropriate type
+unsafe fn void_ptr_as<'cb, T>(ptr: *mut c_void) -> &'cb mut T {
+	unsafe { ptr.cast::<T>().as_mut() }.expect("userdata must be non-null")
 }
 
 /// Ensure that underlying C library is initialized
@@ -199,17 +198,17 @@ fn deinit() {
 	DEINIT.call_once(|| unsafe { sys::xmpp_shutdown() });
 }
 
-/// [xmpp_version_check](https://strophe.im/libstrophe/doc/0.12.2/group___init.html#ga6cc7afca422acce51e0e7f52424f1db3)
+/// [xmpp_version_check](https://strophe.im/libstrophe/doc/0.13.0/group___init.html#ga6cc7afca422acce51e0e7f52424f1db3)
 pub fn version_check(major: i32, minor: i32) -> bool {
 	unsafe { FFI(sys::xmpp_version_check(major, minor)).receive_bool() }
 }
 
-/// [xmpp_shutdown](https://strophe.im/libstrophe/doc/0.12.2/group___init.html#ga06e07524aee531de1ceb825541307963)
+/// [xmpp_shutdown](https://strophe.im/libstrophe/doc/0.13.0/group___init.html#ga06e07524aee531de1ceb825541307963)
 ///
 /// Call this function when your application terminates, but be aware that you can't use the library
-/// after you called `shutdown()` and there is now way to reinitialize it again.
+/// after you called `shutdown()` and there is now a way to reinitialize it again.
 ///
-/// This function is thread safe, it's safe to call it several times and it's safe to call it before
+/// This function is thread safe, it's safe to call it several times, and it's safe to call it before
 /// doing any initialization.
 pub fn shutdown() {
 	init();

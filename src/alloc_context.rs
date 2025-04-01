@@ -1,7 +1,8 @@
-use std::ffi::c_void;
-use std::mem::{align_of, size_of};
-use std::ptr::NonNull;
-use std::{alloc, ptr};
+use core::ffi::c_void;
+use core::mem::{align_of, size_of};
+use core::ptr;
+use core::ptr::NonNull;
+use std::alloc;
 
 /// Internal `Context` that only specifies allocation functions and uses null logger. Needed to not pass
 /// `Context` to e.g. `Stanza` because it uses only allocation functions from `Context`.
@@ -23,23 +24,25 @@ impl AllocContext {
 	unsafe fn write_real_alloc(p: *mut u8, size: usize) -> *mut c_void {
 		#![allow(clippy::cast_ptr_alignment)]
 		// it's ok to cast it as *mut AllocUnit=usize because we align to it during allocation and p points to the beginning of that buffer
-		let out = p as *mut AllocUnit;
-		out.write(size);
-		out.add(1) as _
+		let out = p.cast::<AllocUnit>();
+		unsafe {
+			out.write(size);
+			out.add(1).cast::<c_void>()
+		}
 	}
 
 	#[inline(always)]
 	unsafe fn read_real_alloc(p: *mut c_void) -> (*mut u8, alloc::Layout) {
 		if p.is_null() {
 			(
-				p as _,
+				p.cast::<u8>(),
 				alloc::Layout::from_size_align(0, align_of::<AllocUnit>()).expect("Cannot create layout"),
 			)
 		} else {
-			let memory = (p as *mut AllocUnit).sub(1);
-			let size = memory.read();
+			let memory = unsafe { p.cast::<AllocUnit>().sub(1) };
+			let size = unsafe { memory.read() };
 			(
-				memory as _,
+				memory.cast::<u8>(),
 				alloc::Layout::from_size_align(size, align_of::<AllocUnit>()).expect("Cannot create layout"),
 			)
 		}
@@ -47,23 +50,25 @@ impl AllocContext {
 
 	unsafe extern "C" fn custom_alloc(size: usize, _userdata: *mut c_void) -> *mut c_void {
 		let layout = Self::calculate_layout(size);
-		Self::write_real_alloc(alloc::alloc(layout), layout.size())
+		unsafe { Self::write_real_alloc(alloc::alloc(layout), layout.size()) }
 	}
 
 	unsafe extern "C" fn custom_free(p: *mut c_void, _userdata: *mut c_void) {
-		let (p, layout) = Self::read_real_alloc(p);
-		alloc::dealloc(p, layout);
+		unsafe {
+			let (p, layout) = Self::read_real_alloc(p);
+			alloc::dealloc(p, layout);
+		}
 	}
 
 	unsafe extern "C" fn custom_realloc(p: *mut c_void, size: usize, _userdata: *mut c_void) -> *mut c_void {
-		let (p, layout) = Self::read_real_alloc(p);
+		let (p, layout) = unsafe { Self::read_real_alloc(p) };
 		if size > 0 {
 			let new_layout = Self::calculate_layout(size);
-			let realloc_p = alloc::realloc(p, layout, new_layout.size());
-			Self::write_real_alloc(realloc_p, new_layout.size())
+			let realloc_p = unsafe { alloc::realloc(p, layout, new_layout.size()) };
+			unsafe { Self::write_real_alloc(realloc_p, new_layout.size()) }
 		} else {
 			if !p.is_null() {
-				alloc::dealloc(p, layout);
+				unsafe { alloc::dealloc(p, layout) }
 			}
 			ptr::null_mut()
 		}
@@ -82,12 +87,12 @@ impl AllocContext {
 		self.inner.as_ptr()
 	}
 
-	/// [xmpp_free](https://strophe.im/libstrophe/doc/0.12.2/ctx_8c.html#acc734a5f5f115629c9e7775a4d3796e2)
+	/// [xmpp_free](https://strophe.im/libstrophe/doc/0.13.0/ctx_8c.html#acc734a5f5f115629c9e7775a4d3796e2)
 	///
 	/// # Safety
 	/// p must be non-null and allocated by the libstrophe library (xmpp_alloc function)
 	pub unsafe fn free<T>(&self, p: *mut T) {
-		sys::xmpp_free(self.inner.as_ptr(), p as _)
+		unsafe { sys::xmpp_free(self.inner.as_ptr(), p.cast::<c_void>()) }
 	}
 }
 

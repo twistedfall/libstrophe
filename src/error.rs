@@ -1,11 +1,10 @@
-use std::error::Error as StdError;
-use std::fmt;
-use std::os::raw::{c_char, c_int};
-use std::result::Result as StdResult;
-use std::str::Utf8Error;
+use core::error::Error as StdError;
+use core::ffi::{c_char, c_int};
+use core::fmt;
+use core::str::Utf8Error;
 use std::sync::Mutex;
 
-use crate::{Connection, Stanza, StanzaMutRef, FFI};
+use crate::{Connection, FFI, Stanza, StanzaMutRef};
 
 #[derive(Copy, Eq, PartialEq, Clone, Debug)]
 pub enum Error {
@@ -43,8 +42,8 @@ impl From<Error> for fmt::Error {
 	}
 }
 
-/// `Result` with failure `Error`
-pub type Result<T, E = Error> = StdResult<T, E>;
+/// [std::result::Result] with the crate's [Error]
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Copy, Eq, PartialEq, Clone, Debug)]
 pub enum ToTextError {
@@ -55,8 +54,8 @@ pub enum ToTextError {
 impl fmt::Display for ToTextError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			ToTextError::StropheError(e) => write!(f, "Strophe error: {}", e),
-			ToTextError::Utf8Error(e) => write!(f, "UTF-8 error: {}", e),
+			ToTextError::StropheError(e) => write!(f, "Strophe error: {e}"),
+			ToTextError::Utf8Error(e) => write!(f, "UTF-8 error: {e}"),
 		}
 	}
 }
@@ -141,7 +140,7 @@ impl fmt::Display for StreamError<'_, '_> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", error_type_to_str(self.typ))?;
 		if let Some(text) = self.text {
-			write!(f, ": {}", text)
+			write!(f, ": {text}")
 		} else {
 			Ok(())
 		}
@@ -186,7 +185,7 @@ impl fmt::Display for OwnedStreamError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", error_type_to_str(self.typ))?;
 		if let Some(ref text) = self.text {
-			write!(f, ": {}", text)
+			write!(f, ": {text}")
 		} else {
 			Ok(())
 		}
@@ -234,7 +233,7 @@ impl<'t, 's> ConnectionError<'t, 's> {
 			0 => stream_error.map(ConnectionError::Stream),
 			103 /* ECONNABORTED */ => Some(ConnectionError::Aborted),
 			104 /* ECONNRESET */ => Some(ConnectionError::ConnectionReset),
-			110 /* ETIMEDOUT*/ => Some(ConnectionError::TimedOut),
+			110 /* ETIMEDOUT */ => Some(ConnectionError::TimedOut),
 			code => Some(ConnectionError::TLS(code)),
 		}
 	}
@@ -246,8 +245,8 @@ impl fmt::Display for ConnectionError<'_, '_> {
 			ConnectionError::Aborted => write!(f, "Connection aborted"),
 			ConnectionError::TimedOut => write!(f, "Connection timed out"),
 			ConnectionError::ConnectionReset => write!(f, "Connection reset"),
-			ConnectionError::TLS(e) => write!(f, "TLS error: {}", e),
-			ConnectionError::Stream(e) => write!(f, "Stream error: {}", e),
+			ConnectionError::TLS(e) => write!(f, "TLS error: {e}"),
+			ConnectionError::Stream(e) => write!(f, "Stream error: {e}"),
 		}
 	}
 }
@@ -281,8 +280,8 @@ impl fmt::Display for OwnedConnectionError {
 			OwnedConnectionError::Aborted => write!(f, "Connection aborted"),
 			OwnedConnectionError::TimedOut => write!(f, "Connection timed out"),
 			OwnedConnectionError::ConnectionReset => write!(f, "Connection reset"),
-			OwnedConnectionError::TLS(e) => write!(f, "TLS error: {}", e),
-			OwnedConnectionError::Stream(e) => write!(f, "Stream error: {}", e),
+			OwnedConnectionError::TLS(e) => write!(f, "TLS error: {e}"),
+			OwnedConnectionError::Stream(e) => write!(f, "Stream error: {e}"),
 		}
 	}
 }

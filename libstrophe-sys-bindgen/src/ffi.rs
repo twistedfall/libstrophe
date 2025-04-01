@@ -17,18 +17,18 @@ pub const XMPP_NS_REGISTER: &[u8; 19] = b"jabber:iq:register\0";
 pub const XMPP_NS_SM: &[u8; 14] = b"urn:xmpp:sm:3\0";
 pub const XMPP_NS_COMPRESSION: &[u8; 36] = b"http://jabber.org/protocol/compress\0";
 pub const XMPP_NS_FEATURE_COMPRESSION: &[u8; 36] = b"http://jabber.org/features/compress\0";
-pub const XMPP_EOK: i32 = 0;
-pub const XMPP_EMEM: i32 = -1;
-pub const XMPP_EINVOP: i32 = -2;
-pub const XMPP_EINT: i32 = -3;
-pub const XMPP_CONN_FLAG_DISABLE_TLS: u32 = 1;
-pub const XMPP_CONN_FLAG_MANDATORY_TLS: u32 = 2;
-pub const XMPP_CONN_FLAG_LEGACY_SSL: u32 = 4;
-pub const XMPP_CONN_FLAG_TRUST_TLS: u32 = 8;
-pub const XMPP_CONN_FLAG_LEGACY_AUTH: u32 = 16;
-pub const XMPP_CONN_FLAG_DISABLE_SM: u32 = 32;
-pub const XMPP_CONN_FLAG_ENABLE_COMPRESSION: u32 = 64;
-pub const XMPP_CONN_FLAG_COMPRESSION_DONT_RESET: u32 = 128;
+pub const XMPP_EOK: ::std::os::raw::c_int = 0;
+pub const XMPP_EMEM: ::std::os::raw::c_int = -1;
+pub const XMPP_EINVOP: ::std::os::raw::c_int = -2;
+pub const XMPP_EINT: ::std::os::raw::c_int = -3;
+pub const XMPP_CONN_FLAG_DISABLE_TLS: ::std::os::raw::c_long = 1;
+pub const XMPP_CONN_FLAG_MANDATORY_TLS: ::std::os::raw::c_long = 2;
+pub const XMPP_CONN_FLAG_LEGACY_SSL: ::std::os::raw::c_long = 4;
+pub const XMPP_CONN_FLAG_TRUST_TLS: ::std::os::raw::c_long = 8;
+pub const XMPP_CONN_FLAG_LEGACY_AUTH: ::std::os::raw::c_long = 16;
+pub const XMPP_CONN_FLAG_DISABLE_SM: ::std::os::raw::c_long = 32;
+pub const XMPP_CONN_FLAG_ENABLE_COMPRESSION: ::std::os::raw::c_long = 64;
+pub const XMPP_CONN_FLAG_COMPRESSION_DONT_RESET: ::std::os::raw::c_long = 128;
 pub const XMPP_SHA1_DIGEST_SIZE: u32 = 20;
 pub type __u_char = ::std::os::raw::c_uchar;
 pub type __u_short = ::std::os::raw::c_ushort;
@@ -823,7 +823,7 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
 	pub fn xmpp_sha1_to_string(sha1: *mut xmpp_sha1_t, s: *mut ::std::os::raw::c_char, slen: usize)
-		-> *mut ::std::os::raw::c_char;
+	-> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
 	pub fn xmpp_sha1_to_string_alloc(sha1: *mut xmpp_sha1_t) -> *mut ::std::os::raw::c_char;

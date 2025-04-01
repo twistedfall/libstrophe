@@ -1,5 +1,5 @@
-use std::fmt;
-use std::ptr::NonNull;
+use core::fmt;
+use core::ptr::NonNull;
 
 use crate::{CertElement, Context, FFI};
 
@@ -19,12 +19,12 @@ impl TlsCert {
 
 	#[inline]
 	pub(crate) unsafe fn from_owned(inner: *mut sys::xmpp_tlscert_t) -> Self {
-		Self::with_inner(inner, true)
+		unsafe { Self::with_inner(inner, true) }
 	}
 
 	#[inline]
 	pub(crate) unsafe fn from_ref(inner: *const sys::xmpp_tlscert_t) -> Self {
-		Self::with_inner(inner as *mut sys::xmpp_tlscert_t, false)
+		unsafe { Self::with_inner(inner.cast_mut(), false) }
 	}
 
 	pub(crate) fn as_ptr(&self) -> *mut sys::xmpp_tlscert_t {
@@ -32,31 +32,31 @@ impl TlsCert {
 	}
 
 	#[inline]
-	/// [xmpp_tlscert_get_ctx](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#gaae2a196318df4cc7155d1051e99ecf0c)
+	/// [xmpp_tlscert_get_ctx](https://strophe.im/libstrophe/doc/0.13.0/group___t_l_s.html#gaae2a196318df4cc7155d1051e99ecf0c)
 	pub fn context(&self) -> Context {
 		unsafe { Context::from_ref_mut(sys::xmpp_tlscert_get_ctx(self.as_ptr())) }
 	}
 
 	#[inline]
-	/// [xmpp_tlscert_get_pem](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#ga5eef98297b6b1779c2101f12551a6595)
+	/// [xmpp_tlscert_get_pem](https://strophe.im/libstrophe/doc/0.13.0/group___t_l_s.html#ga5eef98297b6b1779c2101f12551a6595)
 	pub fn pem(&self) -> Option<&str> {
 		unsafe { FFI(sys::xmpp_tlscert_get_pem(self.as_ptr())).receive() }
 	}
 
 	#[inline]
-	/// [xmpp_tlscert_get_dnsname](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#ga586b6294d680cf13b2390c4ee5d6c3ce)
+	/// [xmpp_tlscert_get_dnsname](https://strophe.im/libstrophe/doc/0.13.0/group___t_l_s.html#ga586b6294d680cf13b2390c4ee5d6c3ce)
 	pub fn get_dns_name(&self, n: usize) -> Option<&str> {
 		unsafe { FFI(sys::xmpp_tlscert_get_dnsname(self.as_ptr(), n)).receive() }
 	}
 
 	#[inline]
-	/// [xmpp_tlscert_get_string](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#ga1b9715dbf4c363f587a8d48c072e78b9)
+	/// [xmpp_tlscert_get_string](https://strophe.im/libstrophe/doc/0.13.0/group___t_l_s.html#ga1b9715dbf4c363f587a8d48c072e78b9)
 	pub fn get_string(&self, element: CertElement) -> Option<&str> {
 		unsafe { FFI(sys::xmpp_tlscert_get_string(self.as_ptr(), element)).receive() }
 	}
 
 	#[inline]
-	/// [xmpp_tlscert_get_description](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#ga3373a412085f6c3a3db9adb2c49d9d07)
+	/// [xmpp_tlscert_get_description](https://strophe.im/libstrophe/doc/0.13.0/group___t_l_s.html#ga3373a412085f6c3a3db9adb2c49d9d07)
 	pub fn get_element_description(element: CertElement) -> Option<&'static str> {
 		unsafe { FFI(sys::xmpp_tlscert_get_description(element)).receive() }
 	}
@@ -64,7 +64,7 @@ impl TlsCert {
 
 impl Drop for TlsCert {
 	#[inline]
-	/// [xmpp_tlscert_free](https://strophe.im/libstrophe/doc/0.12.2/group___t_l_s.html#ga6d01550c3a62c21cf4536c83eca97b1e)
+	/// [xmpp_tlscert_free](https://strophe.im/libstrophe/doc/0.13.0/group___t_l_s.html#ga6d01550c3a62c21cf4536c83eca97b1e)
 	fn drop(&mut self) {
 		if self.owned {
 			unsafe {
@@ -91,9 +91,7 @@ impl fmt::Debug for TlsCert {
 		];
 		for elem in elems {
 			if let Some(name) = TlsCert::get_element_description(elem) {
-				if let Some(val) = self.get_string(elem) {
-					debug.field(name, &val);
-				}
+				debug.field(name, &self.get_string(elem).unwrap_or("<unreadable value or non-utf8>"));
 			}
 		}
 		let mut n = 0;
