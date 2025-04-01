@@ -1,6 +1,6 @@
-use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
-use std::ptr;
+use core::ffi::{c_char, CStr};
+use core::ptr;
+use std::ffi::CString;
 
 #[allow(clippy::upper_case_acronyms)]
 pub struct FFI<T>(pub T);

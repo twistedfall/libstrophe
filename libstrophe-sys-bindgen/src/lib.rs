@@ -3,7 +3,7 @@
 //! This crate provides bindings to [libstrophe] C library which enables you the creation of XMPP
 //! clients and servers. The bindings were statically generated using [bindgen] so the crate doesn't
 //! have a hard dependency on bindgen. If you still want to regenerate the bindings during building
-//! of the create, enable `buildtime_bindgen` feature.
+//! of the crate, enable `buildtime_bindgen` feature.
 //!
 //! Usage of this crate creates runtime dependency on libstrophe.so so be sure to install that using
 //! your package manager.

@@ -93,24 +93,25 @@
 //!
 //! The following features are provided:
 //!
-//!   * `rust-log` - enabled by default, makes the create integrate into Rust logging facilities
+//!   * `rust-log` - enabled by default, makes the crate integrate into Rust logging facilities
 //!   * `libstrophe-0_9_3` - enabled by default, enables functionality specific to libstrophe-0.9.3
 //!   * `libstrophe-0_10_0` - enabled by default, enables functionality specific to libstrophe-0.10.0
 //!   * `libstrophe-0_11_0` - enabled by default, enables functionality specific to libstrophe-0.11.0
 //!   * `libstrophe-0_12_0` - enabled by default, enables functionality specific to libstrophe-0.12.0
+//!   * `libstrophe-0_13` - enabled by default, enables functionality specific to libstrophe-0.13.0
+//!   * `libstrophe-0_14` - enabled by default, enables functionality specific to libstrophe-0.14.0
 //!   * `buildtime_bindgen` - forces regeneration of the bindings instead of relying on the
 //!     pre-generated sources
 //!
 //! [libstrophe]: https://strophe.im/libstrophe/
 //! [`log`]: https://crates.io/crates/log
-//! [docs]: https://strophe.im/libstrophe/doc/0.12.2/
+//! [docs]: https://strophe.im/libstrophe/doc/0.13.0/
 //! [libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.12.2/examples
 //! [`Context`]: https://docs.rs/libstrophe/*/libstrophe/struct.Context.html
 //! [`Connection`]: https://docs.rs/libstrophe/*/libstrophe/struct.Connection.html
 //! [`shutdown()`]: https://docs.rs/libstrophe/*/libstrophe/fn.shutdown.html
 
-use std::ffi::c_void;
-use std::os::raw::c_long;
+use core::ffi::{c_long, c_void};
 use std::sync::Once;
 
 use bitflags::bitflags;
@@ -130,6 +131,8 @@ use ffi_types::FFI;
 pub use logger::Logger;
 #[cfg(feature = "libstrophe-0_12_0")]
 pub use sm_state::SMState;
+#[cfg(feature = "libstrophe-0_14")]
+pub use sm_state::{SerializedSmState, SerializedSmStateRef};
 pub use stanza::{Stanza, StanzaMutRef, StanzaRef, XMPP_STANZA_NAME_IN_NS};
 #[cfg(feature = "libstrophe-0_11_0")]
 pub use sys::xmpp_cert_element_t as CertElement;
@@ -161,27 +164,31 @@ mod tests;
 
 bitflags! {
 	pub struct ConnectionFlags: c_long {
-		const DISABLE_TLS = sys::XMPP_CONN_FLAG_DISABLE_TLS as c_long;
-		const MANDATORY_TLS = sys::XMPP_CONN_FLAG_MANDATORY_TLS as c_long;
-		const LEGACY_SSL = sys::XMPP_CONN_FLAG_LEGACY_SSL as c_long;
-		const TRUST_TLS = sys::XMPP_CONN_FLAG_TRUST_TLS as c_long;
+		const DISABLE_TLS = sys::XMPP_CONN_FLAG_DISABLE_TLS;
+		const MANDATORY_TLS = sys::XMPP_CONN_FLAG_MANDATORY_TLS;
+		const LEGACY_SSL = sys::XMPP_CONN_FLAG_LEGACY_SSL;
+		const TRUST_TLS = sys::XMPP_CONN_FLAG_TRUST_TLS;
 		#[cfg(feature = "libstrophe-0_9_3")]
-		const LEGACY_AUTH = sys::XMPP_CONN_FLAG_LEGACY_AUTH as c_long;
+		const LEGACY_AUTH = sys::XMPP_CONN_FLAG_LEGACY_AUTH;
 		#[cfg(feature = "libstrophe-0_12_0")]
-		const DISABLE_SM = sys::XMPP_CONN_FLAG_DISABLE_SM as c_long;
+		const DISABLE_SM = sys::XMPP_CONN_FLAG_DISABLE_SM;
+		#[cfg(feature = "libstrophe-0_13")]
+		const ENABLE_COMPRESSION = sys::XMPP_CONN_FLAG_ENABLE_COMPRESSION;
+		#[cfg(feature = "libstrophe-0_13")]
+		const COMPRESSION_DONT_RESET = sys::XMPP_CONN_FLAG_COMPRESSION_DONT_RESET;
 	}
 }
 
 static ALLOC_CONTEXT: Lazy<AllocContext> = Lazy::new(AllocContext::default);
 
-/// Convert type to *void for passing as `userdata`
-fn as_void_ptr<T>(cb: &T) -> *mut c_void {
-	cb as *const _ as _
+/// Convert type to `void*` for passing as `userdata`
+fn as_void_ptr<T>(cb: &mut T) -> *mut c_void {
+	(cb as *mut T).cast::<c_void>()
 }
 
-/// Convert *void from `userdata` to appropriate type
-unsafe fn void_ptr_as<'cb, T>(ptr: *const c_void) -> &'cb mut T {
-	(ptr as *mut T).as_mut().expect("userdata must be non-null")
+/// Convert `void*` from `userdata` to the appropriate type
+unsafe fn void_ptr_as<'cb, T>(ptr: *mut c_void) -> &'cb mut T {
+	ptr.cast::<T>().as_mut().expect("userdata must be non-null")
 }
 
 /// Ensure that underlying C library is initialized
@@ -199,17 +206,17 @@ fn deinit() {
 	DEINIT.call_once(|| unsafe { sys::xmpp_shutdown() });
 }
 
-/// [xmpp_version_check](https://strophe.im/libstrophe/doc/0.12.2/group___init.html#ga6cc7afca422acce51e0e7f52424f1db3)
+/// [xmpp_version_check](https://strophe.im/libstrophe/doc/0.13.0/group___init.html#ga6cc7afca422acce51e0e7f52424f1db3)
 pub fn version_check(major: i32, minor: i32) -> bool {
 	unsafe { FFI(sys::xmpp_version_check(major, minor)).receive_bool() }
 }
 
-/// [xmpp_shutdown](https://strophe.im/libstrophe/doc/0.12.2/group___init.html#ga06e07524aee531de1ceb825541307963)
+/// [xmpp_shutdown](https://strophe.im/libstrophe/doc/0.13.0/group___init.html#ga06e07524aee531de1ceb825541307963)
 ///
 /// Call this function when your application terminates, but be aware that you can't use the library
-/// after you called `shutdown()` and there is now way to reinitialize it again.
+/// after you called `shutdown()` and there is now a way to reinitialize it again.
 ///
-/// This function is thread safe, it's safe to call it several times and it's safe to call it before
+/// This function is thread safe, it's safe to call it several times, and it's safe to call it before
 /// doing any initialization.
 pub fn shutdown() {
 	init();

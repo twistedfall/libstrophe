@@ -1,0 +1,34 @@
+From 9fef4b7d024b99aac9101bfa8b45cf78eef6508b Mon Sep 17 00:00:00 2001
+From: Steffen Jaeckel <jaeckel-floss@eyet-services.de>
+Date: Wed, 10 Apr 2024 16:55:18 +0200
+Subject: [PATCH] Restore old interface if TLS connection failed
+
+This was reported as creating a segfault in [0]
+
+[0] https://github.com/profanity-im/profanity/issues/1963
+
+Signed-off-by: Steffen Jaeckel <jaeckel-floss@eyet-services.de>
+---
+ src/conn.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/conn.c b/src/conn.c
+index 73a2737a..d8c7ab1e 100644
+--- a/src/conn.c
++++ b/src/conn.c
+@@ -1092,6 +1092,7 @@ int conn_tls_start(xmpp_conn_t *conn)
+     }
+ 
+     if (conn->tls != NULL) {
++        struct conn_interface old_intf = conn->intf;
+         conn->intf = tls_intf;
+         conn->intf.conn = conn;
+         if (tls_start(conn->tls)) {
+@@ -1102,6 +1103,7 @@ int conn_tls_start(xmpp_conn_t *conn)
+             tls_free(conn->tls);
+             conn->tls = NULL;
+             conn->tls_failed = 1;
++            conn->intf = old_intf;
+         }
+     }
+     if (rc != 0) {

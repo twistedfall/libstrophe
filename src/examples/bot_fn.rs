@@ -60,11 +60,7 @@ fn message_handler(
 
 	let intext = body.text().expect("Cannot get body");
 
-	eprintln!(
-		"Incoming message from {}: {}",
-		stanza.from().expect("Cannot get from"),
-		intext
-	);
+	eprintln!("Incoming message from {}: {intext}", stanza.from().expect("Cannot get from"));
 
 	let mut reply = stanza.reply();
 	if reply.stanza_type().is_none() {
@@ -74,7 +70,7 @@ fn message_handler(
 	let (quit, replytext) = if intext == "quit" {
 		(true, "bye!".to_owned())
 	} else {
-		(false, format!("{} to you too!", intext))
+		(false, format!("{intext} to you too!"))
 	};
 	reply.set_body(replytext).expect("Cannot set body");
 
@@ -87,7 +83,7 @@ fn message_handler(
 	libstrophe::HandlerResult::KeepHandler
 }
 
-/// Port of the [bot.c](https://github.com/strophe/libstrophe/blob/0.12.2/examples/bot.c) code
+/// Port of the [bot.c](https://github.com/strophe/libstrophe/blob/0.14.0/examples/bot.c) code
 #[allow(dead_code)]
 pub fn main() {
 	env_logger::init();
@@ -98,8 +94,8 @@ pub fn main() {
 	let conn_handler = move |ctx: &libstrophe::Context, conn: &mut libstrophe::Connection, evt: libstrophe::ConnectionEvent| {
 		if let libstrophe::ConnectionEvent::Connect = evt {
 			eprintln!("Connected");
-			conn.handler_add(&version_handler, Some("jabber:iq:version"), Some("iq"), None);
-			conn.handler_add(&message_handler, None, Some("message"), None);
+			conn.handler_add(version_handler, Some("jabber:iq:version"), Some("iq"), None);
+			conn.handler_add(message_handler, None, Some("message"), None);
 			let pres = libstrophe::Stanza::new_presence();
 
 			conn.send(&pres);

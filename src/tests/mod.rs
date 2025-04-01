@@ -1,12 +1,12 @@
+use core::mem;
+use core::sync::atomic::{AtomicU16, Ordering};
+use core::time::Duration;
 use std::collections::HashMap;
+use std::env;
 use std::path::PathBuf;
 use std::process::Command;
-use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::Duration;
-use std::{env, mem};
 
-use matches::assert_matches;
 use names::Generator;
 
 use crate::*;
@@ -56,19 +56,19 @@ fn custom_logger() {
 fn conn_client_wo_jid() {
 	let conn = Connection::new(Context::new_with_null_logger());
 	// no JID supplied
-	assert_matches!(
+	assert!(matches!(
 		conn.connect_client(None, None, |_, _, _| {}),
 		Err(ConnectClientError {
 			error: Error::InvalidOperation,
 			..
 		})
-	);
+	));
 }
 
 #[test]
 fn conn_client() {
 	let conn_handler = |ctx: &Context, _: &mut Connection, event: ConnectionEvent| {
-		assert_matches!(event, ConnectionEvent::Disconnect(_));
+		assert!(matches!(event, ConnectionEvent::Disconnect(_)));
 		ctx.stop();
 	};
 
@@ -92,7 +92,7 @@ fn conn_client() {
 #[test]
 fn conn_raw() {
 	let conn_handler = |ctx: &Context, _: &mut Connection, event: ConnectionEvent| {
-		assert_matches!(event, ConnectionEvent::Disconnect(_));
+		assert!(matches!(event, ConnectionEvent::Disconnect(_)));
 		ctx.stop();
 	};
 
@@ -119,10 +119,11 @@ fn timed_handler() {
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
 	let handle = conn
-		.timed_handler_add(&timed_handler, Duration::from_secs(1))
+		.timed_handler_add(timed_handler, Duration::from_secs(1))
 		.expect("Can't add timed handler");
-	assert_matches!(conn.timed_handler_add(&timed_handler, Duration::from_secs(1)), None);
-	conn.timed_handler_delete(handle);
+	assert!(conn.timed_handler_add(timed_handler, Duration::from_secs(1)).is_none());
+	let removed_count = conn.timed_handler_delete(handle);
+	assert_eq!(1, removed_count);
 }
 
 #[test]
@@ -131,14 +132,16 @@ fn stanza_handler() {
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
 	let handle = conn
-		.handler_add(&stanza_handler, Some("ns"), None, None)
+		.handler_add(stanza_handler, Some("ns"), None, None)
 		.expect("Can't add handler");
-	assert_matches!(conn.handler_add(&stanza_handler, Some("ns"), None, None), None);
-	conn.handler_delete(handle);
+	assert!(conn.handler_add(stanza_handler, Some("ns"), None, None).is_none());
+	let removed_count = conn.handler_delete(handle);
+	assert_eq!(1, removed_count);
 	let handle = conn
 		.handler_add(stanza_handler, None, Some("name"), None)
 		.expect("Can't add handler");
-	conn.handler_delete(handle);
+	let removed_count = conn.handler_delete(handle);
+	assert_eq!(1, removed_count);
 }
 
 #[test]
@@ -146,9 +149,10 @@ fn id_handler() {
 	let id_handler = |_: &Context, _: &mut Connection, _: &Stanza| HandlerResult::RemoveHandler;
 	let ctx = Context::new_with_null_logger();
 	let mut conn = Connection::new(ctx);
-	let h = conn.id_handler_add(&id_handler, "test").expect("Can't add id handler");
-	assert_matches!(conn.id_handler_add(&id_handler, "test"), None);
-	conn.id_handler_delete(h);
+	let h = conn.id_handler_add(id_handler, "test").expect("Can't add id handler");
+	assert!(conn.id_handler_add(id_handler, "test").is_none());
+	let removed_count = conn.id_handler_delete(h);
+	assert_eq!(1, removed_count);
 }
 
 #[test]
@@ -192,9 +196,12 @@ fn jid_test() {
 #[test]
 fn stanza_err() {
 	let mut stanza = Stanza::new();
-	assert_matches!(stanza.to_text(), Err(ToTextError::StropheError(Error::InvalidOperation)));
+	assert!(matches!(
+		stanza.to_text(),
+		Err(ToTextError::StropheError(Error::InvalidOperation))
+	));
 	stanza.set_name("test").unwrap();
-	assert_matches!(stanza.set_body("body"), Err(Error::InvalidOperation));
+	assert!(matches!(stanza.set_body("body"), Err(Error::InvalidOperation)));
 }
 
 #[test]
@@ -241,7 +248,7 @@ fn stanza_hier() {
 					assert_eq!(child.name().unwrap(), "message");
 					assert_eq!(child.body().unwrap(), "Test body");
 				}
-				_ => panic!("Too many items: {}", child),
+				_ => panic!("Too many items: {child}"),
 			}
 		}
 	}
@@ -258,7 +265,7 @@ fn stanza_hier() {
 					assert_eq!(child.name().unwrap(), "message");
 					assert_eq!(child.body().unwrap(), "Test body");
 				}
-				_ => panic!("Too many items: {}", child),
+				_ => panic!("Too many items: {child}"),
 			}
 		}
 		assert_eq!(stanza.get_first_child().unwrap().name().unwrap(), "presence1");
@@ -354,7 +361,7 @@ fn stanza_clone() {
 fn stanza_attributes() {
 	let mut stanza = Stanza::new();
 
-	assert_matches!(stanza.set_id("stanza_id"), Err(Error::InvalidOperation));
+	assert!(matches!(stanza.set_id("stanza_id"), Err(Error::InvalidOperation)));
 	assert_eq!(stanza.attribute_count(), 0);
 
 	stanza.set_name("message").unwrap();
@@ -363,11 +370,11 @@ fn stanza_attributes() {
 	stanza.set_ns("myns").unwrap();
 
 	assert_eq!(stanza.attribute_count(), 3);
-	assert_matches!(stanza.get_attribute("type"), Some("type"));
-	assert_matches!(stanza.get_attribute("non-existent"), None);
+	assert!(matches!(stanza.get_attribute("type"), Some("type")));
+	assert!(stanza.get_attribute("non-existent").is_none());
 
 	stanza.set_attribute("xmlns", "myotherns").unwrap();
-	assert_matches!(stanza.ns(), Some("myotherns"));
+	assert!(matches!(stanza.ns(), Some("myotherns")));
 
 	let mut compare = HashMap::new();
 	compare.insert("xmlns", "myotherns");
@@ -377,7 +384,7 @@ fn stanza_attributes() {
 
 	stanza.del_attribute("type").unwrap();
 	assert_eq!(stanza.attribute_count(), 2);
-	assert_matches!(stanza.get_attribute("type"), None);
+	assert!(stanza.get_attribute("type").is_none());
 	compare.remove("type");
 	assert_eq!(stanza.attributes(), compare);
 }
@@ -428,6 +435,7 @@ fn zero_sized_handlers() {
 					move |ctx, conn, evt| match evt {
 						ConnectionEvent::Connect => {
 							conn.handler_add(zero_sized, None, None, None).expect("Can't add handler");
+							conn.send(&Stanza::new_iq(None, None));
 							conn
 								.handler_add(i_incrementer.clone(), None, Some("presence"), None)
 								.expect("Can't add handler");
@@ -838,7 +846,6 @@ fn id_handler_creds() {
 			ctx.run();
 			assert_eq!(i.load(Ordering::Relaxed), 1);
 		}
-
 		// delete
 		i.store(0, Ordering::Relaxed);
 		{
@@ -913,7 +920,14 @@ fn handler() {
 
 	let default_con_handler = |ctx: &Context, conn: &mut Connection, evt: ConnectionEvent| match evt {
 		ConnectionEvent::Connect => {
-			conn.disconnect();
+			conn.send(&Stanza::new_iq(None, None));
+			conn.timed_handler_add(
+				|_, conn| {
+					conn.disconnect();
+					HandlerResult::RemoveHandler
+				},
+				Duration::from_secs(1),
+			);
 		}
 		ConnectionEvent::Disconnect(_) => {
 			ctx.stop();
@@ -925,7 +939,7 @@ fn handler() {
 		let i = Arc::clone(&i);
 		move |_: &Context, _: &mut Connection, _: &Stanza| {
 			i.fetch_add(1, Ordering::Relaxed);
-			HandlerResult::KeepHandler
+			HandlerResult::RemoveHandler
 		}
 	};
 
@@ -1029,7 +1043,16 @@ fn stanza_global_context() {
 			.expect("Can't add handler");
 		let ctx = conn
 			.connect_client(None, None, |ctx, conn, evt| match evt {
-				ConnectionEvent::Connect => conn.disconnect(),
+				ConnectionEvent::Connect => {
+					conn.send(&Stanza::new_iq(None, None));
+					conn.timed_handler_add(
+						|_, conn| {
+							conn.disconnect();
+							HandlerResult::RemoveHandler
+						},
+						Duration::from_secs(1),
+					);
+				}
 				ConnectionEvent::Disconnect(_) => ctx.stop(),
 				_ => (),
 			})
@@ -1145,6 +1168,33 @@ fn connection_handler_tls() {
 }
 
 #[test]
+#[cfg(feature = "libstrophe-0_14")]
+fn sm_state() {
+	let creds = if let Some(creds) = Creds::acquire() {
+		creds
+	} else {
+		eprintln!("Can't acquire creds, skipping test");
+		return;
+	};
+
+	let mut conn = creds.make_conn();
+	conn.set_sm_callback(|_conn, state| {
+		dbg!(&state);
+	});
+	conn
+		.connect_client(None, None, |ctx, conn, evt| match evt {
+			ConnectionEvent::Connect => {
+				conn.disconnect();
+				ctx.stop();
+			}
+			ConnectionEvent::Disconnect(_) => ctx.stop(),
+			_ => (),
+		})
+		.unwrap()
+		.run();
+}
+
+#[test]
 fn fail() {
 	let t = trybuild::TestCases::new();
 	t.compile_fail("src/tests/fail/*.rs");
@@ -1176,7 +1226,7 @@ impl Creds {
 		conn.set_jid(&self.jid);
 		conn.set_pass(&self.pass);
 		conn
-			.set_flags(ConnectionFlags::TRUST_TLS)
+			.set_flags(ConnectionFlags::DISABLE_TLS)
 			.expect("Cannot set connection flags");
 		conn
 	}
