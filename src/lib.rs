@@ -86,7 +86,7 @@
 //! libstrophe::shutdown();
 //! ```
 //!
-//! For more complete examples see this crate `src/examples` directory and [libstrophe examples].
+//! For more complete examples see this crate `examples` directory and [libstrophe examples].
 //!
 //!
 //! # Crate features
