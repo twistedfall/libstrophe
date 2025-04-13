@@ -9,7 +9,7 @@ See [full documentation](https://docs.rs/libstrophe)
 Add this to your Cargo.toml:
 ```
 [dependencies]
-libstrophe = "0.20.0"
+libstrophe = "0.20.1"
 ```
 
 ![Maintenance](https://img.shields.io/badge/maintenance-passively--maintained-yellowgreen.svg)
@@ -104,7 +104,7 @@ ctx.run();
 libstrophe::shutdown();
 ```
 
-For more complete examples see this crate `src/examples` directory and [libstrophe examples].
+For more complete examples see this crate `examples` directory and [libstrophe examples].
 
 
 ## Crate features
