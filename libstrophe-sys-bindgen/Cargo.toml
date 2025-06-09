@@ -19,7 +19,7 @@ maintenance = { status = "passively-maintained" }
 [dependencies]
 
 [build-dependencies]
-bindgen = { version = "0.71", optional = true }
+bindgen = { version = "0.72", optional = true }
 
 [features]
 buildtime_bindgen = ["bindgen"]
