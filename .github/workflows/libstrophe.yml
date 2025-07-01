@@ -46,14 +46,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: mozilla-actions/sccache-action@v0.0.9
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ steps.metadata.outputs.msrv }}
-          components: clippy,rustfmt
 
       - name: Get MSRV package metadata
         id: metadata
         run: cargo metadata --no-deps --format-version 1 | jq -r '"msrv="+(.packages[]|select(.name=="libstrophe").rust_version)' >> $GITHUB_OUTPUT
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.metadata.outputs.msrv }}
+          components: clippy,rustfmt
 
       - run: ci/checks.sh
         shell: bash
