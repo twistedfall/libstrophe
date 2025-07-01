@@ -12,7 +12,12 @@ reorder_imports = true
 reorder_modules = true
 short_array_element_width_threshold = 10
 single_line_if_else_max_width = 0
+single_line_let_else_max_width = 0
 tab_spaces = 3
 use_field_init_shorthand = true
 use_small_heuristics = "Default"
 use_try_shorthand = true
+
+# unstable options
+imports_granularity = "Module"
+group_imports = "StdExternalCrate"

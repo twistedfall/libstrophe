@@ -28,17 +28,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: mozilla-actions/sccache-action@v0.0.9
-
-      - name: Install dependencies
-        run: ci/install.sh
-        shell: bash
-
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy,rustfmt
 
-      - name: Test
-        run: ci/script.sh
+      - run: ci/install.sh
+        shell: bash
+
+      - run: ci/script.sh
         shell: bash
 
   msrv:
@@ -49,16 +46,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: mozilla-actions/sccache-action@v0.0.9
-
-      - name: Get MSRV package metadata
-        id: metadata
-        run: cargo metadata --no-deps --format-version 1 | jq -r '"msrv="+(.packages[]|select(.name=="libstrophe").rust_version)' >> $GITHUB_OUTPUT
-
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.metadata.outputs.msrv }}
           components: clippy,rustfmt
 
-      - name: Checks
-        run: ci/checks.sh
+      - name: Get MSRV package metadata
+        id: metadata
+        run: cargo metadata --no-deps --format-version 1 | jq -r '"msrv="+(.packages[]|select(.name=="libstrophe").rust_version)' >> $GITHUB_OUTPUT
+
+      - run: ci/checks.sh
         shell: bash

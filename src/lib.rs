@@ -111,10 +111,8 @@
 use core::ffi::{c_long, c_void};
 use std::sync::Once;
 
-use bitflags::bitflags;
-use once_cell::sync::Lazy;
-
 pub use alloc_context::AllocContext;
+use bitflags::bitflags;
 #[cfg(feature = "libstrophe-0_11_0")]
 pub use connection::CertFailResult;
 #[cfg(feature = "libstrophe-0_12_0")]
@@ -126,6 +124,7 @@ pub use error::{
 };
 use ffi_types::FFI;
 pub use logger::Logger;
+use once_cell::sync::Lazy;
 #[cfg(feature = "libstrophe-0_12_0")]
 pub use sm_state::SMState;
 #[cfg(feature = "libstrophe-0_14")]

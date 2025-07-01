@@ -7,9 +7,8 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, Mutex, RwLock};
 
-use names::Generator;
-
 use libstrophe::*;
+use names::Generator;
 
 #[test]
 fn default_context() {

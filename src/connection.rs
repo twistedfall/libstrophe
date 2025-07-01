@@ -33,6 +33,11 @@ mod libstrophe_0_14 {
 	pub use super::internals::SmStateCallback;
 	pub use crate::sm_state::{SerializedSmState, SerializedSmStateRef};
 }
+pub use internals::HandlerResult;
+use internals::{
+	BoxedHandler, BoxedHandlers, CbAddr, ConnectionCallback, ConnectionFatHandler, ConnectionHandlers, StanzaCallback,
+	StanzaFatHandler, TimedCallback, TimedFatHandler,
+};
 #[cfg(feature = "libstrophe-0_14")]
 use libstrophe_0_14::*;
 
@@ -40,11 +45,6 @@ use crate::connection::internals::MaybeBoxedHandler;
 use crate::error::IntoResult;
 use crate::ffi_types::Nullable;
 use crate::{ConnectClientError, ConnectionError, ConnectionFlags, Context, Error, FFI, Result, Stanza, StreamError};
-pub use internals::HandlerResult;
-use internals::{
-	BoxedHandler, BoxedHandlers, CbAddr, ConnectionCallback, ConnectionFatHandler, ConnectionHandlers, StanzaCallback,
-	StanzaFatHandler, TimedCallback, TimedFatHandler,
-};
 
 #[macro_use]
 mod internals;
@@ -746,8 +746,9 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 		let data = data.as_ref();
 		#[cfg(feature = "log")]
 		if log::log_enabled!(log::Level::Debug) {
-			use crate::LogLevel;
 			use std::fmt::Write;
+
+			use crate::LogLevel;
 
 			let ctx = unsafe { sys::xmpp_conn_get_context(self.inner.as_ptr()) };
 			let mut data_str = "SENT: ".to_owned();

@@ -1,5 +1,4 @@
-use core::ffi::CStr;
-use core::ffi::{c_char, c_int, c_uint};
+use core::ffi::{CStr, c_char, c_int, c_uint};
 use core::fmt::Display;
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
