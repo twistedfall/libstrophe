@@ -1,20 +1,24 @@
 # libstrophe
 
-## Documentation
+[![Build Status](https://github.com/twistedfall/libstrophe/actions/workflows/libstrophe.yml/badge.svg)](https://github.com/twistedfall/libstrophe/actions/workflows/libstrophe.yml)
+[![Documentation](https://docs.rs/libstrophe/badge.svg)](https://docs.rs/libstrophe)
+[![Crates.io](https://img.shields.io/crates/v/libstrophe)](https://crates.io/crates/libstrophe)
+![Maintenance](https://img.shields.io/badge/maintenance-passively--maintained-yellowgreen.svg)
 
-See [full documentation](https://docs.rs/libstrophe)
+[Support the project](https://github.com/sponsors/twistedfall) | [Documentation](https://docs.rs/libstrophe)
+
 
 ## Usage
 
-Add this to your Cargo.toml:
+Run:
+```shell
+cargo add libstrophe
 ```
+Or add to your Cargo.toml:
+```toml
 [dependencies]
 libstrophe = "0.20.1"
 ```
-
-![Maintenance](https://img.shields.io/badge/maintenance-passively--maintained-yellowgreen.svg)
-[![Build Status](https://github.com/twistedfall/libstrophe/actions/workflows/libstrophe.yml/badge.svg)](https://github.com/twistedfall/libstrophe/actions/workflows/libstrophe.yml)
-[![Documentation](https://docs.rs/libstrophe/badge.svg)](https://docs.rs/libstrophe)
 
 ## libstrophe - ergonomic wrapper for Rust
 
@@ -126,4 +130,6 @@ The following features are provided:
 [docs]: https://strophe.im/libstrophe/doc/0.13.0/
 [libstrophe examples]: https://github.com/strophe/libstrophe/tree/0.12.2/examples
 
-License: LGPL-3.0
+## License
+
+LGPL-3.0
