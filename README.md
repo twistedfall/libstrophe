@@ -17,7 +17,7 @@ cargo add libstrophe
 Or add to your Cargo.toml:
 ```toml
 [dependencies]
-libstrophe = "0.20.1"
+libstrophe = "0.20.2"
 ```
 
 ## libstrophe - ergonomic wrapper for Rust
