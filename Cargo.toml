@@ -10,7 +10,7 @@ authors = ["Pro <twisted.fall@gmail.com>"]
 license = "LGPL-3.0"
 documentation = "https://docs.rs/libstrophe"
 repository = "https://github.com/twistedfall/libstrophe"
-exclude = ["/.github", "/ci", "/tools", "/Cargo.lock", ".gitignore", "README.tpl", "release.toml", "rustfmt.toml"]
+exclude = ["/.github", "/ci", "/tools", ".gitignore", "release.toml", "rustfmt.toml"]
 
 [badges]
 maintenance = { status = "passively-maintained" }
