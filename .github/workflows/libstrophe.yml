@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - "*"
-    tags_ignore:
+    tags-ignore:
       - "*"
   pull_request:
     branches:
