@@ -20,6 +20,7 @@ maintenance = { status = "passively-maintained" }
 
 [build-dependencies]
 bindgen = { version = "0.72", optional = true }
+pkg-config = "0.3"
 
 [features]
 buildtime_bindgen = ["bindgen"]

@@ -1,5 +1,7 @@
+use std::path::PathBuf;
+
 #[cfg(feature = "buildtime_bindgen")]
-fn build_wrapper() {
+fn build_wrapper(include_paths: &[PathBuf]) {
 	use std::env;
 	use std::path::PathBuf;
 
@@ -30,6 +32,10 @@ fn build_wrapper() {
 
 	let mut builder = bindgen::builder().header("wrapper.h").parse_callbacks(Box::new(PCallbacks));
 
+	for include_path in include_paths.iter().flat_map(|p| p.to_str()) {
+		builder = builder.clang_arg(format!("-I{include_path}"));
+	}
+
 	const BLOCKLIST_TYPES: &[&str] = &["max_align_t", "wchar_t", "__fsid_t"];
 	for blocklist_type in BLOCKLIST_TYPES {
 		builder = builder.blocklist_type(blocklist_type);
@@ -58,7 +64,14 @@ fn build_wrapper() {
 }
 
 fn main() {
-	println!("cargo:rustc-link-lib=strophe");
+	let _include_paths = match pkg_config::probe_library("libstrophe") {
+		Ok(libstrophe) => libstrophe.include_paths,
+		Err(e) => {
+			eprintln!("Could not find libstrophe via pkg-config: {e}, details: {e:?}");
+			println!("cargo:rustc-link-lib=strophe");
+			vec![]
+		}
+	};
 	#[cfg(feature = "buildtime_bindgen")]
-	build_wrapper();
+	build_wrapper(&_include_paths);
 }
