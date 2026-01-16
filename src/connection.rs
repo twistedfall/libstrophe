@@ -488,7 +488,7 @@ impl<'cb, 'cx> Connection<'cb, 'cx> {
 	///
 	/// Because in the underlying library the output [SMState] object retains the reference to the [Connection] we need to prevent
 	/// modifications to the [Connection] while a particular instance of [SMState] is alive.
-	pub fn sm_state(&mut self) -> Option<SMState> {
+	pub fn sm_state(&mut self) -> Option<SMState<'_, '_>> {
 		let inner = unsafe { sys::xmpp_conn_get_sm_state(self.inner.as_mut()) };
 		if inner.is_null() {
 			None

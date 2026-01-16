@@ -33,7 +33,7 @@ impl TlsCert {
 
 	#[inline]
 	/// [xmpp_tlscert_get_ctx](https://strophe.im/libstrophe/doc/0.13.0/group___t_l_s.html#gaae2a196318df4cc7155d1051e99ecf0c)
-	pub fn context(&self) -> Context {
+	pub fn context(&self) -> Context<'_, '_> {
 		unsafe { Context::from_ref_mut(sys::xmpp_tlscert_get_ctx(self.as_ptr())) }
 	}
 

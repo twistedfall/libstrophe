@@ -346,26 +346,26 @@ impl Stanza {
 
 	#[inline]
 	/// [xmpp_stanza_get_children](https://strophe.im/libstrophe/doc/0.13.0/group___stanza.html#ga35bbf13870c6551ec16a2d24b4d6b9e4)
-	pub fn get_first_child(&self) -> Option<StanzaRef> {
+	pub fn get_first_child(&self) -> Option<StanzaRef<'_>> {
 		unsafe { sys::xmpp_stanza_get_children(self.inner.as_ptr()).as_ref() }.map(|x| unsafe { Self::from_ref(x) })
 	}
 
 	#[inline]
 	/// [xmpp_stanza_get_children](https://strophe.im/libstrophe/doc/0.13.0/group___stanza.html#ga35bbf13870c6551ec16a2d24b4d6b9e4)
-	pub fn get_first_child_mut(&mut self) -> Option<StanzaMutRef> {
+	pub fn get_first_child_mut(&mut self) -> Option<StanzaMutRef<'_>> {
 		unsafe { sys::xmpp_stanza_get_children(self.inner.as_mut()).as_mut() }.map(|x| unsafe { Self::from_ref_mut(x) })
 	}
 
 	#[inline]
 	/// [xmpp_stanza_get_child_by_ns](https://strophe.im/libstrophe/doc/0.13.0/group___stanza.html#ga09791fe5c7a5b3f4d90a95a46621eb1d)
-	pub fn get_child_by_ns(&self, ns: impl AsRef<str>) -> Option<StanzaRef> {
+	pub fn get_child_by_ns(&self, ns: impl AsRef<str>) -> Option<StanzaRef<'_>> {
 		let ns = FFI(ns.as_ref()).send();
 		unsafe { sys::xmpp_stanza_get_child_by_ns(self.inner.as_ptr(), ns.as_ptr()).as_ref() }.map(|x| unsafe { Self::from_ref(x) })
 	}
 
 	#[inline]
 	/// [xmpp_stanza_get_child_by_ns](https://strophe.im/libstrophe/doc/0.13.0/group___stanza.html#ga09791fe5c7a5b3f4d90a95a46621eb1d)
-	pub fn get_child_by_ns_mut(&mut self, ns: impl AsRef<str>) -> Option<StanzaMutRef> {
+	pub fn get_child_by_ns_mut(&mut self, ns: impl AsRef<str>) -> Option<StanzaMutRef<'_>> {
 		let ns = FFI(ns.as_ref()).send();
 		unsafe { sys::xmpp_stanza_get_child_by_ns(self.inner.as_mut(), ns.as_ptr()).as_mut() }
 			.map(|x| unsafe { Self::from_ref_mut(x) })
@@ -373,7 +373,7 @@ impl Stanza {
 
 	#[inline]
 	/// [xmpp_stanza_get_child_by_name](https://strophe.im/libstrophe/doc/0.13.0/group___stanza.html#ga19933d39585d91285e02c0c5fff41082)
-	pub fn get_child_by_name(&self, name: impl AsRef<str>) -> Option<StanzaRef> {
+	pub fn get_child_by_name(&self, name: impl AsRef<str>) -> Option<StanzaRef<'_>> {
 		let name = FFI(name.as_ref()).send();
 		unsafe { sys::xmpp_stanza_get_child_by_name(self.inner.as_ptr(), name.as_ptr()).as_ref() }
 			.map(|x| unsafe { Self::from_ref(x) })
@@ -381,7 +381,7 @@ impl Stanza {
 
 	#[inline]
 	/// [xmpp_stanza_get_child_by_name](https://strophe.im/libstrophe/doc/0.13.0/group___stanza.html#ga19933d39585d91285e02c0c5fff41082)
-	pub fn get_child_by_name_mut(&mut self, name: impl AsRef<str>) -> Option<StanzaMutRef> {
+	pub fn get_child_by_name_mut(&mut self, name: impl AsRef<str>) -> Option<StanzaMutRef<'_>> {
 		let name = FFI(name.as_ref()).send();
 		unsafe { sys::xmpp_stanza_get_child_by_name(self.inner.as_mut(), name.as_ptr()).as_mut() }
 			.map(|x| unsafe { Self::from_ref_mut(x) })
@@ -390,7 +390,7 @@ impl Stanza {
 	#[inline]
 	#[cfg(feature = "libstrophe-0_10_0")]
 	/// [xmpp_stanza_get_child_by_name_and_ns](https://strophe.im/libstrophe/doc/0.13.0/group___stanza.html#gaf00933e114ada170c526f11589d3e072)
-	pub fn get_child_by_name_and_ns(&self, name: impl AsRef<str>, ns: impl AsRef<str>) -> Option<StanzaRef> {
+	pub fn get_child_by_name_and_ns(&self, name: impl AsRef<str>, ns: impl AsRef<str>) -> Option<StanzaRef<'_>> {
 		let name = FFI(name.as_ref()).send();
 		let ns = FFI(ns.as_ref()).send();
 		unsafe { sys::xmpp_stanza_get_child_by_name_and_ns(self.inner.as_ptr(), name.as_ptr(), ns.as_ptr()).as_ref() }
@@ -400,7 +400,7 @@ impl Stanza {
 	#[inline]
 	#[cfg(feature = "libstrophe-0_10_0")]
 	/// [xmpp_stanza_get_child_by_name_and_ns](https://strophe.im/libstrophe/doc/0.13.0/group___stanza.html#gaf00933e114ada170c526f11589d3e072)
-	pub fn get_child_by_name_and_ns_mut(&mut self, name: impl AsRef<str>, ns: impl AsRef<str>) -> Option<StanzaMutRef> {
+	pub fn get_child_by_name_and_ns_mut(&mut self, name: impl AsRef<str>, ns: impl AsRef<str>) -> Option<StanzaMutRef<'_>> {
 		let name = FFI(name.as_ref()).send();
 		let ns = FFI(ns.as_ref()).send();
 		unsafe { sys::xmpp_stanza_get_child_by_name_and_ns(self.inner.as_mut(), name.as_ptr(), ns.as_ptr()).as_mut() }
@@ -412,7 +412,7 @@ impl Stanza {
 	///
 	/// Due to internal limitations (vararg call in C) this function supports a maximum of 10 elements
 	/// in the `path` slice.
-	pub fn get_child_by_path(&self, path: &[&str]) -> Option<StanzaRef> {
+	pub fn get_child_by_path(&self, path: &[&str]) -> Option<StanzaRef<'_>> {
 		let res = internals::stanza_get_child_by_path(self.inner.as_ptr(), path);
 		unsafe { res.as_ref() }.map(|x| unsafe { Self::from_ref(x) })
 	}
@@ -423,20 +423,20 @@ impl Stanza {
 	///
 	/// Due to internal limitations (vararg call in C) this function supports a maximum of 10 elements
 	/// in the `path` slice.
-	pub fn get_child_by_path_mut(&mut self, path: &[&str]) -> Option<StanzaMutRef> {
+	pub fn get_child_by_path_mut(&mut self, path: &[&str]) -> Option<StanzaMutRef<'_>> {
 		let res = internals::stanza_get_child_by_path(unsafe { self.inner.as_mut() }, path);
 		unsafe { res.as_mut() }.map(|x| unsafe { Self::from_ref_mut(x) })
 	}
 
 	#[inline]
-	pub fn children(&self) -> impl Iterator<Item = StanzaRef> {
+	pub fn children(&self) -> impl Iterator<Item = StanzaRef<'_>> {
 		ChildIterator {
 			cur: self.get_first_child().map(StanzaChildRef),
 		}
 	}
 
 	#[inline]
-	pub fn children_mut(&mut self) -> impl Iterator<Item = StanzaMutRef> {
+	pub fn children_mut(&mut self) -> impl Iterator<Item = StanzaMutRef<'_>> {
 		ChildIteratorMut {
 			cur: self.get_first_child_mut().map(StanzaChildMutRef),
 		}
@@ -444,13 +444,13 @@ impl Stanza {
 
 	#[inline]
 	/// [xmpp_stanza_get_next](https://strophe.im/libstrophe/doc/0.13.0/group___stanza.html#ga4eceb55b6a939767d473f7faacfcc6e2)
-	pub fn get_next(&self) -> Option<StanzaRef> {
+	pub fn get_next(&self) -> Option<StanzaRef<'_>> {
 		unsafe { sys::xmpp_stanza_get_next(self.inner.as_ptr()).as_ref() }.map(|x| unsafe { Self::from_ref(x) })
 	}
 
 	#[inline]
 	/// [xmpp_stanza_get_next](https://strophe.im/libstrophe/doc/0.13.0/group___stanza.html#ga4eceb55b6a939767d473f7faacfcc6e2)
-	pub fn get_next_mut(&mut self) -> Option<StanzaMutRef> {
+	pub fn get_next_mut(&mut self) -> Option<StanzaMutRef<'_>> {
 		unsafe { sys::xmpp_stanza_get_next(self.inner.as_mut()).as_mut() }.map(|x| unsafe { Self::from_ref_mut(x) })
 	}
 
