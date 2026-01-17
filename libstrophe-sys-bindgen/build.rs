@@ -1,7 +1,5 @@
-use std::path::PathBuf;
-
 #[cfg(feature = "buildtime_bindgen")]
-fn build_wrapper(include_paths: &[PathBuf]) {
+fn build_wrapper(include_paths: &[std::path::PathBuf]) {
 	use std::env;
 	use std::path::PathBuf;
 
