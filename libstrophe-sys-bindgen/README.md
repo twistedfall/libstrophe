@@ -17,7 +17,7 @@ cargo add libstrophe-sys-bindgen
 Or add to your Cargo.toml:
 ```toml
 [dependencies]
-libstrophe-sys-bindgen = "8.1.0"
+libstrophe-sys-bindgen = "8.1.1"
 ```
 
 ## libstrophe C library bindings
