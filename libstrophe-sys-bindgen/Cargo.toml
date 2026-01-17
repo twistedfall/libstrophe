@@ -1,6 +1,6 @@
 [package]
 name = "libstrophe-sys-bindgen"
-version = "8.0.2"
+version = "8.1.0"
 edition = "2024"
 rust-version = "1.85.0"
 description = "Rust bindings for libstrophe, generated using bindgen"
