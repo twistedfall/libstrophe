@@ -54,9 +54,9 @@ impl AllocContext {
 	}
 
 	unsafe extern "C" fn custom_free(p: *mut c_void, _userdata: *mut c_void) {
-		unsafe {
-			let (p, layout) = Self::read_real_alloc(p);
-			alloc::dealloc(p, layout);
+		let (p, layout) = unsafe { Self::read_real_alloc(p) };
+		if !p.is_null() {
+			unsafe { alloc::dealloc(p, layout) }
 		}
 	}
 
@@ -64,7 +64,11 @@ impl AllocContext {
 		let (p, layout) = unsafe { Self::read_real_alloc(p) };
 		if size > 0 {
 			let new_layout = Self::calculate_layout(size);
-			let realloc_p = unsafe { alloc::realloc(p, layout, new_layout.size()) };
+			let realloc_p = if !p.is_null() {
+				unsafe { alloc::realloc(p, layout, new_layout.size()) }
+			} else {
+				unsafe { alloc::alloc(new_layout) }
+			};
 			unsafe { Self::write_real_alloc(realloc_p, new_layout.size()) }
 		} else {
 			if !p.is_null() {
