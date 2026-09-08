@@ -19,7 +19,7 @@ maintenance = { status = "passively-maintained" }
 [dependencies]
 
 [build-dependencies]
-bindgen = { version = "0.72", optional = true }
+bindgen = { version = "0.73", optional = true }
 pkg-config = "0.3"
 
 [features]
